@@ -114,7 +114,7 @@
     $('tourDots').innerHTML = STEPS.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('');
     $('tourBack').disabled = i === 0;
     const next = $('tourNext');
-    next.disabled = true;
+    next.disabled = true; next.textContent = s.last ? 'Finish' : (i === 0 ? 'Start' : 'Next');
     target = s.el ? s.el() : null;
     if (target) target.scrollIntoView({ behavior: reduce() ? 'auto' : 'smooth', block: s.block || 'center' });
     $('tourText').innerHTML = s.slow ? '<p class="tour-hint">Searching about 540 designs, this takes a few seconds…</p>' : '<p class="tour-hint">…</p>';

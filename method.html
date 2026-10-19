@@ -94,7 +94,7 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
     <span class="eyebrow">Model description · Tangential Jet Flush Model</span>
     <h1>How the jet flush model works</h1>
     <p class="lede">A reduced-order model of a rimless WC flushed by tangential rim jets. It traces each jet as a film on the bowl wall, follows the pool level, swirl and trap flow, and estimates cleaning, waste removal and water use. One flush takes about 5 to 20 milliseconds to compute in a web browser.</p>
-    <p class="meta">Version 2 · October 2026 · model code: <a href="https://github.com/fintlp/jet-flush-model/blob/main/model.js">model.js</a></p>
+    <p class="meta">Version 4.1 · 19 October 2026 · <a href="https://github.com/fintlp/jet-flush-model#change-log">change log</a> · model code: <a href="https://github.com/fintlp/jet-flush-model/blob/main/model.js">model.js</a></p>
   </header>
 
   <div class="layout">
@@ -163,6 +163,16 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
           <li><strong>What the chips compare with:</strong> by default, the design before your last edit. A series of quick slider moves counts as one edit, so the chip shows the effect of the whole adjustment.</li>
           <li><strong>Pin as reference:</strong> fixes the current results as a reference. Every change after that is compared with it, until you clear the reference.</li>
           <li><strong>Playback:</strong> Play flush replays the flush at 1×, ½× or ¼× speed. After a change, the views show the end of the flush, so the wall map shows the final cleaning result.</li>
+        </ul>
+
+        <h3>Tools on the page</h3>
+        <ul>
+          <li><strong>Bowl from above:</strong> the jet films as dashed lines, the wall coloured dry, wetted or cleaned, the pool with its swirl, solid media as brown dots and paper as white squares. Nozzles are blue triangles at the rim.</li>
+          <li><strong>Section:</strong> a cut along the long axis through cistern, bowl and trap. Vertical positions are to scale; the cistern and trap layout is schematic. It shows the cistern level, the bowl level, water over the weir and, for siphonic bowls, the trapway filling and the siphon running.</li>
+          <li><strong>Flush traces:</strong> four charts over the first 10 s: flow into the bowl and out of the trap, bowl level against the weir crest, pool swirl speed, and the share of solids and paper still in the bowl. Dashed markers show when the cistern empties and when a siphon starts and breaks. Click anywhere on the charts to jump the playback to that moment.</li>
+          <li><strong>Wall cleaning map:</strong> the bowl wall unrolled. Left to right is the position round the rim, with 0° at the end of the long axis; top to bottom is the depth below the rim. The dashed line marks the row 25 mm below the rim used for the rim-line result. During playback, water above the static level is shown as a blue band.</li>
+          <li><strong>Design sweep:</strong> pick two settings for the axes and one result, then run 144 flushes on a 12 × 12 grid in about a second. The heat map uses a stronger colour for higher values, the best cell is outlined, and a red cross marks the current design. Hover a cell to read it and click it to load that design. All other settings stay as they are; if you change them, the map is greyed out until you run it again.</li>
+          <li><strong>AI lab:</strong> design optimiser, neural surrogate and hybrid calibration, described in <a href="#ailab">section 13</a>.</li>
         </ul>
 
         <h3>Going back</h3>
