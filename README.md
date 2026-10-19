@@ -100,17 +100,27 @@ The coefficients that describe physics the model does not resolve (film friction
 
 ## Change log
 
-All changes on 19 October 2026.
+### 1.0.0 · 19 October 2026
 
-- **4.2** "Why we built this" page, and links to the slides (PowerPoint and PDF) from all pages.
-- **4.1** Full documentation: this README, a section on the page tools, version history, new stills, a recorded Demo me walkthrough, two more slides, and your name, the repository link and the date on every slide.
-- **4.0** Usability: Start here strip, section menu, Undo, Reset, Pin as reference, change chips on all results, help for every slider, phone drawer, and the Demo me walkthrough with a `#demo` link.
-- **3.1** Optimiser: choose which settings may change, including bowl geometry, number of jets and partial flush; meet targets; thorough search option.
-- **3.0** AI lab with design optimiser, neural surrogate and hybrid calibration; new intro text.
-- **2.1** Sources and references page.
-- **2.0** Oval bowls and jet position, wall film traced on the oval wall, full model description page.
-- **1.1** Contact link.
-- **1.0** First release: simulator, flush video, stills and slide.
+First public release.
+
+- Interactive simulator of a rimless WC flushed by tangential rim jets: oval bowl, jet films, pool swirl, washdown or siphonic trap, waste transport, design sweep.
+- AI lab: design optimiser with free choice of variables and targets, neural surrogate trained in the browser, hybrid calibration demo.
+- Usability: Start here strip, section menu, Undo, Reset, Pin as reference, change chips, help for every slider, phone drawer, and the Demo me walkthrough (`#demo` link).
+- Documentation: model description, sources and references, "Why we built this" page, this README.
+- Media and slides: flush video, recorded walkthrough, stills, three slides as PowerPoint and PDF.
+
+### Development history, 19 October 2026
+
+- **0.9** "Why we built this" page; slide links on all pages.
+- **0.8** Full documentation: README, page tools, version history, new stills, walkthrough video, two more slides, author line on every slide.
+- **0.7** Usability features and the Demo me walkthrough.
+- **0.6** Optimiser: choose what may change, meet targets, thorough search.
+- **0.5** AI lab with optimiser, neural surrogate and hybrid calibration; new intro.
+- **0.4** Sources and references page.
+- **0.3** Oval bowls and jet position; model description page.
+- **0.2** Contact link.
+- **0.1** First version: simulator, flush video, stills and slide.
 
 ## Name
 
