@@ -156,6 +156,13 @@
     else if (e.key === 'ArrowLeft' && !busy) { e.preventDefault(); $('tourBack').click(); }
   });
   ['demoBtn', 'demoBtn2'].forEach((id) => { const b = $(id); if (b) b.addEventListener('click', start); });
+  // show the small menu button only once the big "Start here" button has scrolled out of view
+  (function () {
+    const strip = document.querySelector('.starthere'), small = $('demoBtn2');
+    if (!strip || !small || !('IntersectionObserver' in window)) return;
+    small.classList.add('away');
+    new IntersectionObserver((es) => { es.forEach((e) => { const vis = e.isIntersecting; small.classList.toggle('away', vis); small.tabIndex = vis ? -1 : 0; small.setAttribute('aria-hidden', String(vis)); }); }, { threshold: 0 }).observe(strip);
+  })();
   // deep link: …/#demo starts the walkthrough
   if (location.hash === '#demo') setTimeout(start, 600);
   window.FlushTour = { start, end };

@@ -102,22 +102,23 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
       <span class="eyebrow">Contents</span>
       <ol>
         <li><a href="#summary"><span class="n">1</span>Summary</a></li>
-        <li><a href="#overview"><span class="n">2</span>Model at a glance</a></li>
-        <li><a href="#geometry"><span class="n">3</span>Bowl geometry</a></li>
-        <li><a href="#cistern"><span class="n">4</span>Cistern and jets</a></li>
-        <li><a href="#film"><span class="n">5</span>Wall film and cleaning</a></li>
-        <li><a href="#outflow"><span class="n">6</span>Pool level and outflow</a></li>
-        <li><a href="#swirl"><span class="n">7</span>Pool swirl</a></li>
-        <li><a href="#waste"><span class="n">8</span>Waste transport</a></li>
-        <li><a href="#numerics"><span class="n">9</span>Numerics and speed</a></li>
-        <li><a href="#coefficients"><span class="n">10</span>Parameters and coefficients</a></li>
-        <li><a href="#calibration"><span class="n">11</span>Calibration with PreonLab</a></li>
-        <li><a href="#ailab"><span class="n">12</span>AI lab</a></li>
-        <li><a href="#approaches"><span class="n">13</span>Comparison with other approaches</a></li>
-        <li><a href="#limits"><span class="n">14</span>Assumptions and limits</a></li>
-        <li><a href="#code"><span class="n">15</span>Code map</a></li>
-        <li><a href="#glossary"><span class="n">16</span>Glossary</a></li>
-        <li><a href="sources.html"><span class="n">17</span>Sources and references ↗</a></li>
+        <li><a href="#using"><span class="n">2</span>Using the simulator</a></li>
+        <li><a href="#overview"><span class="n">3</span>Model at a glance</a></li>
+        <li><a href="#geometry"><span class="n">4</span>Bowl geometry</a></li>
+        <li><a href="#cistern"><span class="n">5</span>Cistern and jets</a></li>
+        <li><a href="#film"><span class="n">6</span>Wall film and cleaning</a></li>
+        <li><a href="#outflow"><span class="n">7</span>Pool level and outflow</a></li>
+        <li><a href="#swirl"><span class="n">8</span>Pool swirl</a></li>
+        <li><a href="#waste"><span class="n">9</span>Waste transport</a></li>
+        <li><a href="#numerics"><span class="n">10</span>Numerics and speed</a></li>
+        <li><a href="#coefficients"><span class="n">11</span>Parameters and coefficients</a></li>
+        <li><a href="#calibration"><span class="n">12</span>Calibration with PreonLab</a></li>
+        <li><a href="#ailab"><span class="n">13</span>AI lab</a></li>
+        <li><a href="#approaches"><span class="n">14</span>Comparison with other approaches</a></li>
+        <li><a href="#limits"><span class="n">15</span>Assumptions and limits</a></li>
+        <li><a href="#code"><span class="n">16</span>Code map</a></li>
+        <li><a href="#glossary"><span class="n">17</span>Glossary</a></li>
+        <li><a href="sources.html"><span class="n">18</span>Sources and references ↗</a></li>
       </ol>
     </nav>
 
@@ -133,13 +134,62 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
         <p>It does this by splitting the flush into a chain of simple physical sub-models that each have a clear meaning: cistern, jets, wall film, pool, trap and waste. Each sub-model uses a few equations instead of solving the full three-dimensional flow. That is why one flush computes in milliseconds rather than the hours a free-surface CFD case needs.</p>
         <div class="box note">
           <h4>What the numbers mean today</h4>
-          <p>All coefficients are physically reasonable estimates, not yet fitted to measurements or CFD. The model shows how designs compare and which way a change pushes the result. Absolute percentages and grams become trustworthy only after calibration against a few reference runs, as described in <a href="#calibration">section 11</a>.</p>
+          <p>All coefficients are physically reasonable estimates, not yet fitted to measurements or CFD. The model shows how designs compare and which way a change pushes the result. Absolute percentages and grams become trustworthy only after calibration against a few reference runs, as described in <a href="#calibration">section 12</a>.</p>
         </div>
         <p>Typical uses are screening many design variants quickly, explaining the flush mechanism to non-specialists, and choosing which few variants deserve a full CFD or rig test.</p>
       </section>
 
+      <section id="using">
+        <h2>2 · Using the simulator</h2>
+        <p>The simulator is built to be tried, not read. Every change recomputes the flush in milliseconds and shows how much it helped or hurt.</p>
+
+        <h3>Getting started</h3>
+        <ul>
+          <li><strong>Start here:</strong> the strip under the intro gives the three steps: set up a bowl, play the flush, let the AI lab search.</li>
+          <li><strong>Demo me:</strong> the large button in that strip starts the guided walkthrough. Once you scroll past the strip, a small Demo me button appears in the section menu instead, so there is always exactly one on screen.</li>
+          <li><strong>Section menu:</strong> stays at the top while you scroll and jumps to Simulate, Results, Traces, Wall map, Sweep, AI lab or How it works.</li>
+        </ul>
+
+        <h3>Changing the design</h3>
+        <ul>
+          <li><strong>Presets:</strong> EU washdown (4.5/3 L) and siphonic (4.8 L). Full or partial flush is switched next to the preset.</li>
+          <li><strong>Sliders:</strong> grouped into cistern and flush, tangential jets, bowl and trap, siphon, test load and model coefficients. Each has an <strong>i</strong> button with a one-line explanation. The coefficients group is marked advanced; it holds the values that calibration would fit, not design choices.</li>
+          <li><strong>On phones:</strong> the sliders open in a drawer from the Adjust design button. The bar at the bottom always shows cleaning, solids and water with their change, so the effect is visible while you edit.</li>
+        </ul>
+
+        <h3>Seeing the effect</h3>
+        <ul>
+          <li><strong>Change chips:</strong> each result card shows a green or red chip with the change, for example +5 or −12, and briefly pulses when its value moves. For water, less is shown as an improvement.</li>
+          <li><strong>What the chips compare with:</strong> by default, the design before your last edit. A series of quick slider moves counts as one edit, so the chip shows the effect of the whole adjustment.</li>
+          <li><strong>Pin as reference:</strong> fixes the current results as a reference. Every change after that is compared with it, until you clear the reference.</li>
+          <li><strong>Playback:</strong> Play flush replays the flush at 1×, ½× or ¼× speed. After a change, the views show the end of the flush, so the wall map shows the final cleaning result.</li>
+        </ul>
+
+        <h3>Going back</h3>
+        <ul>
+          <li><strong>Undo</strong> steps back one edit at a time, up to 60 steps. Ctrl+Z or Cmd+Z does the same when you are not typing in a field. Loading a design from the sweep or the AI lab also counts as one step.</li>
+          <li><strong>Reset</strong> returns every setting, including the model coefficients, to the selected preset.</li>
+          <li>Settings are remembered in your browser for your next visit. Nothing is sent anywhere.</li>
+        </ul>
+
+        <h3>The Demo me walkthrough</h3>
+        <p>Nine steps, about a minute, driven live by the simulator itself:</p>
+        <ol class="steps">
+          <li><strong>Welcome.</strong> Loads the EU washdown preset. Your own design is saved first.</li>
+          <li><strong>Watch the flush.</strong> Plays the flush at half speed and explains the jet films, the cleaned areas and the pool swirl.</li>
+          <li><strong>Read the results.</strong> Reads out cleaning, waste removal and water for the preset.</li>
+          <li><strong>Make the bowl oval.</strong> Sets ovality to 1.35 with the jets at the ends of the long axis, and shows the drop in cleaning.</li>
+          <li><strong>Move the jets.</strong> Moves the jets to the long sides and shows the recovery.</li>
+          <li><strong>Where it cleans.</strong> Explains the wall cleaning map.</li>
+          <li><strong>Let the AI find a better design.</strong> Runs the AI lab with targets: at most 4.0 L, cleaning at least 3 points better than now, 95 % solids and 80 % paper. Takes a few seconds.</li>
+          <li><strong>Load the winner.</strong> Loads the best design that meets the targets, or the closest one if none does, and shows the changes.</li>
+          <li><strong>Your turn.</strong> Explains Undo, Reset and Pin as reference, and offers to bring your own design back or keep the demo result.</li>
+        </ol>
+        <p>Next and Back, or the arrow keys, move through the steps. Esc or the × ends the demo and restores your design. The numbers in the walkthrough are computed live, so they follow any change to the model. For a talk, open the page with <code>#demo</code> at the end of the address, for example <a href="./#demo">fintlp.github.io/jet-flush-model/#demo</a>, and the walkthrough starts by itself.</p>
+      </section>
+
       <section id="overview">
-        <h2>2 · Model at a glance</h2>
+        <h2>3 · Model at a glance</h2>
         <p>Every 10 ms of simulated time, the model updates the cistern, the jets, the pool level, the trap flow, the swirl and the waste load. Every 100 ms it re-traces the jet films on the wall, because they change slowly compared with the pool.</p>
         <figure>
           <div class="diagram">
@@ -169,7 +219,7 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
       </section>
 
       <section id="geometry">
-        <h2>3 · Bowl geometry</h2>
+        <h2>4 · Bowl geometry</h2>
         <h3>Equivalent radius profile</h3>
         <p>The bowl wall is described by an <em>equivalent radius</em> <span class="sym">R(z)</span> at each depth <span class="sym">z</span> below the rim, running from the rim radius <span class="sym">R<sub>rim</sub></span> to the pool radius <span class="sym">R<sub>pool</sub></span> at the static waterline, a depth <span class="sym">D</span> below the rim:</p>
         <div class="eq">R(z) = R_pool + (R_rim − R_pool) · cos(π z / 2D),     0 ≤ z ≤ D</div>
@@ -187,7 +237,7 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
       </section>
 
       <section id="cistern">
-        <h2>4 · Cistern and jets</h2>
+        <h2>5 · Cistern and jets</h2>
         <p>The cistern has a constant cross-section <span class="sym">A<sub>c</sub></span> (0.035 m²). Its outlet sits a height <span class="sym">H<sub>cr</sub></span> above the rim nozzles. The head at the nozzles is the water depth in the cistern plus that height, and the jet speed follows from an energy balance with one lumped loss coefficient <span class="sym">K</span> for valve, flush pipe and nozzle:</p>
         <div class="eq">H = V_c / A_c + H_cr
 v_j = s(t) · √( 2 g H / (1 + K) )
@@ -198,7 +248,7 @@ dV_c/dt = −Q_in</div>
       </section>
 
       <section id="film">
-        <h2>5 · Wall film and cleaning</h2>
+        <h2>6 · Wall film and cleaning</h2>
         <h3>What is traced</h3>
         <p>Each jet is followed as a parcel of water sliding along the wall. The film is treated as quasi-steady: its path depends on the current jet speed and pool level, and it is re-traced every 100 ms. Between traces the same footprint applies.</p>
         <h3>Forces on the film</h3>
@@ -234,7 +284,7 @@ cell cleaned  ⇔  J ≥ J_crit</div>
       </section>
 
       <section id="outflow">
-        <h2>6 · Pool level and outflow</h2>
+        <h2>7 · Pool level and outflow</h2>
         <p>The pool follows a plain volume balance:</p>
         <div class="eq">dV_p/dt = Q_in − Q_out</div>
         <h3>Washdown bowl</h3>
@@ -252,7 +302,7 @@ siphon breaks when z_p ≤ −d_s            <span class="c">air reaches the tra
       </section>
 
       <section id="swirl">
-        <h2>7 · Pool swirl</h2>
+        <h2>8 · Pool swirl</h2>
         <p>Film arriving at the waterline brings angular momentum about the bowl axis, <span class="sym">ℓ = x·v<sub>y</sub> − y·v<sub>x</sub></span> per unit mass. The pool is treated as a body rotating at angular speed ω with angular momentum <span class="sym">L = I·ω</span>:</p>
         <div class="eq">dL/dt = η · ρ · Q_in · ℓ_arr  −  (Q_out / V_p) · L  −  T_f
 I     = ¼ · ρ · V_p · R_c² · (e + 1/e)        <span class="c">elliptic pool, ½ ρ V R² when round</span>
@@ -268,7 +318,7 @@ T_f   = ½ · ρ · c_fp · (1 + k_ov (e − 1)) · A_wet · (ω R_c)² · R_c</
       </section>
 
       <section id="waste">
-        <h2>8 · Waste transport</h2>
+        <h2>9 · Waste transport</h2>
         <p>Waste is lumped into two classes that behave differently, similar in spirit to media tests with soybean-paste style solids and paper.</p>
         <h3>Solid media</h3>
         <p>Solids leave once the mean trapway velocity <span class="sym">u<sub>t</sub> = Q<sub>out</sub> / A<sub>t</sub></span> exceeds a transport threshold. The removal rate is the smaller of a kinetic rate, proportional to the remaining mass, and a capacity limit set by the maximum volume fraction of solids the flow can carry:</p>
@@ -284,7 +334,7 @@ dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
       </section>
 
       <section id="numerics">
-        <h2>9 · Numerics and speed</h2>
+        <h2>10 · Numerics and speed</h2>
         <div class="tablewrap">
           <table>
             <thead><tr><th>Item</th><th>Setting</th><th>Why</th></tr></thead>
@@ -301,7 +351,7 @@ dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
       </section>
 
       <section id="coefficients">
-        <h2>10 · Parameters and coefficients</h2>
+        <h2>11 · Parameters and coefficients</h2>
         <p>Design parameters describe the product and are set by the designer. Model coefficients describe physics the model does not resolve and are fitted during calibration.</p>
         <h3>Design parameters (EU washdown preset)</h3>
         <div class="tablewrap">
@@ -350,7 +400,7 @@ dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
       </section>
 
       <section id="calibration">
-        <h2>11 · Calibration with PreonLab</h2>
+        <h2>12 · Calibration with PreonLab</h2>
         <h3>Why PreonLab fits this job</h3>
         <p>PreonLab is a particle-based (SPH) flow solver from FIFTY2. It needs no volume mesh and handles free surfaces, splashing and thin films naturally, which suits a flush better than many mesh-based tools. For the media in a flush it offers:</p>
         <ul>
@@ -378,7 +428,7 @@ dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
       </section>
 
       <section id="ailab">
-        <h2>12 · AI lab</h2>
+        <h2>13 · AI lab</h2>
         <p>The simulator has an AI lab with three tools. All of them use the physics model described above as their engine, and all run in the browser. They show three different roles AI can play next to a physics model: searching designs, replacing the model with a faster learned copy, and correcting the model with data.</p>
 
         <h3>Design optimiser</h3>
@@ -404,7 +454,7 @@ dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
         <p>With 300 training flushes the network typically reaches an R² around 0.9 to 0.96 on unseen designs and answers in about 5 µs, roughly 1,000 to 2,000 times faster than the physics model. The physics model plays the part that PreonLab runs would play in practice. Trained on PreonLab, the same network would be about 10⁶ to 10⁸ times faster than a new PreonLab run, but each of its training runs would cost minutes to hours.</p>
 
         <h3>Hybrid calibration</h3>
-        <p>An end-to-end run of the calibration workflow in <a href="#calibration">section 11</a>, against synthetic reference data.</p>
+        <p>An end-to-end run of the calibration workflow in <a href="#calibration">section 12</a>, against synthetic reference data.</p>
         <ul>
           <li><strong>Reference data:</strong> a hidden reference model stands in for PreonLab. It is the physics model with different coefficients, plus two effects the physics model cannot represent (a penalty away from an optimal nozzle size and a dependence on jet position for cleaning, a low-flow penalty for solids), plus measurement noise of 0.7 points.</li>
           <li><strong>Calibration:</strong> Nelder-Mead fits six coefficients (film friction, spreading, critical shear, shear dose, solids transport threshold, maximum solids concentration) to 4, 6 or 10 reference runs. Coefficients are searched in a bounded log space, for up to 60 iterations.</li>
@@ -415,7 +465,7 @@ dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
       </section>
 
       <section id="approaches">
-        <h2>13 · Comparison with other approaches</h2>
+        <h2>14 · Comparison with other approaches</h2>
         <div class="tablewrap">
           <table>
             <thead><tr><th>Approach</th><th>Time per flush case</th><th>One-off cost</th><th>Fidelity</th></tr></thead>
@@ -432,7 +482,7 @@ dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
       </section>
 
       <section id="limits">
-        <h2>14 · Assumptions and limits</h2>
+        <h2>15 · Assumptions and limits</h2>
         <ul>
           <li>The oval shape has the same axis ratio at every depth. Real bowls change shape with depth, have an off-centre trap inlet and often an asymmetric back wall.</li>
           <li>The film is quasi-steady, always attached to the wall, and does not splash, break up or interact with the other jet. Overlaps simply take the higher shear.</li>
@@ -445,7 +495,7 @@ dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
       </section>
 
       <section id="code">
-        <h2>15 · Code map</h2>
+        <h2>16 · Code map</h2>
         <p>The model is plain JavaScript with no dependencies and runs the same way in a browser and in Node.js.</p>
         <div class="tablewrap">
           <table>
@@ -459,7 +509,7 @@ dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
             </tbody>
           </table>
         </div>
-        <p><code>simulate</code> takes the parameter object shown in the simulator and the options <code>light</code> (skip traces), <code>coarse</code> (200 ms film updates) and <code>Tend</code> (simulated seconds). The page code in <a href="https://github.com/fintlp/jet-flush-model/blob/main/app.js">app.js</a> only draws results and runs the sweep; it contains no physics. The AI lab lives in <a href="https://github.com/fintlp/jet-flush-model/blob/main/ai.js">ai.js</a>: the optimiser, the neural network with its training loop, Nelder-Mead and the Gaussian process are all written out in plain JavaScript there, with no libraries.</p>
+        <p><code>simulate</code> takes the parameter object shown in the simulator and the options <code>light</code> (skip traces), <code>coarse</code> (200 ms film updates) and <code>Tend</code> (simulated seconds). The page code in <a href="https://github.com/fintlp/jet-flush-model/blob/main/app.js">app.js</a> only draws results and runs the sweep; it contains no physics. The AI lab lives in <a href="https://github.com/fintlp/jet-flush-model/blob/main/ai.js">ai.js</a>: the optimiser, the neural network with its training loop, Nelder-Mead and the Gaussian process are all written out in plain JavaScript there, with no libraries. The Demo me walkthrough is <a href="https://github.com/fintlp/jet-flush-model/blob/main/tour.js">tour.js</a>; it only drives the page through the same controls a visitor uses.</p>
         <p>A minimal run in Node.js:</p>
         <div class="eq">require('./model.js');
 const M = globalThis.FlushModel;
@@ -470,7 +520,7 @@ console.log(r.cleanPct, r.solidsPct, r.water);</div>
       </section>
 
       <section id="glossary">
-        <h2>16 · Glossary</h2>
+        <h2>17 · Glossary</h2>
         <ul>
           <li><strong>Equivalent radius:</strong> radius of a circle with the same area as the oval section.</li>
           <li><strong>Ovality:</strong> long axis divided by short axis of the bowl opening.</li>
@@ -486,7 +536,7 @@ console.log(r.cleanPct, r.solidsPct, r.water);</div>
       </section>
 
       <section id="sources">
-        <h2>17 · Sources</h2>
+        <h2>18 · Sources</h2>
         <p>All standards, papers, books and web sources used for this description and the simulator are collected, with notes on what each one is used for, on the <a href="sources.html">sources and references page</a>.</p>
       </section>
 
