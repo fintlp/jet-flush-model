@@ -40,6 +40,44 @@
     { g: 'coef', k: 'kP', l: 'Paper removal rate', u: '1/s', min: 0.2, max: 6, st: 0.1, d: 1 },
     { g: 'coef', k: 'Cweir', l: 'Weir coefficient', u: 'm½/s', min: 1.2, max: 2.2, st: 0.05, d: 2 }
   ];
+  const HELP = {
+    Vfull: 'Water released by the big button. Less water saves, but leaves less for cleaning and carrying waste.',
+    Vpart: 'Water released by the small button.',
+    Hcr: 'How far the cistern outlet sits above the rim jets. More height gives faster jets.',
+    Kpath: 'Losses in the flush valve, pipe and nozzles. A higher value means slower jets.',
+    nJets: 'How many rim nozzles feed the swirl.',
+    Anoz: 'Opening of each nozzle. Bigger means more flow and a shorter flush.',
+    hNoz: 'Height of the nozzle opening. A tall, narrow nozzle makes a thick, narrow film.',
+    alpha: 'Tilt of the jets below horizontal. Flat jets wash the rim zone, steep jets dive to the pool faster.',
+    jetPhase: 'Where jet 1 sits around the rim. Only matters in an oval bowl: 0° is the end of the long axis, 90° the middle of the side.',
+    ovality: 'Long axis divided by short axis of the bowl opening. 1.00 is round; many bowls are around 1.2 to 1.3.',
+    Rrim: 'Size of the bowl opening, given as the radius of a circle with the same area.',
+    Rpool: 'Size of the water surface at rest, given as an equivalent radius.',
+    Dwall: 'Height of the wall the jets have to clean, from the rim down to the water surface.',
+    seal: 'Depth of the water seal that keeps sewer gases out. 50 mm or more is usual.',
+    dTrap: 'Diameter of the passage behind the bowl. Wider passes more waste but needs more flow for the same speed.',
+    Hs: 'How far the siphon leg drops below the weir. More drop pulls harder.',
+    Ks: 'Flow losses in the siphon leg.',
+    Qgrav: 'Flow the trapway can drain before it fills up and the siphon starts.',
+    Vtrap: 'Water that must collect in the trapway before the siphon starts.',
+    refill: 'Water added to the bowl after the flush to restore the seal.',
+    Ms: 'Mass of soft solid test media in the pool before the flush.',
+    Np: 'Number of paper sheets floating in the pool before the flush.',
+    cf: 'How strongly the wall slows the jet film. Higher means more shear, but the film stops sooner.',
+    ksp: 'How fast the film widens as it travels round the bowl.',
+    tauC: 'Wall shear needed before soil starts to come off.',
+    Jcrit: 'How long the extra shear must act before a spot counts as cleaned.',
+    kov: 'Extra loss of swirl in an oval pool.',
+    eta: 'Share of the jets\' swirl that survives entering the pool.',
+    cfp: 'Friction that slows the swirling pool.',
+    ucS: 'Trap flow speed needed to start moving solids.',
+    ucP: 'Trap flow speed needed to start pulling paper down.',
+    cmax: 'Largest share of solids the trap flow can carry.',
+    kS: 'How quickly solids leave once they start moving.',
+    kP: 'How quickly paper leaves once it starts moving.',
+    Cweir: 'Sets how high the pool rises before water spills over the weir.'
+  };
+  SPEC.forEach((s) => { s.h = HELP[s.k] || ''; });
   const SPECK = Object.fromEntries(SPEC.map((s) => [s.k, s]));
   const GROUPS = [
     ['flush', 'Cistern and flush', true, ''],
@@ -47,7 +85,7 @@
     ['bowl', 'Bowl and trap', true, 'An oval bowl keeps the area of a round bowl with the equivalent radius, so volumes and levels do not change with ovality.'],
     ['siph', 'Siphon', false, 'Used only when the trap type is siphonic.'],
     ['load', 'Test load', false, 'Media placed in the pool before the flush.'],
-    ['coef', 'Model coefficients', false, 'Uncalibrated defaults. Fit them to CFD or rig data, see Calibrating it below.']
+    ['coef', 'Model coefficients · advanced', false, 'Uncalibrated defaults. Fit them to CFD or rig data, see Calibrating it below.']
   ];
 
   let P = M.defaults('washdown');
@@ -77,9 +115,10 @@
     SPEC.filter((s) => s.g === g).forEach((s) => {
       const id = 'p_' + s.k, w = document.createElement('div');
       w.className = 'ctl';
-      w.innerHTML = `<div class="row"><label for="${id}">${s.l}</label><output id="o_${s.k}" for="${id}"></output></div><input type="range" id="${id}" min="${s.min}" max="${s.max}" step="${s.st}">`;
+      w.innerHTML = `<div class="row"><span class="lab"><label for="${id}">${s.l}</label>${s.h ? `<button type="button" class="info" aria-expanded="false" aria-controls="h_${s.k}" aria-label="What is ${s.l}?">i</button>` : ''}</span><output id="o_${s.k}" for="${id}"></output></div><p class="help" id="h_${s.k}" hidden>${s.h}</p><input type="range" id="${id}" min="${s.min}" max="${s.max}" step="${s.st}">`;
       body.appendChild(w);
-      const inp = w.querySelector('input');
+      const inp = w.querySelector('input'), ib = w.querySelector('.info');
+      if (ib) ib.addEventListener('click', () => { const hp = w.querySelector('.help'), open = hp.hidden; hp.hidden = !open; ib.setAttribute('aria-expanded', String(open)); });
       inp.addEventListener('input', () => { P[s.k] = parseFloat(inp.value); setOut(s); changed(); });
       ctl[s.k] = { inp, w, s };
     });
@@ -104,10 +143,41 @@
     for (const k in pre) if (k !== 'label') P[k] = pre[k];
     syncControls(); changed();
   });
+  $('undoBtn').addEventListener('click', undo);
+  $('resetBtn').addEventListener('click', resetPreset);
+  document.addEventListener('keydown', (e) => {
+    const ae = document.activeElement, typing = ae && (ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || (ae.tagName === 'INPUT' && ae.type !== 'range' && ae.type !== 'checkbox'));
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z' && !typing && !document.body.classList.contains('touring')) { e.preventDefault(); undo(); }
+  });
+  $('pinBtn').addEventListener('click', () => {
+    if (pinned) { pinned = null; } else { const d = new Date(); pinned = { k: kpis(), t: d.toTimeString().slice(0, 5) }; }
+    updateKPIs();
+  });
 
   const changeHooks = [];
+  // history: each burst of edits becomes one undo step; deltas compare with the state before the burst
+  const snapP = () => JSON.parse(JSON.stringify(P));
+  const kpis = () => (R ? { clean: R.cleanPct, solids: R.solidsPct, paper: R.paperPct, water: R.water } : null);
+  let hist = [], committed = null, committedK = null, burst = false, burstT = null, baseline = null, pinned = null;
+  function beginChange() {
+    if (!burst) { if (committed) { hist.push(committed); if (hist.length > 60) hist.shift(); } baseline = committedK; burst = true; updateHistUI(); }
+    clearTimeout(burstT); burstT = setTimeout(endChange, 1200);
+  }
+  function endChange() { clearTimeout(burstT); burst = false; committed = snapP(); committedK = kpis(); updateHistUI(); }
+  function setAll(vals) { for (const k in vals) if (k in P) P[k] = vals[k]; syncControls(); $('preset').value = P.type === 'siphonic' ? 'siphonic' : $('preset').value; }
+  function applyNow(vals) { beginChange(); setAll(vals); T = TVIEW; playing = false; setPlay(); run(); markSweepStale(); endChange(); changeHooks.forEach((f) => { try { f(); } catch (e) { } }); }
+  function undo() {
+    if (!hist.length) return;
+    clearTimeout(burstT); burst = false;
+    const prev = hist.pop(); baseline = kpis(); setAll(prev);
+    T = TVIEW; playing = false; setPlay(); run(); markSweepStale();
+    committed = snapP(); committedK = kpis(); updateHistUI(); changeHooks.forEach((f) => { try { f(); } catch (e) { } });
+  }
+  function resetPreset() { const d = M.defaults($('preset').value); applyNow(d); }
+  function updateHistUI() { const u = $('undoBtn'); if (u) { u.disabled = !hist.length; u.title = hist.length ? `Undo (${hist.length} step${hist.length > 1 ? 's' : ''})` : 'Nothing to undo yet'; } }
   let pend = false;
   function changed() {
+    beginChange();
     changeHooks.forEach((f) => { try { f(); } catch (e) { } });
     if (pend) return; pend = true;
     requestAnimationFrame(() => { pend = false; if (!playing) T = TVIEW; run(); markSweepStale(); });
@@ -486,30 +556,52 @@
 
   /* ---------------- KPIs ---------------- */
   function chip(el, cls, txt) { el.className = 'chip ' + cls; el.textContent = txt; }
+  function deltaHTML(v, ref, dp, unit, lowerIsBetter) {
+    if (ref == null) return '';
+    const dlt = v - ref, lim = dp === 0 ? 0.5 : 0.05;
+    if (Math.abs(dlt) < lim) return `<span class="delta zero" title="No change">±0</span>`;
+    const good = lowerIsBetter ? dlt < 0 : dlt > 0;
+    return `<span class="delta ${good ? 'up' : 'down'}">${dlt > 0 ? '+' : '−'}${Math.abs(dlt).toFixed(dp)}${unit}</span>`;
+  }
+  function flash(id, on) { const el = $(id); if (!el || !on) return; el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
   function updateKPIs() {
     const r = R, p = R.p;
-    $('kClean').innerHTML = `${r.cleanPct.toFixed(0)}<small>%</small>`;
+    const ref = pinned ? pinned.k : baseline;
+    $('kClean').innerHTML = `${r.cleanPct.toFixed(0)}<small>%</small>${deltaHTML(r.cleanPct, ref && ref.clean, 0, '')}`;
     $('kWet').textContent = r.wetPct.toFixed(0) + ' %';
     $('kLine').textContent = r.linePct.toFixed(0) + ' % washed';
     $('kPerL').textContent = r.cleanPerL.toFixed(1) + ' %/L';
     chip($('cClean'), r.cleanPct >= 90 ? 'good' : r.cleanPct >= 75 ? 'warn' : 'bad', r.cleanPct >= 90 ? 'Good' : r.cleanPct >= 75 ? 'Fair' : 'Poor');
 
-    $('kSolids').innerHTML = p.Ms > 0 ? `${r.solidsPct.toFixed(0)}<small>%</small>` : '–';
+    $('kSolids').innerHTML = p.Ms > 0 ? `${r.solidsPct.toFixed(0)}<small>%</small>${deltaHTML(r.solidsPct, ref && ref.solids, 0, '')}` : '–';
     $('kSolidsCap').textContent = p.Ms > 0 ? `of the ${p.Ms} g solid test load removed` : 'no solid test load set';
-    $('kPaper').textContent = p.Np > 0 ? `${r.paperPct.toFixed(0)} % of ${p.Np}` : '–';
+    $('kPaper').innerHTML = p.Np > 0 ? `${r.paperPct.toFixed(0)} % of ${p.Np} ${deltaHTML(r.paperPct, ref && ref.paper, 0, '')}` : '–';
     $('kCap').textContent = r.capS.toFixed(0) + ' g';
     $('kSiph').textContent = p.type !== 'siphonic' ? 'none, washdown' : r.everPrimed ? `primed ${r.primeT.toFixed(1)} s` + (r.breakT != null ? `, broke ${r.breakT.toFixed(1)} s` : '') : 'did not prime';
     const wm = Math.min(p.Ms > 0 ? r.solidsPct : 100, p.Np > 0 ? r.paperPct : 100);
     if (p.type === 'siphonic' && !r.everPrimed) chip($('cWaste'), 'bad', 'No siphon');
     else chip($('cWaste'), wm >= 95 ? 'good' : wm >= 80 ? 'warn' : 'bad', wm >= 95 ? 'Clear' : wm >= 80 ? 'Partial' : 'Poor');
 
-    $('kWater').innerHTML = `${r.water.toFixed(1)}<small>L</small>`;
+    $('kWater').innerHTML = `${r.water.toFixed(1)}<small>L</small>${deltaHTML(r.water, ref && ref.water, 1, '', true)}`;
     $('kQ').textContent = r.Qpeak.toFixed(2) + ' L/s';
     $('kDur').textContent = r.tEmpty ? r.tEmpty.toFixed(1) + ' s' : '–';
     $('kSeal').textContent = r.sealEnd.toFixed(0) + ' mm' + (r.sealOK ? '' : ', low');
     if (!r.sealOK) chip($('cWater'), 'bad', 'Seal low');
     else chip($('cWater'), r.water <= 4.0 ? 'good' : r.water <= 6.0 ? 'neutral' : 'warn', r.water <= 4.0 ? 'Low use' : r.water <= 6.0 ? 'Moderate' : 'High use');
 
+    // comparison line, flash on change, phone mini bar
+    const cmp = $('cmpLine');
+    if (pinned) cmp.innerHTML = `Changes compared with your <b>pinned reference</b> from ${pinned.t}.`;
+    else if (baseline) cmp.innerHTML = 'Changes compared with the design <b>before your last edit</b>.';
+    else cmp.textContent = 'Change a setting and the results show how much it helped or hurt.';
+    $('pinBtn').textContent = pinned ? 'Clear reference' : 'Pin as reference';
+    if (ref) {
+      flash('kpiClean', Math.abs(r.cleanPct - ref.clean) >= 0.5);
+      flash('kpiWaste', Math.abs(r.solidsPct - ref.solids) >= 0.5 || Math.abs(r.paperPct - ref.paper) >= 0.5);
+      flash('kpiWater', Math.abs(r.water - ref.water) >= 0.05);
+    }
+    const mb = $('mobarK');
+    if (mb) mb.innerHTML = `<span>Clean <b>${r.cleanPct.toFixed(0)} %</b>${deltaHTML(r.cleanPct, ref && ref.clean, 0, '')}</span><span>Solids <b>${r.solidsPct.toFixed(0)} %</b>${deltaHTML(r.solidsPct, ref && ref.solids, 0, '')}</span><span>Water <b>${r.water.toFixed(1)} L</b>${deltaHTML(r.water, ref && ref.water, 1, '', true)}</span>`;
     const over = r.zPeak > 0.8 * p.Dwall;
     $('strip').innerHTML = [
       `Peak bowl rise <b>+${r.zPeak.toFixed(0)} mm</b>`,
@@ -680,17 +772,31 @@
   });
   cvSweep.addEventListener('click', (e) => {
     const c = swCell(e); if (!c || SW.stale) return;
-    P[SW.xk] = SW.xs[c.ix]; P[SW.yk] = SW.ys[c.iy];
-    syncControls(); T = TVIEW; playing = false; setPlay(); run(); drawSweep();
+    applyNow({ [SW.xk]: SW.xs[c.ix], [SW.yk]: SW.ys[c.iy] }); drawSweep();
   });
 
   /* ---------------- API for the AI lab (ai.js) ---------------- */
   window.FlushApp = {
     getP: () => Object.assign({}, P),
-    apply: (vals) => { for (const k in vals) if (k in P) P[k] = vals[k]; syncControls(); T = TVIEW; playing = false; setPlay(); run(); markSweepStale(); },
+    apply: (vals) => applyNow(vals),
     onChange: (fn) => changeHooks.push(fn),
+    kpis, undo,
+    play: (t0, spd) => { if (spd) { speed = spd; document.querySelectorAll('[data-speed]').forEach((x) => x.setAttribute('aria-pressed', String(+x.dataset.speed === spd))); } T = t0 || 0; playing = true; lastTs = 0; setPlay(); requestAnimationFrame(tick); },
+    stop: () => { playing = false; setPlay(); },
+    setTime: (t) => { T = t; playing = false; setPlay(); draw(); },
+    snapshot: () => snapP(),
+    drawer: (open) => toggleDrawer(open),
+    isPhone: () => window.matchMedia('(max-width: 940px)').matches,
     SPECK, readColors, rgba, mix, sizeCanvas, dpr, font
   };
+  /* ---------------- phone drawer ---------------- */
+  function toggleDrawer(open) {
+    const rl = $('rail'), b = $('mobarBtn'); if (!rl || !b) return;
+    const isOpen = open == null ? !rl.classList.contains('open') : !!open;
+    rl.classList.toggle('open', isOpen); b.setAttribute('aria-expanded', String(isOpen));
+    b.textContent = isOpen ? 'Close' : 'Adjust design';
+  }
+  $('mobarBtn').addEventListener('click', () => toggleDrawer());
   /* ---------------- boot ---------------- */
   const ro = new ResizeObserver(() => requestAnimationFrame(() => { draw(); drawSweep(); }));
   [cvTop, cvSec, cvChart, cvWall, cvSweep].forEach((c) => ro.observe(c));
@@ -700,6 +806,6 @@
   new MutationObserver(redrawAll).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   syncControls();
   M.simulate(P, { Tend: SIM_T }); // warm up the JIT so the reported run time is representative
-  run(); setPlay(); drawSweep();
+  run(); setPlay(); drawSweep(); committed = snapP(); committedK = kpis(); updateHistUI();
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(redrawAll);
 })();

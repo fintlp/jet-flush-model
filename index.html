@@ -77,9 +77,14 @@ select{border:1px solid var(--line-strong);background:var(--surface);border-radi
 
 /* layout */
 .layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:24px;align-items:start}
-.rail{position:sticky;top:calc(env(safe-area-inset-top, 0px) + 12px);max-height:calc(100vh - 24px);overflow:auto;padding-right:4px;display:grid;gap:10px}
+.rail{position:sticky;top:calc(env(safe-area-inset-top, 0px) + 60px);max-height:calc(100vh - 72px);overflow:auto;padding-right:4px;display:grid;gap:10px}
 .main{display:grid;gap:22px;min-width:0}
-@media (max-width:940px){ .layout{grid-template-columns:minmax(0,1fr)} .rail{position:static;max-height:none;overflow:visible;order:2} }
+@media (max-width:940px){
+  .layout{grid-template-columns:minmax(0,1fr)}
+  .rail{position:fixed;left:0;right:0;top:auto;bottom:calc(58px + env(safe-area-inset-bottom, 0px));max-height:64vh;overflow:auto;z-index:40;background:var(--bg);border-top:1px solid var(--line-strong);border-radius:14px 14px 0 0;box-shadow:0 -10px 28px rgba(10,20,30,.22);padding:14px max(16px, env(safe-area-inset-right, 0px)) 18px max(16px, env(safe-area-inset-left, 0px));transform:translateY(115%);visibility:hidden;transition:transform .25s ease, visibility 0s linear .25s}
+  .rail.open{transform:none;visibility:visible;transition:transform .25s ease}
+  .wrap{padding-bottom:96px}
+}
 
 /* controls */
 details.grp{background:var(--surface);border:1px solid var(--line);border-radius:10px}
@@ -153,6 +158,67 @@ canvas{display:block;width:100%;max-width:100%}
 .foot a{color:var(--accent);font-family:var(--f-display);font-weight:600;letter-spacing:.02em;text-decoration:none}
 .foot a:hover{text-decoration:underline}
 .footlinks{display:inline-flex;gap:18px;flex-wrap:wrap}
+/* start here, jump menu, history, deltas */
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top, 0px);z-index:31;background:var(--bg)}
+.starthere{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px 24px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin-bottom:12px}
+.starthere .eyebrow{grid-column:1/-1}
+.starthere ol{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 22px;counter-reset:sh}
+.starthere li{counter-increment:sh;position:relative;padding-left:30px;font-size:13.5px;min-width:0}
+.starthere li::before{content:counter(sh);position:absolute;left:0;top:0;width:21px;height:21px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-family:var(--f-mono);font-size:12px;display:grid;place-items:center}
+.starthere .demo{font-size:15px;padding:10px 18px}
+@media (max-width:860px){ .starthere{grid-template-columns:minmax(0,1fr)} .starthere ol{grid-template-columns:minmax(0,1fr)} }
+.phone-only{display:none}
+@media (max-width:940px){ .phone-only{display:inline} .desk-only{display:none} }
+.jump{position:sticky;top:env(safe-area-inset-top, 0px);z-index:30;display:flex;gap:4px 18px;align-items:center;overflow-x:auto;background:var(--bg);border-bottom:1px solid var(--line);padding:10px 2px;margin-bottom:18px;scrollbar-width:none;white-space:nowrap}
+.jump::-webkit-scrollbar{display:none}
+.jump a{font-family:var(--f-display);font-weight:600;font-size:13.5px;color:var(--ink);text-decoration:none;letter-spacing:.02em}
+.jump a:hover{color:var(--accent)}
+.jump-demo{margin-left:auto;border:1px solid var(--accent);color:var(--accent);background:transparent;border-radius:999px;padding:3px 12px;font-family:var(--f-display);font-weight:600;font-size:13px;cursor:pointer}
+section[id],.panel[id]{scroll-margin-top:64px}
+.seg button:disabled{opacity:.45;cursor:default}
+.cmpbar{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:10px}
+.cmpbar b{color:var(--ink);font-weight:600}
+.delta{display:inline-block;font-family:var(--f-mono);font-size:12.5px;font-weight:500;padding:1px 6px;border-radius:6px;margin-left:8px;vertical-align:middle;line-height:1.4}
+.kpi .big .delta{font-size:15px;margin-left:12px;vertical-align:.45em}
+.delta.up{color:var(--good);background:color-mix(in srgb, var(--good) 14%, transparent)}
+.delta.down{color:var(--bad);background:color-mix(in srgb, var(--bad) 14%, transparent)}
+.delta.zero{color:var(--muted);background:color-mix(in srgb, var(--muted) 12%, transparent)}
+@keyframes kpiflash{0%{box-shadow:0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent)}100%{box-shadow:0 0 0 14px transparent}}
+.kpi.flash{animation:kpiflash 1s ease-out}
+@media (prefers-reduced-motion: reduce){ .kpi.flash{animation:none} .rail{transition:none!important} }
+.ctl .lab{display:inline-flex;gap:6px;align-items:center;min-width:0}
+.info{width:17px;height:17px;border-radius:50%;border:1px solid var(--line-strong);background:transparent;color:var(--muted);font-family:var(--f-mono);font-size:10.5px;line-height:1;padding:0;cursor:pointer;flex:none}
+.info[aria-expanded="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.help{margin:2px 0 4px;font-size:12.5px;color:var(--muted);line-height:1.45}
+.mobar{display:none}
+@media (max-width:940px){
+  .mobar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:41;gap:10px;align-items:center;justify-content:space-between;background:var(--surface);border-top:1px solid var(--line-strong);padding:8px max(16px, env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px))}
+  .mobar-k{display:flex;flex-wrap:wrap;gap:2px 12px;font-size:12px;color:var(--muted);min-width:0}
+  .mobar-k b{color:var(--ink);font-family:var(--f-mono);font-weight:500}
+  .mobar-k .delta{margin-left:4px;font-size:11px;padding:0 4px}
+  .mobar .btn{flex:none}
+}
+/* Demo me walkthrough */
+.tour{position:fixed;inset:0;z-index:60;pointer-events:none}
+.tour-spot{position:fixed;border-radius:14px;box-shadow:0 0 0 9999px rgba(8,16,24,.5);outline:2px solid var(--accent);outline-offset:0;transition:left .3s ease,top .3s ease,width .3s ease,height .3s ease}
+.tour-card{position:fixed;pointer-events:auto;width:min(380px, calc(100vw - 28px));background:var(--raised);color:var(--ink);border:1px solid var(--line-strong);border-radius:14px;box-shadow:0 18px 50px rgba(8,16,24,.35);padding:14px 16px 12px;display:grid;gap:8px;font-size:14px}
+.tour-card.dock{left:max(12px, env(safe-area-inset-left, 0px))!important;right:max(12px, env(safe-area-inset-right, 0px));width:auto;bottom:calc(68px + env(safe-area-inset-bottom, 0px));top:auto!important;max-height:52vh;overflow:auto}
+.tour-card:focus{outline:none}
+.tour-top{display:flex;justify-content:space-between;align-items:center}
+.tour-step{font-family:var(--f-mono);font-size:11.5px;color:var(--muted)}
+.tour-x{border:0;background:transparent;font-size:20px;line-height:1;color:var(--muted);cursor:pointer;padding:0 4px}
+.tour-card h3{font-size:18px}
+.tour-text p,.tour-text ul{margin:0 0 6px}
+.tour-text ul{padding-left:18px}
+.tour-hint{font-size:12.5px;color:var(--muted);font-family:var(--f-mono)}
+.tour-nav{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:4px}
+.tour-dots{display:flex;gap:5px}
+.tour-dots i{width:6px;height:6px;border-radius:50%;background:var(--line-strong)}
+.tour-dots i.on{background:var(--accent)}
+.tour-end{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.tour .btn:disabled{opacity:.5}
+@media (prefers-reduced-motion: reduce){ .tour-spot{transition:none} }
+body.touring .mobar{z-index:59}
 /* AI lab */
 .ai-tabs{margin-bottom:14px;flex-wrap:wrap}
 .ai-tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
@@ -224,14 +290,33 @@ td code{font-family:var(--f-mono);font-size:12.5px}
         <button type="button" id="mFull" aria-pressed="true">Full flush</button>
         <button type="button" id="mPart" aria-pressed="false">Partial</button>
       </div>
+      <div class="seg" role="group" aria-label="History">
+        <button type="button" id="undoBtn" disabled>Undo</button>
+        <button type="button" id="resetBtn" title="Back to the selected preset">Reset</button>
+      </div>
     </div>
   </header>
+
+  <section class="starthere" aria-label="Start here">
+    <span class="eyebrow">Start here</span>
+    <ol>
+      <li><b>Set up a bowl.</b> Pick a preset, then change the bowl and jets <span class="desk-only">in the panel on the left</span><span class="phone-only">with the Adjust design button</span>.</li>
+      <li><b>Play the flush</b> and read cleaning, waste removal and water use below it. Each change shows how much it helped or hurt.</li>
+      <li><b>Let the AI lab</b> search for better settings, or set targets it must meet.</li>
+    </ol>
+    <button class="btn primary demo" type="button" id="demoBtn">▶ Demo me</button>
+  </section>
+
+  <nav class="jump" aria-label="Page sections">
+    <a href="#sim">Simulate</a><a href="#results">Results</a><a href="#traces">Traces</a><a href="#wallmap">Wall map</a><a href="#sweep">Sweep</a><a href="#ai-lab">AI lab</a><a href="#how">How it works</a>
+    <button type="button" class="jump-demo" id="demoBtn2">Demo me</button>
+  </nav>
 
   <div class="layout">
     <aside class="rail" id="rail" aria-label="Design parameters"></aside>
 
     <div class="main">
-      <section class="panel" aria-label="Flush playback">
+      <section class="panel" aria-label="Flush playback" id="sim">
         <div class="views">
           <figure>
             <div class="panel-head"><h2>Bowl from above</h2><div class="readout" id="roTop"></div></div>
@@ -263,9 +348,10 @@ td code{font-family:var(--f-mono);font-size:12.5px}
         </div>
       </section>
 
-      <section aria-label="Results">
+      <section aria-label="Results" id="results">
+        <div class="cmpbar"><span id="cmpLine" aria-live="polite">Change a setting and the results show how much it helped or hurt.</span><button type="button" class="btn mini" id="pinBtn">Pin as reference</button></div>
         <div class="kpis">
-          <article class="kpi">
+          <article class="kpi" id="kpiClean">
             <div class="head"><span class="eyebrow">Cleaning</span><span class="chip" id="cClean"></span></div>
             <div><div class="big" id="kClean"></div><div class="cap">of the bowl wall above the waterline cleaned</div></div>
             <dl>
@@ -274,7 +360,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
               <dt>Cleaned per litre</dt><dd id="kPerL"></dd>
             </dl>
           </article>
-          <article class="kpi">
+          <article class="kpi" id="kpiWaste">
             <div class="head"><span class="eyebrow">Waste removal</span><span class="chip" id="cWaste"></span></div>
             <div><div class="big" id="kSolids"></div><div class="cap" id="kSolidsCap">of the solid test load removed</div></div>
             <dl>
@@ -283,7 +369,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
               <dt>Siphon</dt><dd id="kSiph"></dd>
             </dl>
           </article>
-          <article class="kpi">
+          <article class="kpi" id="kpiWater">
             <div class="head"><span class="eyebrow">Water use</span><span class="chip" id="cWater"></span></div>
             <div><div class="big" id="kWater"></div><div class="cap">per flush, incl. bowl refill</div></div>
             <dl>
@@ -296,12 +382,12 @@ td code{font-family:var(--f-mono);font-size:12.5px}
         <div class="strip" id="strip"></div>
       </section>
 
-      <section class="panel" aria-label="Time traces">
+      <section class="panel" aria-label="Time traces" id="traces">
         <div class="panel-head"><h2>Flush traces</h2><span class="muted" style="font-size:12.5px">Click a trace to jump to that moment</span></div>
         <canvas id="cvChart" aria-label="Time traces of flow, bowl level, swirl and remaining load"></canvas>
       </section>
 
-      <section class="panel" aria-label="Wall cleaning map">
+      <section class="panel" aria-label="Wall cleaning map" id="wallmap">
         <div class="panel-head"><h2>Wall cleaning map</h2><span class="muted" style="font-size:12.5px">Bowl wall unrolled: position around the rim (0° is the end of the long axis) vs. depth below the rim</span></div>
         <canvas id="cvWall" aria-label="Unrolled map of the bowl wall showing where the shear dose cleaned the surface"></canvas>
         <div class="legend">
@@ -313,7 +399,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
         </div>
       </section>
 
-      <section class="panel" aria-label="Design sweep">
+      <section class="panel" aria-label="Design sweep" id="sweep">
         <div class="panel-head"><h2>Design sweep</h2><span class="muted" style="font-size:12.5px" id="swInfo">144 flushes on a 12 × 12 grid</span></div>
         <div class="sweep-ctl">
           <label class="f">Horizontal axis<select id="swX"></select></label>
@@ -420,7 +506,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
         </div>
       </section>
 
-      <section class="panel" aria-label="How the model works">
+      <section class="panel" aria-label="How the model works" id="how">
         <div class="panel-head"><h2>How the model works</h2></div>
         <div class="method">
           <div class="blk"><h3>1 · Cistern and jets</h3><p>The cistern drains through the flush valve and supply path into the rim nozzles. Jet speed follows the head above the nozzles, v = √(2gH / (1+K)), so flow falls as the cistern empties.</p></div>
@@ -459,9 +545,14 @@ td code{font-family:var(--f-mono);font-size:12.5px}
       </footer>
     </div>
   </div>
+  <div class="mobar" id="mobar">
+    <div class="mobar-k" id="mobarK" aria-live="polite"></div>
+    <button type="button" class="btn primary" id="mobarBtn" aria-expanded="false" aria-controls="rail">Adjust design</button>
+  </div>
 </div>
-<script src="model.js?v=5"></script>
-<script src="app.js?v=5"></script>
-<script src="ai.js?v=5"></script>
+<script src="model.js?v=6"></script>
+<script src="app.js?v=6"></script>
+<script src="ai.js?v=6"></script>
+<script src="tour.js?v=6"></script>
 </body>
 </html>

@@ -146,7 +146,7 @@
     if (O.goal === 'targets') {
       const t = targets();
       if (e.water > t.water + 1e-9) { v += (e.water - t.water) / 0.5; miss.push(`water ${fmt(e.water - t.water, 1)} L over`); }
-      [['clean', 'cleaned'], ['solids', 'solids'], ['paper', 'paper']].forEach(([k, lab]) => { if (e[k] < t[k] - 1e-9) { v += (t[k] - e[k]) / 5; miss.push(`${lab} ${fmt(t[k] - e[k], 0)} points short`); } });
+      [['clean', 'cleaned'], ['solids', 'solids'], ['paper', 'paper']].forEach(([k, lab]) => { if (e[k] < t[k] - 1e-9) { v += (t[k] - e[k]) / 5; miss.push(`${lab} ${fmt(t[k] - e[k], t[k] - e[k] < 1 ? 1 : 0)} points short`); } });
     }
     e.viol = v; e.miss = miss; return e;
   }
@@ -292,7 +292,11 @@
       rows.map((e, i) => `<tr${e === O.best ? ' class="best"' : ''}><td><button class="btn mini" type="button" data-opt="${i}">Load</button></td><td class="num">${fmt(e.water, 1)}</td><td class="num">${fmt(e.score, 1)}</td><td class="num">${fmt(e.clean, 0)}</td><td class="num">${fmt(e.solids, 0)}</td><td class="num">${fmt(e.paper, 0)}</td>${vars.map((d) => `<td class="num">${fmt(e.des[d.k], d.int ? 0 : d.dp)}</td>`).join('')}</tr>`).join('') + '</tbody>' : '';
     $('optTable').querySelectorAll('[data-opt]').forEach((b) => b.addEventListener('click', () => loadOpt(rows[+b.dataset.opt])));
   }
-  function loadOpt(e) { if (!e) return; A.apply(Object.assign({ flushMode: O.mode || 'full' }, e.des)); $('optHover').textContent = `Loaded: ${metricsLine(e)}. Scroll up to watch the flush.`; }
+  function loadOpt(e) {
+    if (!e) return; A.apply(Object.assign({ flushMode: O.mode || 'full' }, e.des));
+    $('optHover').innerHTML = `Loaded: ${metricsLine(e)}. <button class="btn mini" type="button" id="watchBtn">Watch this flush</button>`;
+    $('watchBtn').addEventListener('click', () => { const el = document.getElementById('sim'); if (el) el.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); A.play(0, 0.5); });
+  }
   function nearestOpt(ev) {
     if (!optGeom || !O.all.length) return null;
     const b = $('cvOpt').getBoundingClientRect(), x = (ev.clientX - b.left) * A.dpr(), y = (ev.clientY - b.top) * A.dpr();
