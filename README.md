@@ -89,7 +89,7 @@ console.log(r.cleanPct, r.solidsPct, r.paperPct, r.water);
 | `method.html` | Full model description: equations, numerics, coefficients, calibration |
 | `sources.html` | Sources and references |
 | `media/` | Video of a flush (`flush-playback.mp4`), a recorded Demo me walkthrough (`demo-walkthrough.mp4`) and stills of each view and of the AI lab |
-| `slides/jet-flush-model.pptx` | Three slides with embedded videos, key results and links |
+| `slides/jet-flush-model.pptx` | Three slides with embedded videos, key results and links; each slide carries the author, the repository link and the date |
 
 ## Calibration
 
@@ -99,7 +99,7 @@ The coefficients that describe physics the model does not resolve (film friction
 
 All changes on 19 October 2026.
 
-- **4.1** Full documentation: this README, a section on the page tools, version history, new stills, a recorded Demo me walkthrough and two more slides.
+- **4.1** Full documentation: this README, a section on the page tools, version history, new stills, a recorded Demo me walkthrough, two more slides, and your name, the repository link and the date on every slide.
 - **4.0** Usability: Start here strip, section menu, Undo, Reset, Pin as reference, change chips on all results, help for every slider, phone drawer, and the Demo me walkthrough with a `#demo` link.
 - **3.1** Optimiser: choose which settings may change, including bowl geometry, number of jets and partial flush; meet targets; thorough search option.
 - **3.0** AI lab with design optimiser, neural surrogate and hybrid calibration; new intro text.
