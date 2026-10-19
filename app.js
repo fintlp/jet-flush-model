@@ -12,8 +12,10 @@
     { g: 'jets', k: 'Anoz', l: 'Nozzle area per jet', u: 'cm²', min: 1.5, max: 8, st: 0.1, d: 1 },
     { g: 'jets', k: 'hNoz', l: 'Nozzle height', u: 'mm', min: 6, max: 20, st: 1, d: 0 },
     { g: 'jets', k: 'alpha', l: 'Downward jet angle', u: '°', min: 0, max: 35, st: 1, d: 0 },
-    { g: 'bowl', k: 'Rrim', l: 'Rim radius', u: 'mm', min: 110, max: 190, st: 1, d: 0 },
-    { g: 'bowl', k: 'Rpool', l: 'Pool radius at waterline', u: 'mm', min: 40, max: 110, st: 1, d: 0 },
+    { g: 'jets', k: 'jetPhase', l: 'Jet position around rim', u: '°', min: 0, max: 180, st: 5, d: 0 },
+    { g: 'bowl', k: 'ovality', l: 'Ovality, long ÷ short axis', u: '', min: 1, max: 1.6, st: 0.01, d: 2 },
+    { g: 'bowl', k: 'Rrim', l: 'Rim radius, equivalent', u: 'mm', min: 110, max: 190, st: 1, d: 0 },
+    { g: 'bowl', k: 'Rpool', l: 'Pool radius at waterline, equivalent', u: 'mm', min: 40, max: 110, st: 1, d: 0 },
     { g: 'bowl', k: 'Dwall', l: 'Rim to waterline depth', u: 'mm', min: 90, max: 200, st: 1, d: 0 },
     { g: 'bowl', k: 'seal', l: 'Water seal depth', u: 'mm', min: 40, max: 90, st: 1, d: 0 },
     { g: 'bowl', k: 'dTrap', l: 'Trapway diameter', u: 'mm', min: 38, max: 65, st: 1, d: 0 },
@@ -29,6 +31,7 @@
     { g: 'coef', k: 'tauC', l: 'Critical soil shear τc', u: 'Pa', min: 0.5, max: 15, st: 0.5, d: 1 },
     { g: 'coef', k: 'Jcrit', l: 'Shear dose to clean', u: 'Pa·s', min: 0.2, max: 10, st: 0.1, d: 1 },
     { g: 'coef', k: 'eta', l: 'Swirl transfer efficiency', u: '', min: 0.1, max: 1, st: 0.05, d: 2 },
+    { g: 'coef', k: 'kov', l: 'Extra swirl loss per unit ovality', u: '', min: 0, max: 6, st: 0.1, d: 1 },
     { g: 'coef', k: 'cfp', l: 'Pool wall friction', u: '', min: 0.005, max: 0.06, st: 0.001, d: 3 },
     { g: 'coef', k: 'ucS', l: 'Transport threshold, solids', u: 'm/s', min: 0.1, max: 1.2, st: 0.01, d: 2 },
     { g: 'coef', k: 'ucP', l: 'Transport threshold, paper', u: 'm/s', min: 0.1, max: 1.2, st: 0.01, d: 2 },
@@ -40,8 +43,8 @@
   const SPECK = Object.fromEntries(SPEC.map((s) => [s.k, s]));
   const GROUPS = [
     ['flush', 'Cistern and flush', true, ''],
-    ['jets', 'Tangential jets', true, 'Jets sit at the rim, evenly spaced, all pointing the same way round the bowl.'],
-    ['bowl', 'Bowl and trap', true, ''],
+    ['jets', 'Tangential jets', true, 'Jets sit at the rim, evenly spaced, all pointing the same way round the bowl. At 0° jet 1 sits at the end of the long axis, at 90° on the side.'],
+    ['bowl', 'Bowl and trap', true, 'An oval bowl keeps the area of a round bowl with the equivalent radius, so volumes and levels do not change with ovality.'],
     ['siph', 'Siphon', false, 'Used only when the trap type is siphonic.'],
     ['load', 'Test load', false, 'Media placed in the pool before the flush.'],
     ['coef', 'Model coefficients', false, 'Uncalibrated defaults. Fit them to CFD or rig data, see Calibrating it below.']
@@ -145,12 +148,13 @@
   let topMap = null;
   function buildTopMap() {
     const W = cvTop.width, H = cvTop.height, g = R.geom, lip = 0.014;
-    const sc = (Math.min(W, H) / 2 - 4 * dpr()) / (g.Rr + lip), cx = W / 2, cy = H / 2;
+    const E = Math.max(1, P.ovality || 1), sE = Math.sqrt(E);
+    const sc = (Math.min(W, H) / 2 - 4 * dpr()) / ((g.Rr + lip) * sE), cx = W / 2, cy = H / 2;
     const idx = new Int32Array(W * H), shade = new Float32Array(W * H);
     const ur = g.ur, NU = ur.length, NTH = R.NTH, NS = R.NS;
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
-        const i = y * W + x, dx = (x + 0.5 - cx) / sc, dy = (y + 0.5 - cy) / sc, rho = Math.hypot(dx, dy);
+        const i = y * W + x, dx = (x + 0.5 - cx) / sc, dy = (y + 0.5 - cy) / sc, rho = Math.sqrt(dx * dx / E + E * dy * dy);
         if (rho > g.Rr + lip) { idx[i] = -3; continue; }
         if (rho > g.Rr) { idx[i] = -2; continue; }
         if (rho <= g.Rp) { idx[i] = -1; shade[i] = 1; continue; }
@@ -159,14 +163,14 @@
         const f = (ur[lo] - rho) / Math.max(1e-12, ur[lo] - ur[hi]);
         const s = g.S * (lo + f) / (NU - 1);
         const is = Math.min(NS - 1, Math.floor(s / R.dsb));
-        let th = Math.atan2(dy, dx); if (th < 0) th += TAU2;
+        let th = Math.atan2(dy * sE, dx / sE); if (th < 0) th += TAU2;
         const it = Math.min(NTH - 1, Math.floor(th / (TAU2 / NTH)));
         idx[i] = is * NTH + it; shade[i] = 1 - 0.16 * s / g.S;
       }
     }
     topMap = { W, H, sc, cx, cy, idx, shade, img: cvTop.getContext('2d').createImageData(W, H), key: geomKey() };
   }
-  const geomKey = () => [P.Rrim, P.Rpool, P.Dwall, P.seal].join('|');
+  const geomKey = () => [P.Rrim, P.Rpool, P.Dwall, P.seal, P.ovality].join('|');
 
   function cellColor(c, t, C) {
     if (R.tClean[c] <= t) return R.J[c] >= 3 * P.Jcrit ? C.cleanStrong : C.clean;
@@ -177,6 +181,7 @@
     const ctx = cvTop.getContext('2d');
     if (!topMap || topMap.W !== cvTop.width || topMap.H !== cvTop.height || topMap.key !== geomKey()) buildTopMap();
     const { idx, shade, img, sc, cx, cy } = topMap, data = img.data, g = R.geom, d = dpr();
+    const sE = Math.sqrt(Math.max(1, P.ovality || 1));
     const basin = mix(C.dry, C.ink, 0.12);
     for (let i = 0, n = idx.length; i < n; i++) {
       const c = idx[i], o = i * 4;
@@ -189,12 +194,14 @@
     ctx.putImageData(img, 0, 0);
     // rim outlines
     ctx.lineWidth = 1 * d; ctx.strokeStyle = rgba(C.lineStrong, 0.9);
-    ctx.beginPath(); ctx.arc(cx, cy, (g.Rr + 0.014) * sc - 0.5 * d, 0, TAU2); ctx.stroke();
-    ctx.beginPath(); ctx.arc(cx, cy, g.Rr * sc, 0, TAU2); ctx.stroke();
+    const ell = (r) => { ctx.beginPath(); ctx.ellipse(cx, cy, r * sE, r / sE, 0, 0, TAU2); };
+    ell((g.Rr + 0.014) * sc - 0.5 * d); ctx.stroke();
+    ell(g.Rr * sc); ctx.stroke();
 
     const i = recIdx(t), rec = R.rec, z = rec.z[i] / 1000, vs = rec.vs[i], phi = rec.phi[i];
     const Rc = g.rAtLevel(z), rp = Rc * sc, om = vs / Rc, dip = vs * vs / (2 * 9.81) * 1000;
-    // pool water
+    // pool water, swirl and media are drawn in a frame stretched to the oval
+    ctx.save(); ctx.translate(cx, cy); ctx.scale(sE, 1 / sE); ctx.translate(-cx, -cy);
     const df = Math.min(1, dip / 40);
     const gr = ctx.createRadialGradient(cx, cy, 0, cx, cy, rp);
     gr.addColorStop(0, rgba(C.waterDeep, 0.55 + 0.35 * df));
@@ -223,12 +230,13 @@
       ctx.fillStyle = rgba(C.paper, 0.95); ctx.strokeStyle = rgba(C.paperEdge, 0.9); ctx.lineWidth = 0.8 * d;
       ctx.fillRect(-s, -s * 0.8, 2 * s, 1.6 * s); ctx.strokeRect(-s, -s * 0.8, 2 * s, 1.6 * s); ctx.restore();
     }
+    ctx.restore();
     // jet films
     const L = lineAt(t), w0 = (P.Anoz * 1e-4) / (P.hNoz / 1000);
     if (L && L.jets.length && rec.Qin[i] > 0.01) {
       for (const jt of L.jets) {
-        const pts = jt.pts, n = pts.length / 2, xy = [];
-        for (let k = 0; k < n; k++) { const r = M.geomAt(g, pts[2 * k + 1]).r * sc, a = pts[2 * k]; xy.push(cx + r * Math.cos(a), cy + r * Math.sin(a)); }
+        const pts = jt.pts, n = pts.length / 4, xy = [];
+        for (let k = 0; k < n; k++) xy.push(cx + pts[4 * k] * sc, cy + pts[4 * k + 1] * sc);
         // film band drawn in three widening stretches so the wall colours stay readable underneath
         ctx.strokeStyle = rgba(C.water, 0.3); ctx.lineJoin = 'round';
         for (let part = 0; part < 3; part++) {
@@ -246,8 +254,10 @@
     // nozzles
     const nJ = Math.round(P.nJets);
     for (let j = 0; j < nJ; j++) {
-      const a = j * TAU2 / nJ, r = (g.Rr + 0.004) * sc, x = cx + r * Math.cos(a), y = cy + r * Math.sin(a);
-      const tx = -Math.sin(a), ty = Math.cos(a), nx = Math.cos(a), ny = Math.sin(a), s = 7 * d;
+      const a = (P.jetPhase || 0) * Math.PI / 180 + j * TAU2 / nJ, r = (g.Rr + 0.004) * sc;
+      const x = cx + r * sE * Math.cos(a), y = cy + r / sE * Math.sin(a);
+      let tx = -sE * Math.sin(a), ty = Math.cos(a) / sE; const tm = Math.hypot(tx, ty); tx /= tm; ty /= tm;
+      const nx = ty, ny = -tx, s = 7 * d;
       ctx.fillStyle = rgba(C.accent, 1);
       ctx.beginPath(); ctx.moveTo(x + tx * s, y + ty * s); ctx.lineTo(x - tx * s * 0.6 + nx * s * 0.6, y - ty * s * 0.6 + ny * s * 0.6); ctx.lineTo(x - tx * s * 0.6 - nx * s * 0.6, y - ty * s * 0.6 - ny * s * 0.6); ctx.closePath(); ctx.fill();
     }
@@ -260,9 +270,10 @@
     const ctx = cvSec.getContext('2d'), W = cvSec.width, H = cvSec.height, d = dpr();
     ctx.clearRect(0, 0, W, H);
     const g = R.geom, p = R.p, i = recIdx(t), rec = R.rec;
-    const Rr = g.Rr, Rp = g.Rp, D = g.D, ds = g.ds, dt = p.dTrap / 1000, Hcr = p.Hcr / 1000, siph = p.type === 'siphonic';
+    const sE = Math.sqrt(Math.max(1, p.ovality || 1));   // section taken along the long axis
+    const Rr = g.Rr * sE, Rp = g.Rp * sE, D = g.D, ds = g.ds, dt = p.dTrap / 1000, Hcr = p.Hcr / 1000, siph = p.type === 'siphonic';
     const Ac = p.Acist, hf = Math.max(p.Vfull, p.Vpart) / 1000 / Ac;
-    const rWall = (dep) => dep <= D ? Rp + (Rr - Rp) * Math.cos(Math.PI / 2 * dep / D) : g.rAtLevel(D - dep);
+    const rWall = (dep) => dep <= D ? Rp + (Rr - Rp) * Math.cos(Math.PI / 2 * dep / D) : g.rAtLevel(D - dep) * sE;
     const yb = D + ds + dt + 0.006, ycIn = yb - dt / 2;
     const xr = Rp + dt / 2 + 0.014, xd = xr + dt * 1.5;
     const outY = siph ? D + p.Hs / 1000 : D + 0.07, outX = siph ? xd : xd + 0.15;
@@ -451,7 +462,7 @@
       ctx.setLineDash([5 * d, 8 * d]); ctx.lineDashOffset = -t * 120 * d;
       for (const jt of L.jets) {
         const pts = jt.pts; ctx.beginPath(); let px = null;
-        for (let k = 0; k < pts.length; k += 2) { const x = Xa(pts[k]), y = Ys(pts[k + 1]); if (px === null || Math.abs(x - px) > w / 2) ctx.moveTo(x, y); else ctx.lineTo(x, y); px = x; }
+        for (let k = 0; k < pts.length; k += 4) { const x = Xa(pts[k + 2]), y = Ys(pts[k + 3]); if (px === null || Math.abs(x - px) > w / 2) ctx.moveTo(x, y); else ctx.lineTo(x, y); px = x; }
         ctx.stroke();
       }
       ctx.setLineDash([]);
@@ -459,7 +470,7 @@
     // nozzles
     const nJ = Math.round(P.nJets);
     ctx.fillStyle = rgba(C.accent);
-    for (let j = 0; j < nJ; j++) { const x = Xa(j * TAU2 / nJ) + (j === 0 ? 5 * d : 0); ctx.beginPath(); ctx.moveTo(x - 5 * d, padT - 10 * d); ctx.lineTo(x + 6 * d, padT - 5 * d); ctx.lineTo(x - 5 * d, padT); ctx.closePath(); ctx.fill(); }
+    for (let j = 0; j < nJ; j++) { const a0 = (P.jetPhase || 0) * Math.PI / 180 + j * TAU2 / nJ; const x = Xa(a0) + (Math.abs(((a0 % TAU2) + TAU2) % TAU2) < 0.05 ? 5 * d : 0); ctx.beginPath(); ctx.moveTo(x - 5 * d, padT - 10 * d); ctx.lineTo(x + 6 * d, padT - 5 * d); ctx.lineTo(x - 5 * d, padT); ctx.closePath(); ctx.fill(); }
     // axes
     ctx.fillStyle = rgba(C.muted); ctx.font = font(10); ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     [0, 90, 180, 270, 360].forEach((a) => ctx.fillText(a + '°', padL + a / 360 * w, padT + h + 6 * d));
@@ -546,7 +557,7 @@
   }));
 
   /* ---------------- sweep ---------------- */
-  const SW_P = ['Anoz', 'alpha', 'hNoz', 'nJets', 'Hcr', 'Kpath', 'Vfull', 'Vpart', 'Rrim', 'Rpool', 'Dwall', 'dTrap', 'seal'];
+  const SW_P = ['Anoz', 'alpha', 'jetPhase', 'hNoz', 'nJets', 'ovality', 'Hcr', 'Kpath', 'Vfull', 'Vpart', 'Rrim', 'Rpool', 'Dwall', 'dTrap', 'seal'];
   const SW_M = [
     ['cleanPct', 'Wall area cleaned', '%', 1, 1], ['solidsPct', 'Solids removed', '%', 1, 1], ['paperPct', 'Paper removed', '%', 1, 1],
     ['capS', 'Solids transport capacity', 'g', 0, 1], ['cleanPerL', 'Cleaned per litre', '%/L', 1, 1],

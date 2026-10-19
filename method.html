@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="How the Tangential Jet Flush Model works: geometry, wall film, pool swirl, outflow, waste transport, numerics, coefficients and calibration.">
+<title>Jet Flush Model Method</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Layout: technical report. Narrow reading column with a sticky contents rail on wide screens; equations and tables sit in their own blocks. */
+:root{
+  --bg:#edf1f2; --surface:#f8fafa; --raised:#ffffff; --ink:#13222a; --muted:#56676f; --line:#d3dcdf; --line-strong:#9fb0b6;
+  --accent:#1f4fbf; --water:#3a8db6; --water-soft:#d6e9f2; --clean:#17876c; --solid:#8a5a2b; --warn:#a86b0c;
+  --f-display:"IBM Plex Sans Condensed","Arial Narrow",Arial,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0d151a; --surface:#131e24; --raised:#18252c; --ink:#e2eaed; --muted:#8c9fa7; --line:#24333b; --line-strong:#4a5f69;
+  --accent:#7fa6ff; --water:#4aa5d2; --water-soft:#1c3a48; --clean:#35b58e; --solid:#c48b52; --warn:#e2a646; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0d151a; --surface:#131e24; --raised:#18252c; --ink:#e2eaed; --muted:#8c9fa7; --line:#24333b; --line-strong:#4a5f69;
+  --accent:#7fa6ff; --water:#4aa5d2; --water-soft:#1c3a48; --clean:#35b58e; --solid:#c48b52; --warn:#e2a646; color-scheme:dark }
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.62}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:20px 64px}
+a{color:var(--accent)}
+.site{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:22px;font-family:var(--f-display);font-weight:600;font-size:14px;letter-spacing:.02em}
+.site a{text-decoration:none}
+.site a:hover{text-decoration:underline}
+h1,h2,h3,h4{font-family:var(--f-display);text-wrap:balance;line-height:1.15;margin:0}
+h1{font-size:clamp(30px,4vw,44px);font-weight:700}
+h2{font-size:26px;font-weight:700;margin-top:56px;padding-top:12px;border-top:1px solid var(--line)}
+h3{font-size:19px;font-weight:600;margin-top:30px}
+h4{font-size:16px;font-weight:600;margin-top:20px}
+p,ul,ol{margin:12px 0 0;max-width:68ch}
+li{margin-top:4px}
+.eyebrow{font-family:var(--f-display);font-weight:600;font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.lede{font-size:18px;color:var(--muted);max-width:62ch;margin-top:12px}
+.meta{font-family:var(--f-mono);font-size:13px;color:var(--muted);margin-top:14px}
+.layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:48px;margin-top:34px;align-items:start}
+@media (max-width:900px){ .layout{grid-template-columns:minmax(0,1fr)} .toc{position:static!important;max-height:none!important} }
+.toc{position:sticky;top:calc(env(safe-area-inset-top, 0px) + 16px);max-height:calc(100vh - 32px);overflow:auto;font-size:14px;border-left:1px solid var(--line);padding-left:14px}
+.toc ol{list-style:none;padding:0;margin:8px 0 0}
+.toc li{margin:6px 0}
+.toc a{text-decoration:none;color:var(--ink)}
+.toc a:hover{color:var(--accent)}
+.toc .n{font-family:var(--f-mono);color:var(--muted);margin-right:6px;font-size:12.5px}
+main{min-width:0}
+main > section:first-child h2{margin-top:0}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin-top:18px;max-width:72ch}
+.box h4{margin-top:0}
+.box.note{border-color:var(--warn)}
+.eq{font-family:var(--f-mono);font-size:14.5px;background:var(--raised);border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-top:14px;max-width:72ch;overflow-x:auto;white-space:pre;line-height:1.7}
+.eq .c{color:var(--muted)}
+code{font-family:var(--f-mono);font-size:.9em;background:var(--raised);border:1px solid var(--line);border-radius:5px;padding:0 4px}
+.sym{font-style:italic;font-family:var(--f-body)}
+.tablewrap{overflow-x:auto;margin-top:16px;max-width:100%}
+table{border-collapse:collapse;font-size:14px;min-width:640px;width:100%;background:var(--raised);border:1px solid var(--line)}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--f-display);font-weight:600;font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--surface)}
+td.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+figure{margin:20px 0 0;max-width:100%}
+figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
+.diagram{overflow-x:auto;background:var(--raised);border:1px solid var(--line);border-radius:12px;padding:12px}
+.diagram svg{display:block;min-width:720px;width:100%;height:auto}
+.d-box{fill:var(--surface);stroke:var(--line-strong);stroke-width:1.2}
+.d-box.out{fill:var(--water-soft);stroke:var(--water)}
+.d-t{fill:var(--ink);font-family:var(--f-display);font-weight:600;font-size:15px}
+.d-s{fill:var(--muted);font-family:var(--f-mono);font-size:11.5px}
+.d-a{stroke:var(--muted);stroke-width:1.4;fill:none}
+.d-ah{fill:var(--muted)}
+.d-fb{stroke:var(--accent);stroke-width:1.4;fill:none;stroke-dasharray:5 4}
+.d-l{fill:var(--accent);font-family:var(--f-mono);font-size:11.5px}
+.steps{counter-reset:st;list-style:none;padding:0;max-width:72ch}
+.steps li{counter-increment:st;position:relative;padding-left:34px;margin-top:10px}
+.steps li::before{content:counter(st);position:absolute;left:0;top:1px;width:23px;height:23px;border-radius:50%;background:var(--accent);color:var(--raised);font-family:var(--f-mono);font-size:12.5px;display:grid;place-items:center}
+.foot{margin-top:64px;padding-top:14px;border-top:1px solid var(--line);font-size:14px;color:var(--muted);display:flex;flex-wrap:wrap;gap:8px 20px;justify-content:space-between}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="site" aria-label="Site">
+    <a href="./">← Back to the simulator</a>
+    <a href="https://fintlp.github.io/latest-news/#contact" target="_blank" rel="noopener">Peter Fintl · Contact</a>
+  </nav>
+
+  <header>
+    <span class="eyebrow">Model description · Tangential Jet Flush Model</span>
+    <h1>How the jet flush model works</h1>
+    <p class="lede">A reduced-order model of a rimless WC flushed by tangential rim jets. It traces each jet as a film on the bowl wall, follows the pool level, swirl and trap flow, and estimates cleaning, waste removal and water use. One flush takes about 5 to 20 milliseconds to compute in a web browser.</p>
+    <p class="meta">Version 2 · October 2026 · model code: <a href="https://github.com/fintlp/jet-flush-model/blob/main/model.js">model.js</a></p>
+  </header>
+
+  <div class="layout">
+    <nav class="toc" aria-label="Contents">
+      <span class="eyebrow">Contents</span>
+      <ol>
+        <li><a href="#summary"><span class="n">1</span>Summary</a></li>
+        <li><a href="#overview"><span class="n">2</span>Model at a glance</a></li>
+        <li><a href="#geometry"><span class="n">3</span>Bowl geometry</a></li>
+        <li><a href="#cistern"><span class="n">4</span>Cistern and jets</a></li>
+        <li><a href="#film"><span class="n">5</span>Wall film and cleaning</a></li>
+        <li><a href="#outflow"><span class="n">6</span>Pool level and outflow</a></li>
+        <li><a href="#swirl"><span class="n">7</span>Pool swirl</a></li>
+        <li><a href="#waste"><span class="n">8</span>Waste transport</a></li>
+        <li><a href="#numerics"><span class="n">9</span>Numerics and speed</a></li>
+        <li><a href="#coefficients"><span class="n">10</span>Parameters and coefficients</a></li>
+        <li><a href="#calibration"><span class="n">11</span>Calibration with PreonLab</a></li>
+        <li><a href="#approaches"><span class="n">12</span>Comparison with other approaches</a></li>
+        <li><a href="#limits"><span class="n">13</span>Assumptions and limits</a></li>
+        <li><a href="#code"><span class="n">14</span>Code map</a></li>
+        <li><a href="#glossary"><span class="n">15</span>Glossary</a></li>
+        <li><a href="#sources"><span class="n">16</span>Sources</a></li>
+      </ol>
+    </nav>
+
+    <main>
+      <section id="summary">
+        <h2>1 · Summary</h2>
+        <p>The model answers three questions for a given bowl and flush design, in this order of priority:</p>
+        <ol>
+          <li><strong>Cleaning.</strong> How much of the bowl wall above the waterline receives enough wall shear from the jet films to count as cleaned.</li>
+          <li><strong>Waste removal.</strong> How much of a solid test load and of floating paper leaves through the trap.</li>
+          <li><strong>Water use.</strong> How much water the flush takes, and whether the water seal is restored afterwards.</li>
+        </ol>
+        <p>It does this by splitting the flush into a chain of simple physical sub-models that each have a clear meaning: cistern, jets, wall film, pool, trap and waste. Each sub-model uses a few equations instead of solving the full three-dimensional flow. That is why one flush computes in milliseconds rather than the hours a free-surface CFD case needs.</p>
+        <div class="box note">
+          <h4>What the numbers mean today</h4>
+          <p>All coefficients are physically reasonable estimates, not yet fitted to measurements or CFD. The model shows how designs compare and which way a change pushes the result. Absolute percentages and grams become trustworthy only after calibration against a few reference runs, as described in <a href="#calibration">section 11</a>.</p>
+        </div>
+        <p>Typical uses are screening many design variants quickly, explaining the flush mechanism to non-specialists, and choosing which few variants deserve a full CFD or rig test.</p>
+      </section>
+
+      <section id="overview">
+        <h2>2 · Model at a glance</h2>
+        <p>Every 10 ms of simulated time, the model updates the cistern, the jets, the pool level, the trap flow, the swirl and the waste load. Every 100 ms it re-traces the jet films on the wall, because they change slowly compared with the pool.</p>
+        <figure>
+          <div class="diagram">
+            <svg viewBox="0 0 900 300" role="img" aria-label="Flow of information between the sub-models">
+              <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="d-ah"/></marker></defs>
+              <rect class="d-box" x="10" y="40" width="150" height="74" rx="10"/><text class="d-t" x="24" y="68">Cistern</text><text class="d-s" x="24" y="90">volume, head H</text><text class="d-s" x="24" y="105">valve opening</text>
+              <rect class="d-box" x="200" y="40" width="150" height="74" rx="10"/><text class="d-t" x="214" y="68">Rim jets</text><text class="d-s" x="214" y="90">speed v, flow Q</text><text class="d-s" x="214" y="105">angle, position</text>
+              <rect class="d-box" x="390" y="40" width="170" height="74" rx="10"/><text class="d-t" x="404" y="68">Wall film</text><text class="d-s" x="404" y="90">path, width, shear</text><text class="d-s" x="404" y="105">per 100 ms</text>
+              <rect class="d-box" x="390" y="170" width="170" height="74" rx="10"/><text class="d-t" x="404" y="198">Pool</text><text class="d-s" x="404" y="220">level z, swirl ω</text><text class="d-s" x="404" y="235">volume balance</text>
+              <rect class="d-box" x="200" y="170" width="150" height="74" rx="10"/><text class="d-t" x="214" y="198">Trap</text><text class="d-s" x="214" y="220">weir or siphon</text><text class="d-s" x="214" y="235">outflow Q out</text>
+              <rect class="d-box" x="10" y="170" width="150" height="74" rx="10"/><text class="d-t" x="24" y="198">Waste</text><text class="d-s" x="24" y="220">solids, paper</text><text class="d-s" x="24" y="235">transport rate</text>
+              <rect class="d-box out" x="610" y="40" width="280" height="74" rx="10"/><text class="d-t" x="624" y="68">Cleaning map</text><text class="d-s" x="624" y="90">shear dose per wall cell</text><text class="d-s" x="624" y="105">cleaned %, wetted %, rim line</text>
+              <rect class="d-box out" x="610" y="170" width="280" height="74" rx="10"/><text class="d-t" x="624" y="198">Removal and water</text><text class="d-s" x="624" y="220">solids %, paper %, capacity g</text><text class="d-s" x="624" y="235">litres, seal after flush</text>
+              <path class="d-a" d="M160 77 H196" marker-end="url(#ah)"/>
+              <path class="d-a" d="M350 77 H386" marker-end="url(#ah)"/>
+              <path class="d-a" d="M560 77 H606" marker-end="url(#ah)"/>
+              <path class="d-a" d="M432 114 V166" marker-end="url(#ah)"/><text class="d-l" x="424" y="146" text-anchor="end">flow and angular momentum</text>
+              <path class="d-a" d="M390 207 H354" marker-end="url(#ah)"/>
+              <path class="d-a" d="M200 207 H164" marker-end="url(#ah)"/>
+              <path class="d-fb" d="M440 244 V276 H85 V248" marker-end="url(#ah)"/><text class="d-l" x="96" y="270">swirl helps centre floating paper</text>
+              <path class="d-fb" d="M528 170 V118" marker-end="url(#ah)"/><text class="d-l" x="538" y="146">waterline stops the film</text>
+              <path class="d-a" d="M560 207 H606" marker-end="url(#ah)"/>
+            </svg>
+          </div>
+          <figcaption>Information flow between the sub-models. Solid arrows run every time step. Dashed arrows are feedback: the rising pool shortens the film path, and the pool swirl helps draw floating paper to the outlet.</figcaption>
+        </figure>
+      </section>
+
+      <section id="geometry">
+        <h2>3 · Bowl geometry</h2>
+        <h3>Equivalent radius profile</h3>
+        <p>The bowl wall is described by an <em>equivalent radius</em> <span class="sym">R(z)</span> at each depth <span class="sym">z</span> below the rim, running from the rim radius <span class="sym">R<sub>rim</sub></span> to the pool radius <span class="sym">R<sub>pool</sub></span> at the static waterline, a depth <span class="sym">D</span> below the rim:</p>
+        <div class="eq">R(z) = R_pool + (R_rim − R_pool) · cos(π z / 2D),     0 ≤ z ≤ D</div>
+        <p>The wall is vertical at the rim, as on a rimless lip, and slopes inward towards the pool. At the default values the wall meets the waterline at roughly 43° from vertical.</p>
+
+        <h3>Oval plan shape</h3>
+        <p>At every depth the plan section is an ellipse with axis ratio <span class="sym">e</span> (the ovality slider, long axis divided by short axis). Its semi-axes are chosen so the ellipse has the same area as a circle of radius <span class="sym">R(z)</span>:</p>
+        <div class="eq">a(z) = R(z) · √e        b(z) = R(z) / √e        π a b = π R(z)²</div>
+        <p>Keeping the area constant means pool volumes, levels and flow rates do not change when only the ovality changes. That isolates the effect of the shape on the film and the swirl. The wall surface can then be written as one implicit equation, which the film tracer uses directly:</p>
+        <div class="eq">F(x, y, z) = √(x²/e + e·y²) − R(z) = 0       <span class="c">F &lt; 0 inside the bowl</span></div>
+        <p>The outward wall normal is the normalised gradient of <span class="sym">F</span>. Positions around the rim are given as the ellipse parameter angle θ, where 0° is the end of the long axis and 90° the middle of the long side.</p>
+
+        <h3>Pool and seal</h3>
+        <p>The pool level <span class="sym">z<sub>p</sub></span> is measured from the trap weir crest, which equals the static waterline. Above the crest the pool area follows the wall profile. Below it the basin narrows linearly to half the pool radius at the seal depth <span class="sym">d<sub>s</sub></span>. The model pre-computes the volume above or below the crest as a function of level, so each time step converts a volume into a level with one table lookup.</p>
+      </section>
+
+      <section id="cistern">
+        <h2>4 · Cistern and jets</h2>
+        <p>The cistern has a constant cross-section <span class="sym">A<sub>c</sub></span> (0.035 m²). Its outlet sits a height <span class="sym">H<sub>cr</sub></span> above the rim nozzles. The head at the nozzles is the water depth in the cistern plus that height, and the jet speed follows from an energy balance with one lumped loss coefficient <span class="sym">K</span> for valve, flush pipe and nozzle:</p>
+        <div class="eq">H = V_c / A_c + H_cr
+v_j = s(t) · √( 2 g H / (1 + K) )
+Q_in = n · A_n · v_j            <span class="c">n jets, nozzle area A_n each</span>
+dV_c/dt = −Q_in</div>
+        <p>The valve opens linearly over 0.15 s, expressed by the factor <span class="sym">s(t)</span>. The flush ends when the cistern is empty. With the default washdown preset this gives a peak inflow of about 1.7 L/s and a flush of about 3 s for 4.5 L.</p>
+        <p>Each jet leaves its nozzle tangent to the rim in the horizontal plane, tilted downward by the jet angle α. The jets are spaced evenly around the rim, starting at the jet position angle.</p>
+      </section>
+
+      <section id="film">
+        <h2>5 · Wall film and cleaning</h2>
+        <h3>What is traced</h3>
+        <p>Each jet is followed as a parcel of water sliding along the wall. The film is treated as quasi-steady: its path depends on the current jet speed and pool level, and it is re-traced every 100 ms. Between traces the same footprint applies.</p>
+        <h3>Forces on the film</h3>
+        <p>Two forces act along the wall. Gravity pulls the film down, and turbulent wall friction slows it. Friction is expressed through a friction factor <span class="sym">c<sub>f</sub></span> and the local film thickness <span class="sym">h</span>:</p>
+        <div class="eq">a = g·ẑ − a_f · u            <span class="c">ẑ points down</span>
+a_f = c_f · |u| / (2h)
+h = min( h_noz , Q_j / (|u| · w) )   <span class="c">continuity, w = film width</span>
+w = w₀ + k_sp · ℓ                <span class="c">spreads with distance ℓ travelled</span></div>
+        <p>The wall itself keeps the film on its curved path. In the round bowl this produces the familiar effects: centrifugal force presses the film against the wall, and the film spins faster as it moves to smaller radius, because angular momentum is conserved. In an oval bowl the curvature changes around the rim, so the film is pressed harder at the narrow ends than along the flat sides.</p>
+        <h3>Integration on the curved wall</h3>
+        <p>The tracer moves the parcel in three dimensions and keeps it on the wall with a projection step. This handles round and oval bowls with the same code. Per step of 6 mm arc length:</p>
+        <ol class="steps">
+          <li>Compute the force from gravity and friction. Its component along the wall sets the new speed, because the wall reaction does no work.</li>
+          <li>Advance velocity and position over the step time Δt = 6 mm / |u|.</li>
+          <li>Pull the position back onto the wall with two Newton steps on <span class="sym">F(x, y, z) = 0</span>.</li>
+          <li>Remove the velocity component normal to the wall and rescale the remainder to the speed from step 1.</li>
+          <li>Widen the film and stamp its footprint onto the wall grid.</li>
+        </ol>
+        <p>The trace stops at the current waterline, when the film has slowed below 0.05 m/s, or after 500 steps. For a round bowl this scheme reproduces the earlier analytical surface-of-revolution equations to within one to four percentage points of cleaned area, depending on the jet angle.</p>
+        <h3>Wall shear and shear dose</h3>
+        <p>The wall above the static waterline is divided into 90 cells around the rim and 40 cells down the wall. Each cell has its true surface area on the oval wall. The film stamps a footprint of width <span class="sym">w</span>, set across the flow direction, and every cell it touches receives the wall shear stress of the film:</p>
+        <div class="eq">τ = ½ · ρ · c_f · |u|²
+J = ∫ max(0, τ − τ_c) dt          <span class="c">shear dose, Pa·s</span>
+cell cleaned  ⇔  J ≥ J_crit</div>
+        <p>The critical shear <span class="sym">τ<sub>c</sub></span> represents the stress below which soil does not come off, and <span class="sym">J<sub>crit</sub></span> how long it must be exceeded. Both describe the soil, not the bowl, and are the main targets of a wash test calibration.</p>
+        <h3>Cleaning results</h3>
+        <ul>
+          <li><strong>Wall area cleaned:</strong> area-weighted share of cells with <span class="sym">J ≥ J<sub>crit</sub></span>.</li>
+          <li><strong>Wall wetted:</strong> share of cells the film touched at all.</li>
+          <li><strong>Line 25 mm below the rim:</strong> share of the row of cells at 25 mm depth that is cleaned. This mirrors the common ink-line wash test.</li>
+          <li><strong>Cleaned per litre:</strong> cleaned share divided by water used, a simple efficiency figure for comparing variants.</li>
+        </ul>
+      </section>
+
+      <section id="outflow">
+        <h2>6 · Pool level and outflow</h2>
+        <p>The pool follows a plain volume balance:</p>
+        <div class="eq">dV_p/dt = Q_in − Q_out</div>
+        <h3>Washdown bowl</h3>
+        <p>Water spills over the weir crest into the trapway. The weir flow uses a broad-crested weir law, capped by what the trapway can pass as an orifice:</p>
+        <div class="eq">Q_weir = C_w · L_w · z_p^1.5                 <span class="c">z_p &gt; 0, C_w = 1.7 m½/s, L_w = 70 mm</span>
+Q_cap  = 0.6 · A_t · √( 2 g (z_p + d_s) )
+Q_out  = min(Q_weir, Q_cap)</div>
+        <p>The level cannot drop below the crest, so a washdown bowl always keeps its full seal.</p>
+        <h3>Siphonic bowl</h3>
+        <p>Before priming, water spills over the weir and part of it drains by gravity down the trapway, up to a capacity <span class="sym">Q<sub>g</sub></span>. Any excess fills the trapway. When the stored volume reaches the priming volume <span class="sym">V<sub>prime</sub></span>, the siphon starts and the outflow switches to full-bore flow driven by the drop <span class="sym">H<sub>s</sub></span> below the weir:</p>
+        <div class="eq">dV_trap/dt = Q_weir − Q_g                 <span class="c">before priming, V_trap ≥ 0</span>
+Q_siphon  = A_t · √( 2 g (z_p + H_s) / K_s )
+siphon breaks when z_p ≤ −d_s            <span class="c">air reaches the trap inlet</span></div>
+        <p>After the siphon breaks, any remaining cistern flow and the bowl refill raise the level again. The seal after the flush is the final level above the trap inlet, capped at the seal depth. A seal below 50 mm is flagged.</p>
+      </section>
+
+      <section id="swirl">
+        <h2>7 · Pool swirl</h2>
+        <p>Film arriving at the waterline brings angular momentum about the bowl axis, <span class="sym">ℓ = x·v<sub>y</sub> − y·v<sub>x</sub></span> per unit mass. The pool is treated as a body rotating at angular speed ω with angular momentum <span class="sym">L = I·ω</span>:</p>
+        <div class="eq">dL/dt = η · ρ · Q_in · ℓ_arr  −  (Q_out / V_p) · L  −  T_f
+I     = ¼ · ρ · V_p · R_c² · (e + 1/e)        <span class="c">elliptic pool, ½ ρ V R² when round</span>
+T_f   = ½ · ρ · c_fp · (1 + k_ov (e − 1)) · A_wet · (ω R_c)² · R_c</div>
+        <ul>
+          <li>η is the share of the incoming angular momentum that survives the impact and mixing at the waterline.</li>
+          <li>The outflow term removes angular momentum with the water that leaves.</li>
+          <li><span class="sym">T<sub>f</sub></span> is turbulent friction on the wetted pool surface <span class="sym">A<sub>wet</sub></span>. The ovality term <span class="sym">k<sub>ov</sub></span> represents the extra loss of a rotating flow in a non-circular basin, where the flow must keep changing direction.</li>
+        </ul>
+        <p>The results shown are the swirl speed at the pool edge, <span class="sym">v<sub>s</sub> = ω R<sub>c</sub></span>, and the solid-body vortex dip, <span class="sym">v<sub>s</sub>² / 2g</span>. The dip is a lower bound, because a real vortex has a concentrated core that dips deeper.</p>
+        <p>The swirl also enters waste removal through a swirl Froude number and a centring factor that saturates at strong swirl:</p>
+        <div class="eq">Fr_s = v_s² / (g R_c)          C_s = Fr_s / (Fr_s + Fr₀)</div>
+      </section>
+
+      <section id="waste">
+        <h2>8 · Waste transport</h2>
+        <p>Waste is lumped into two classes that behave differently, similar in spirit to media tests with soybean-paste style solids and paper.</p>
+        <h3>Solid media</h3>
+        <p>Solids leave once the mean trapway velocity <span class="sym">u<sub>t</sub> = Q<sub>out</sub> / A<sub>t</sub></span> exceeds a transport threshold. The removal rate is the smaller of a kinetic rate, proportional to the remaining mass, and a capacity limit set by the maximum volume fraction of solids the flow can carry:</p>
+        <div class="eq">f_S  = clamp( (u_t / u_cS − 1) / 0.5 , 0, 1 )
+dM/dt = −f_S · min( c_max · ρ_s · Q_out ,  k_S · M · (1 + β C_s) )
+capacity = ∫ f_S · c_max · ρ_s · Q_out dt     <span class="c">grams the flush could carry</span></div>
+        <p>The capacity figure is comparable in idea to a maximum-load media test result: it states how much solid load this flush could clear, independent of the load actually placed.</p>
+        <h3>Paper</h3>
+        <p>Paper floats and has to be drawn down into the trap. Its removal depends on the trapway velocity and on how well the swirl centres it:</p>
+        <div class="eq">f_P  = clamp( (u_t / u_cP − 1) / 0.5 , 0, 1 )
+dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
+        <p>With φ₀ = 0.2, a flush without swirl removes paper at one fifth of the rate of a strongly swirling one at the same trap velocity.</p>
+      </section>
+
+      <section id="numerics">
+        <h2>9 · Numerics and speed</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Item</th><th>Setting</th><th>Why</th></tr></thead>
+            <tbody>
+              <tr><td>Time integration</td><td>Explicit Euler, Δt = 10 ms, 12 s simulated</td><td>The pool and cistern change slowly enough that this is stable and accurate to well under 1 %.</td></tr>
+              <tr><td>Film re-trace</td><td>Every 100 ms (200 ms in the design sweep)</td><td>The film responds within a fraction of a second, so it is treated as quasi-steady.</td></tr>
+              <tr><td>Film step</td><td>6 mm arc length, at most 500 steps per jet</td><td>Smaller than the wall cell size, so the footprint has no gaps.</td></tr>
+              <tr><td>Wall grid</td><td>90 × 40 cells, about 4 mm high and 10 mm wide</td><td>Resolves the gaps behind the nozzles while staying cheap.</td></tr>
+              <tr><td>Level from volume</td><td>Pre-computed table of 800 levels</td><td>Turns the irregular basin into a single lookup per step.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>A full flush with recorded traces takes about 5 to 20 ms in a current browser on a laptop. The sweep mode skips the traces and takes about 4 to 7 ms per flush, so a 12 × 12 sweep of 144 designs finishes in about one second. The model is deterministic: the same inputs always give the same result.</p>
+      </section>
+
+      <section id="coefficients">
+        <h2>10 · Parameters and coefficients</h2>
+        <p>Design parameters describe the product and are set by the designer. Model coefficients describe physics the model does not resolve and are fitted during calibration.</p>
+        <h3>Design parameters (EU washdown preset)</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Parameter</th><th>Default</th><th>Unit</th><th>Meaning</th></tr></thead>
+            <tbody>
+              <tr><td>Full / partial flush volume</td><td class="num">4.5 / 3.0</td><td>L</td><td>Water released from the cistern</td></tr>
+              <tr><td>Valve height above jets, H<sub>cr</sub></td><td class="num">250</td><td>mm</td><td>Static head added to the cistern depth</td></tr>
+              <tr><td>Supply path loss K</td><td class="num">1.0</td><td>–</td><td>Valve, flush pipe and nozzle losses</td></tr>
+              <tr><td>Number of jets</td><td class="num">2</td><td>–</td><td>Evenly spaced around the rim</td></tr>
+              <tr><td>Nozzle area per jet</td><td class="num">4.5</td><td>cm²</td><td>Sets flow rate at a given head</td></tr>
+              <tr><td>Nozzle height</td><td class="num">12</td><td>mm</td><td>Initial film thickness; width = area ÷ height</td></tr>
+              <tr><td>Downward jet angle α</td><td class="num">10</td><td>°</td><td>Tilt below horizontal at the nozzle</td></tr>
+              <tr><td>Jet position around rim</td><td class="num">0</td><td>°</td><td>0° at the end of the long axis, 90° on the side</td></tr>
+              <tr><td>Ovality e</td><td class="num">1.00</td><td>–</td><td>Long ÷ short axis, at constant area</td></tr>
+              <tr><td>Rim radius, equivalent</td><td class="num">150</td><td>mm</td><td>Radius of a circle with the rim opening's area</td></tr>
+              <tr><td>Pool radius, equivalent</td><td class="num">62</td><td>mm</td><td>Same, at the static waterline</td></tr>
+              <tr><td>Rim to waterline depth D</td><td class="num">150</td><td>mm</td><td>Height of the cleaned wall</td></tr>
+              <tr><td>Water seal depth d<sub>s</sub></td><td class="num">55</td><td>mm</td><td>Weir crest to top of trap inlet</td></tr>
+              <tr><td>Trapway diameter</td><td class="num">48</td><td>mm</td><td>Sets trap velocity for waste transport</td></tr>
+              <tr><td>Siphon drop, loss, gravity capacity, priming volume, refill</td><td class="num">250, 3.0, 0.6, 0.5, 0</td><td>mm, –, L/s, L, L</td><td>Siphonic bowls only</td></tr>
+              <tr><td>Test load</td><td class="num">250 g, 8 sheets</td><td>–</td><td>Solid media and paper in the pool at the start</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <h3>Model coefficients</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Coefficient</th><th>Default</th><th>Unit</th><th>Controls</th><th>Fit against</th></tr></thead>
+            <tbody>
+              <tr><td>Film friction factor c<sub>f</sub></td><td class="num">0.008</td><td>–</td><td>How fast the film slows; wall shear level</td><td>Film reach in video or CFD wetting at 0.5 s and 1 s</td></tr>
+              <tr><td>Film spreading rate k<sub>sp</sub></td><td class="num">0.22</td><td>m/m</td><td>Film width growth and footprint</td><td>Wetted area pattern</td></tr>
+              <tr><td>Critical soil shear τ<sub>c</sub></td><td class="num">3.0</td><td>Pa</td><td>Shear needed to start removing soil</td><td>Wash test or CFD wall shear plus soil data</td></tr>
+              <tr><td>Shear dose J<sub>crit</sub></td><td class="num">1.5</td><td>Pa·s</td><td>How long the excess shear must act</td><td>Same wash test</td></tr>
+              <tr><td>Swirl transfer η</td><td class="num">0.5</td><td>–</td><td>Share of film angular momentum kept by the pool</td><td>Pool surface tracers or CFD angular momentum</td></tr>
+              <tr><td>Pool wall friction c<sub>fp</sub></td><td class="num">0.02</td><td>–</td><td>Swirl decay</td><td>Swirl decay after the cistern empties</td></tr>
+              <tr><td>Extra swirl loss per unit ovality k<sub>ov</sub></td><td class="num">2.0</td><td>–</td><td>Swirl loss in oval basins</td><td>Two CFD runs at different ovality</td></tr>
+              <tr><td>Weir coefficient C<sub>w</sub>, weir length</td><td class="num">1.7, 70</td><td>m½/s, mm</td><td>Bowl level rise</td><td>Bowl level sensor or CFD level</td></tr>
+              <tr><td>Transport thresholds u<sub>cS</sub>, u<sub>cP</sub></td><td class="num">0.35, 0.45</td><td>m/s</td><td>When solids and paper start to move</td><td>Media tests at two or three loads</td></tr>
+              <tr><td>Max solids concentration c<sub>max</sub></td><td class="num">0.12</td><td>vol.</td><td>Solids capacity</td><td>Maximum-load media test</td></tr>
+              <tr><td>Removal rates k<sub>S</sub>, k<sub>P</sub></td><td class="num">2.0, 1.2</td><td>1/s</td><td>How quickly media leave once moving</td><td>Media tests, removal over time</td></tr>
+              <tr><td>Swirl effects β, φ₀, Fr₀</td><td class="num">0.2, 0.2, 0.1</td><td>–</td><td>How much swirl helps removal</td><td>Paper tests with and without swirl</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="calibration">
+        <h2>11 · Calibration with PreonLab</h2>
+        <h3>Why PreonLab fits this job</h3>
+        <p>PreonLab is a particle-based (SPH) flow solver from FIFTY2. It needs no volume mesh and handles free surfaces, splashing and thin films naturally, which suits a flush better than many mesh-based tools. For the media in a flush it offers:</p>
+        <ul>
+          <li><strong>Liquids:</strong> the core strength, including multiphase flows and surface tension.</li>
+          <li><strong>Solids:</strong> two-way coupled rigid bodies, with the rigid body solver running on GPUs in version 6.2. Suitable for balls and other rigid test media.</li>
+          <li><strong>Flexibles:</strong> a linear elastic solver for fluid-structure interaction, added as an experimental feature in version 6.2. Suitable for elastic objects. Toilet paper is harder: it is very thin, loses strength when wet and tears, which a linear elastic model does not capture.</li>
+          <li><strong>Paste-like solids:</strong> non-Newtonian fluid models such as Carreau-Yasuda are available and could stand in for soft solid media.</li>
+        </ul>
+        <p>I could not find a published PreonLab case for toilet flushing, so its accuracy for this application, and especially for paper, should be checked in a short benchmark with FIFTY2. Published toilet studies more often use mesh-based VOF solvers, for example Ansys Fluent with coupled discrete particles (EDEM) for test balls.</p>
+
+        <h3>Calibration procedure</h3>
+        <ol class="steps">
+          <li><strong>Choose 3 to 5 reference designs</strong> that span the design space you care about, for example low and high nozzle area, two jet angles and two ovalities.</li>
+          <li><strong>Run them in PreonLab</strong> and export: inflow Q(t) at the nozzles, wall wetting and wall shear maps at fixed times, pool level and outflow over time, pool angular momentum, and the media removed over time.</li>
+          <li><strong>Fit hydraulics first:</strong> K and the valve height from Q(t), then the weir and siphon coefficients from level and outflow.</li>
+          <li><strong>Fit the film next:</strong> c<sub>f</sub> and k<sub>sp</sub> from the wetted footprint, then τ<sub>c</sub> and J<sub>crit</sub> from the wall shear map combined with a soil threshold or a physical wash test.</li>
+          <li><strong>Fit swirl:</strong> η, c<sub>fp</sub> and k<sub>ov</sub> from pool angular momentum.</li>
+          <li><strong>Fit waste last:</strong> thresholds, rates and c<sub>max</sub> from removal curves, ideally at two or three loads.</li>
+          <li><strong>Hold out one or two runs</strong> that were not used for fitting and compare. If the error is acceptable, the model can screen designs between the reference points.</li>
+        </ol>
+        <p>Each fit is a small least-squares problem over a handful of coefficients. Because one model run takes milliseconds, a standard optimiser such as Nelder-Mead can run thousands of evaluations in seconds.</p>
+
+        <h3>Hybrid option</h3>
+        <p>Where the physics-based model stays off after calibration, a small machine-learning correction can be trained on the remaining differences between model and PreonLab, for example a Gaussian process per output. This needs far fewer reference runs than a full neural surrogate, keeps the physical explanation, and gives an uncertainty estimate that grows away from the reference designs.</p>
+      </section>
+
+      <section id="approaches">
+        <h2>12 · Comparison with other approaches</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Approach</th><th>Time per flush case</th><th>One-off cost</th><th>Fidelity</th></tr></thead>
+            <tbody>
+              <tr><td>This reduced-order model</td><td class="num">5–20 ms</td><td>3 to 5 reference runs to calibrate</td><td>Trends; roughly ±10 % after calibration (estimate)</td></tr>
+              <tr><td>PreonLab (SPH) or VOF CFD</td><td class="num">minutes to hours</td><td>Setup, meshing or particle resolution study</td><td>High</td></tr>
+              <tr><td>PINN trained per case</td><td class="num">hours to days of training</td><td>None</td><td>Often unreliable for transient free-surface flows</td></tr>
+              <tr><td>Neural surrogate trained on CFD</td><td class="num">milliseconds to seconds</td><td>Tens to hundreds of CFD runs plus training</td><td>Good inside the trained design range</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>The PreonLab range is an extrapolation. FIFTY2 reports about 6 minutes on a GPU for a 1.8 million particle single-phase case over 2 s of flow, and about 45 hours for a 2.2 million particle multiphase case over 5 s. A flush lasts 8 to 10 s and involves free surfaces and splashing, so minutes to many hours per case is a realistic range. In an industrial example, Geberit reported about one day per design iteration including geometry changes, using CFD that ran overnight.</p>
+        <p>Physics-informed neural networks are not a good fit for forward flush simulation. A review of machine learning for fluid equations found that most papers claiming to beat numerical methods compared against weak baselines, and its authors describe PINNs as much slower than standard numerical methods for forward problems and prone to not converging. Data-driven surrogates trained on solver results are the more promising ML route, at the price of generating the training runs.</p>
+      </section>
+
+      <section id="limits">
+        <h2>13 · Assumptions and limits</h2>
+        <ul>
+          <li>The oval shape has the same axis ratio at every depth. Real bowls change shape with depth, have an off-centre trap inlet and often an asymmetric back wall.</li>
+          <li>The film is quasi-steady, always attached to the wall, and does not splash, break up or interact with the other jet. Overlaps simply take the higher shear.</li>
+          <li>Wall shear comes from a friction-factor law, not from a resolved boundary layer. Its absolute level depends on the calibration of c<sub>f</sub>.</li>
+          <li>The pool rotates as one body. There is no resolved vortex core, no air entrainment and no wave motion.</li>
+          <li>The trap is a lumped weir, orifice and siphon model. Its geometry beyond diameter, seal depth and siphon drop is not represented.</li>
+          <li>Waste is two lumped classes. Clogging, media shape, paper tearing and carry along the drain line are not modelled.</li>
+          <li>Status chips on the simulator use display bands chosen for the tool. They are not values from a standard.</li>
+        </ul>
+      </section>
+
+      <section id="code">
+        <h2>14 · Code map</h2>
+        <p>The model is plain JavaScript with no dependencies and runs the same way in a browser and in Node.js.</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Function in model.js</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td><code>defaults(kind)</code>, <code>PRESETS</code>, <code>COEFFS</code></td><td>Washdown and siphonic presets and the coefficient defaults</td></tr>
+              <tr><td><code>buildGeom(p)</code></td><td>Wall profile tables, pool area and the volume-to-level table</td></tr>
+              <tr><td><code>geomAt</code>, <code>sAtDepth</code>, <code>levelFromVol</code></td><td>Lookups for profile, arc length and pool level</td></tr>
+              <tr><td><code>simulate(p, opts)</code></td><td>Runs one flush and returns results, traces and the cleaning map</td></tr>
+              <tr><td><code>wallNormal</code>, <code>computeFilm</code>, <code>mark</code></td><td>Inside <code>simulate</code>: wall surface, film tracer, footprint stamping</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p><code>simulate</code> takes the parameter object shown in the simulator and the options <code>light</code> (skip traces), <code>coarse</code> (200 ms film updates) and <code>Tend</code> (simulated seconds). The page code in <a href="https://github.com/fintlp/jet-flush-model/blob/main/app.js">app.js</a> only draws results and runs the sweep; it contains no physics.</p>
+        <p>A minimal run in Node.js:</p>
+        <div class="eq">require('./model.js');
+const M = globalThis.FlushModel;
+const p = M.defaults('washdown');
+p.ovality = 1.3; p.jetPhase = 90;
+const r = M.simulate(p, { light: true });
+console.log(r.cleanPct, r.solidsPct, r.water);</div>
+      </section>
+
+      <section id="glossary">
+        <h2>15 · Glossary</h2>
+        <ul>
+          <li><strong>Equivalent radius:</strong> radius of a circle with the same area as the oval section.</li>
+          <li><strong>Ovality:</strong> long axis divided by short axis of the bowl opening.</li>
+          <li><strong>Shear dose:</strong> time integral of wall shear above the critical soil shear, in Pa·s.</li>
+          <li><strong>Seal depth:</strong> vertical distance from the weir crest down to the top of the trap inlet. It keeps sewer gases out.</li>
+          <li><strong>Washdown:</strong> trap type where water spills over the weir and pushes waste out by momentum. Common in Europe.</li>
+          <li><strong>Siphonic:</strong> trap type where the trapway fills, a siphon forms and pulls the pool down. Common in North America.</li>
+          <li><strong>Reduced-order model:</strong> a model that keeps the main physical mechanisms in a few equations instead of resolving the full flow field.</li>
+          <li><strong>SPH:</strong> smoothed particle hydrodynamics, the meshless particle method used by PreonLab.</li>
+          <li><strong>VOF:</strong> volume of fluid, the usual free-surface method in mesh-based CFD.</li>
+          <li><strong>PINN:</strong> physics-informed neural network, a network trained to satisfy the flow equations directly.</li>
+        </ul>
+      </section>
+
+      <section id="sources">
+        <h2>16 · Sources</h2>
+        <ul>
+          <li>FIFTY2: <a href="https://www.fifty2.eu/innovation/boost-your-simulation-performance-with-gpu/" target="_blank" rel="noopener">Boost your simulation performance with GPU</a> (PreonLab runtimes and particle counts)</li>
+          <li>FIFTY2: <a href="https://www.fifty2.eu/innovation/preonlab-6-2-release-event" target="_blank" rel="noopener">PreonLab 6.2 release</a> (GPU rigid bodies, experimental linear elastic solver, Carreau-Yasuda model)</li>
+          <li>FIFTY2: <a href="https://fifty2.eu/innovation/fsi-in-preonlab-sloshing-tank-with-elastic-beam" target="_blank" rel="noopener">FSI in PreonLab, sloshing tank with elastic beam</a></li>
+          <li>FIFTY2: <a href="https://www.fifty2.eu/innovation/water-entry-simulation-of-two-way-coupled-rigid-bodies-in-preonlab/" target="_blank" rel="noopener">Water entry simulation of two-way coupled rigid bodies in PreonLab</a></li>
+          <li>CADFEM: <a href="https://www.cadfem.net/en/cadfem-informs/media-center/cadfem-journal/geberit.html" target="_blank" rel="noopener">Simulation leads Geberit to design a toilet bowl with asymmetrical geometry</a></li>
+          <li>Li et al. (2020): <a href="https://www.scipedia.com/public/Li_et_al_2020c" target="_blank" rel="noopener">Siphon pipe parameter optimization of the toilet using CFD-DEM coupling</a></li>
+          <li>McGreivy and Hakim (2024): <a href="https://arxiv.org/abs/2407.07218" target="_blank" rel="noopener">Weak baselines and reporting biases lead to overoptimism in machine learning for fluid-related PDEs</a>, and the <a href="https://www.pppl.gov/news/2024/replacing-hype-about-artificial-intelligence-accurate-measurements-success" target="_blank" rel="noopener">PPPL summary</a></li>
+        </ul>
+      </section>
+
+      <footer class="foot">
+        <a href="./">← Back to the simulator</a>
+        <span>Tangential Jet Flush Model · Peter Fintl</span>
+      </footer>
+    </main>
+  </div>
+</div>
+</body>
+</html>

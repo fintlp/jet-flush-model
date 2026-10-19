@@ -144,6 +144,11 @@ canvas{display:block;width:100%;max-width:100%}
 .sweep-side{display:grid;gap:10px;font-size:13px}
 .sweep-side .hov{font-family:var(--f-mono);font-size:12.5px;min-height:3.2em;color:var(--ink)}
 
+/* footer */
+.doclink{color:var(--accent);font-weight:500}
+.foot{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:baseline;justify-content:space-between;padding:14px 2px 0;border-top:1px solid var(--line);font-size:13px}
+.foot a{color:var(--accent);font-family:var(--f-display);font-weight:600;letter-spacing:.02em;text-decoration:none}
+.foot a:hover{text-decoration:underline}
 /* method */
 .method{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px 24px}
 .method p{max-width:65ch;color:var(--ink)}
@@ -201,7 +206,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
           <figure>
             <div class="panel-head"><h2>Section</h2><div class="readout" id="roSec"></div></div>
             <canvas id="cvSec" aria-label="Side section of cistern, bowl and trapway with live water levels"></canvas>
-            <div class="legend"><span>Vertical positions to scale. Cistern and trap layout schematic.</span></div>
+            <div class="legend"><span>Section along the long axis. Vertical positions to scale, cistern and trap layout schematic.</span></div>
           </figure>
         </div>
         <div class="transport">
@@ -255,7 +260,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
       </section>
 
       <section class="panel" aria-label="Wall cleaning map">
-        <div class="panel-head"><h2>Wall cleaning map</h2><span class="muted" style="font-size:12.5px">Bowl wall unrolled: angle around the bowl vs. depth below the rim</span></div>
+        <div class="panel-head"><h2>Wall cleaning map</h2><span class="muted" style="font-size:12.5px">Bowl wall unrolled: position around the rim (0° is the end of the long axis) vs. depth below the rim</span></div>
         <canvas id="cvWall" aria-label="Unrolled map of the bowl wall showing where the shear dose cleaned the surface"></canvas>
         <div class="legend">
           <span><i style="background:var(--dry)"></i>Dry</span>
@@ -288,7 +293,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
         <div class="panel-head"><h2>How the model works</h2></div>
         <div class="method">
           <div class="blk"><h3>1 · Cistern and jets</h3><p>The cistern drains through the flush valve and supply path into the rim nozzles. Jet speed follows the head above the nozzles, v = √(2gH / (1+K)), so flow falls as the cistern empties.</p></div>
-          <div class="blk"><h3>2 · Wall film and cleaning</h3><p>Each jet is traced as a spreading film on the bowl wall, a surface of revolution. Gravity, centrifugal force, angular-momentum spin-up and turbulent wall friction act on it. Wall shear τ = ½ρc<sub>f</sub>u² is accumulated per cell over the flush.</p></div>
+          <div class="blk"><h3>2 · Wall film and cleaning</h3><p>Each jet is traced as a spreading film on the oval bowl wall. Gravity and turbulent wall friction act on it, and the wall holds it on its curved path, which gives the centrifugal and spin-up effects. Wall shear τ = ½ρc<sub>f</sub>u² is accumulated per cell over the flush.</p></div>
           <div class="blk"><h3>3 · Pool swirl</h3><p>Film arriving at the pool brings angular momentum. The pool is treated as a rotating body that loses momentum through wall friction and outflow. Its swirl speed sets the vortex dip and how well floating paper is drawn to the outlet.</p></div>
           <div class="blk"><h3>4 · Outflow and waste</h3><p>A washdown bowl spills over the trap weir. A siphonic bowl first fills its trapway, then primes and draws the pool down until air breaks the siphon. Waste leaves when trapway velocity exceeds a transport threshold, limited by a maximum solids concentration.</p></div>
         </div>
@@ -309,13 +314,18 @@ td code{font-family:var(--f-mono);font-size:12.5px}
         </div>
         <h3 style="margin-top:20px">Known limits</h3>
         <ul class="limits muted">
-          <li>The bowl is axisymmetric with an equivalent radius. Real bowls are oval and have the trap inlet off-centre.</li>
+          <li>The bowl is an idealised oval with the same axis ratio at every depth. Real bowls change shape with depth and have the trap inlet off-centre.</li>
           <li>The film is quasi-steady, stays attached to the wall and does not splash or interact with the other jet.</li>
           <li>The pool rotates as a solid body. A real vortex core is deeper than the dip shown.</li>
           <li>Waste is lumped into two classes. Clogging, media shape and drain-line carry are not modelled.</li>
           <li>Status chips use display bands chosen for this tool, not values from a standard.</li>
         </ul>
+        <p style="margin-top:16px"><a class="doclink" href="https://fintlp.github.io/jet-flush-model/method.html" target="_blank" rel="noopener">Read the full model description: equations, numerics, coefficients and calibration</a></p>
       </section>
+      <footer class="foot">
+        <a href="https://fintlp.github.io/jet-flush-model/method.html" target="_blank" rel="noopener">Model details</a>
+        <span class="muted">Tangential Jet Flush Model · Peter Fintl</span>
+      </footer>
     </div>
   </div>
 </div>

@@ -1,5 +1,7 @@
 /* Reduced-order model of an idealised rimless WC flushed by tangential rim jets.
-   Units inside: SI (m, s, kg, Pa). UI parameters use mm, L, cm2, deg. */
+   Units inside: SI (m, s, kg, Pa). UI parameters use mm, L, cm2, deg.
+   Bowl wall: an oval surface whose plan section at every depth is an ellipse with
+   axis ratio `ovality` and the same area as a circle of the equivalent radius r(z). */
 (function (root) {
   const G = 9.81, RHO = 1000, TAU2 = Math.PI * 2;
 
@@ -7,22 +9,22 @@
     washdown: {
       label: 'EU washdown, 4.5/3 L',
       type: 'washdown', Vfull: 4.5, Vpart: 3.0, Hcr: 250, Kpath: 1.0,
-      nJets: 2, Anoz: 4.5, hNoz: 12, alpha: 10,
-      Rrim: 150, Rpool: 62, Dwall: 150, seal: 55, dTrap: 48,
+      nJets: 2, Anoz: 4.5, hNoz: 12, alpha: 10, jetPhase: 0,
+      Rrim: 150, Rpool: 62, ovality: 1.0, Dwall: 150, seal: 55, dTrap: 48,
       Hs: 250, Ks: 3.0, Qgrav: 0.6, Vtrap: 0.5, refill: 0.0
     },
     siphonic: {
       label: 'Siphonic, 4.8 L',
       type: 'siphonic', Vfull: 4.8, Vpart: 3.0, Hcr: 200, Kpath: 1.0,
-      nJets: 2, Anoz: 4.5, hNoz: 12, alpha: 10,
-      Rrim: 150, Rpool: 80, Dwall: 130, seal: 60, dTrap: 50,
+      nJets: 2, Anoz: 4.5, hNoz: 12, alpha: 10, jetPhase: 0,
+      Rrim: 150, Rpool: 80, ovality: 1.0, Dwall: 130, seal: 60, dTrap: 50,
       Hs: 250, Ks: 3.0, Qgrav: 0.6, Vtrap: 0.5, refill: 0.6
     }
   };
 
   const COEFFS = {
     Acist: 0.035, tOpen: 0.15, Lweir: 70, Cweir: 1.7,
-    cf: 0.008, ksp: 0.22, tauC: 3.0, Jcrit: 1.5, cfp: 0.02, eta: 0.5,
+    cf: 0.008, ksp: 0.22, tauC: 3.0, Jcrit: 1.5, cfp: 0.02, eta: 0.5, kov: 2.0,
     ucS: 0.35, ucP: 0.45, cmax: 0.12, kS: 2.0, kP: 1.2, beta: 0.2, phi0: 0.2, Fr0: 0.1,
     rhoS: 1100, sealMin: 50
   };
@@ -129,16 +131,39 @@
     const Hcr = p.Hcr / 1000, Lw = p.Lweir / 1000, ds = g.ds;
     const Hs = p.Hs / 1000, Qg = p.Qgrav / 1000, Vtrap = p.Vtrap / 1000;
     const siph = p.type === 'siphonic';
+    // oval pool: perimeter factor (Ramanujan) and extra swirl loss on non-circular walls
+    const Eo = Math.max(1, p.ovality || 1), ea = Math.sqrt(Eo), eb = 1 / Math.sqrt(Eo);
+    const perimF = Math.PI * (3 * (ea + eb) - Math.sqrt((3 * ea + eb) * (ea + 3 * eb))) / TAU2;
+    const ovPen = 1 + (p.kov == null ? 2 : p.kov) * (Eo - 1);
 
     // wall grid
     const NC = NTH * NS, dth = TAU2 / NTH, dsb = g.S / NS;
     const J = new Float32Array(NC), tWet = new Float32Array(NC).fill(Infinity), tClean = new Float32Array(NC).fill(Infinity);
     const tauStep = new Float32Array(NC), stamp = new Int32Array(NC).fill(-1);
     const cellA = new Float32Array(NC);
+    const E = Math.max(1, p.ovality || 1), sE = Math.sqrt(E);
+    const Rr = g.Rr, Rp = g.Rp, Dw = g.D, kz = Math.PI / (2 * Dw);
+    const Rz = (z) => Rp + (Rr - Rp) * Math.cos(kz * z);          // equivalent radius at depth z
+    const dRz = (z) => -(Rr - Rp) * kz * Math.sin(kz * z);        // dR/dz
     for (let is = 0; is < NS; is++) {
-      const r = geomAt(g, (is + 0.5) * dsb).r;
-      for (let it = 0; it < NTH; it++) cellA[is * NTH + it] = r * dth * dsb;
+      const z0 = geomAt(g, is * dsb).z, z1 = geomAt(g, (is + 1) * dsb).z, zc = 0.5 * (z0 + z1);
+      const R = Rz(zc), dR = dRz(zc);
+      for (let it = 0; it < NTH; it++) {
+        const th = (it + 0.5) * dth, c = Math.cos(th), sn = Math.sin(th);
+        // |dX/dtheta x dX/dz| for X = (R sE cos, R/sE sin, z)
+        const ax = -R * sE * sn, ay = R / sE * c, bx = dR * sE * c, by = dR / sE * sn;
+        const cx = ay * 1 - 0 * by, cy = 0 * bx - ax * 1, cz = ax * by - ay * bx;
+        cellA[is * NTH + it] = Math.hypot(cx, cy, cz) * dth * (z1 - z0);
+      }
     }
+    // map a point on (or near) the wall to its cell
+    const cellOf = (x, y, z) => {
+      if (z < 0) return -1;
+      const s = sAtDepth(g, z);
+      let a = Math.atan2(y * sE, x / sE); if (a < 0) a += TAU2;
+      const it = Math.min(NTH - 1, (a / dth) | 0), is = Math.min(NS - 1, (s / dsb) | 0);
+      return is * NTH + it;
+    };
     const touched = [];
     let cur = 0;
 
@@ -146,20 +171,25 @@
     const lines = [];
     const dl = 0.006, samp = 0.005;
 
-    function mark(th, s, r, uth, um, U, w, tau, sStop) {
-      const px = -um / U, py = uth / U;
+    // stamp the film footprint: a segment of width w across the flow, in the tangent plane
+    function mark(x, y, z, dx, dy, dz, w, tau, zStop) {
       const n = Math.max(1, Math.ceil(w / samp));
       for (let i = 0; i <= n; i++) {
         const off = (i / n - 0.5) * w;
-        const ys = s + off * py;
-        if (ys < 0 || ys >= sStop) continue;
-        let a = th + off * px / r;
-        a = ((a % TAU2) + TAU2) % TAU2;
-        const it = Math.min(NTH - 1, (a / dth) | 0), is = Math.min(NS - 1, (ys / dsb) | 0);
-        const idx = is * NTH + it;
+        const zz = z + off * dz;
+        if (zz < 0 || zz >= zStop) continue;
+        const idx = cellOf(x + off * dx, y + off * dy, zz);
+        if (idx < 0) continue;
         if (stamp[idx] !== cur) { stamp[idx] = cur; tauStep[idx] = tau; touched.push(idx); }
         else if (tau > tauStep[idx]) tauStep[idx] = tau;
       }
+    }
+    // wall surface F(x,y,z) = rho(x,y) - R(z) = 0, rho = sqrt(x^2/E + E y^2); F < 0 inside the bowl
+    function wallNormal(x, y, z, out) {
+      const rho = Math.max(1e-9, Math.sqrt(x * x / E + E * y * y));
+      let nx = x / (E * rho), ny = E * y / rho, nz = -dRz(z);
+      const m = Math.hypot(nx, ny, nz); nx /= m; ny /= m; nz /= m;
+      out[0] = nx; out[1] = ny; out[2] = nz; out[3] = rho - Rz(z); out[4] = m;
     }
 
     function computeFilm(vj, Qj, z, t) {
@@ -167,32 +197,57 @@
       const rec = light ? null : { t, jets: [] };
       if (Qj < 2e-5 || vj < 0.05) { film.active = false; if (rec) lines.push(rec); return; }
       film.active = true;
-      const sStop = Math.min(g.S, sAtDepth(g, g.D - z));
+      const zStop = Math.max(0.002, Math.min(g.D, g.D - z));   // waterline depth below the rim
+      const nrm = new Float64Array(5), phase = (p.jetPhase || 0) * Math.PI / 180;
       let sumL = 0;
       for (let j = 0; j < nJ; j++) {
-        let th = j * TAU2 / nJ, s = 0.004, uth = vj * Math.cos(alpha), um = vj * Math.sin(alpha), w = w0;
-        const pts = rec ? [th, s] : null;
-        let r = g.Rr, k = 0;
-        for (; k < 500; k++) {
-          const gm = geomAt(g, s); r = gm.r;
-          const U = Math.hypot(uth, um);
+        // nozzle on the rim ellipse, jet tangent to the rim and tilted down by alpha
+        const th0 = phase + j * TAU2 / nJ, z0 = 0.004, R0 = Rz(z0);
+        let x = R0 * sE * Math.cos(th0), y = R0 / sE * Math.sin(th0), zp = z0;
+        let tx = -sE * Math.sin(th0), ty = Math.cos(th0) / sE; const tm = Math.hypot(tx, ty); tx /= tm; ty /= tm;
+        let vx = vj * Math.cos(alpha) * tx, vy = vj * Math.cos(alpha) * ty, vz = vj * Math.sin(alpha);
+        let w = w0;
+        const pts = rec ? [] : null;
+        const pushPt = () => { let a = Math.atan2(y * sE, x / sE); if (a < 0) a += TAU2; pts.push(x, y, a, sAtDepth(g, Math.max(0, zp))); };
+        if (pts) pushPt();
+        for (let k = 0; k < 500; k++) {
+          const U = Math.hypot(vx, vy, vz);
           if (U < 0.05) break;
+          wallNormal(x, y, zp, nrm);
+          const nx = nrm[0], ny = nrm[1], nz = nrm[2];
           const h = Math.min(hN, Qj / (U * w));
           const tau = 0.5 * RHO * p.cf * U * U;
-          mark(th, s, r, uth, um, U, w, tau, sStop);
-          const dtp = dl / U;
-          const af = p.cf * U / (2 * h);
-          const duth = -(um * uth / r) * gm.drds - af * uth;
-          const dum = G * gm.dzds + (uth * uth / r) * gm.drds - af * um;
-          uth += duth * dtp; um += dum * dtp;
-          th += uth / r * dtp; s += um * dtp;
-          if (s < 0) { s = 0; if (um < 0) um = 0; }
+          // footprint across the flow: d = n x u_hat
+          let dx = ny * vz - nz * vy, dy = nz * vx - nx * vz, dz = nx * vy - ny * vx;
+          const dm = Math.hypot(dx, dy, dz) || 1; dx /= dm; dy /= dm; dz /= dm;
+          mark(x, y, zp, dx, dy, dz, w, tau, zStop);
+          const dtp = dl / U, af = p.cf * U / (2 * h);
+          // forces: gravity (+z is down) and wall friction against the velocity
+          const ax = -af * vx, ay = -af * vy, az = G - af * vz;
+          // tangential part of the force sets the speed change; the wall reaction does no work
+          const an = ax * nx + ay * ny + az * nz;
+          const atx = ax - an * nx, aty = ay - an * ny, atz = az - an * nz;
+          const Ut = Math.max(0, U + (atx * vx + aty * vy + atz * vz) / U * dtp);
+          vx += ax * dtp; vy += ay * dtp; vz += az * dtp;
+          x += vx * dtp; y += vy * dtp; zp += vz * dtp;
+          if (zp < 0.001) { zp = 0.001; if (vz < 0) vz = 0; }
+          // project back onto the wall (two Newton steps on F)
+          for (let it2 = 0; it2 < 2; it2++) {
+            wallNormal(x, y, zp, nrm);
+            const F = nrm[3], gm = nrm[4];
+            x -= F * nrm[0] / gm; y -= F * nrm[1] / gm; zp -= F * nrm[2] / gm;
+          }
+          wallNormal(x, y, zp, nrm);
+          const vn = vx * nrm[0] + vy * nrm[1] + vz * nrm[2];
+          vx -= vn * nrm[0]; vy -= vn * nrm[1]; vz -= vn * nrm[2];
+          const Vm = Math.hypot(vx, vy, vz) || 1;
+          vx *= Ut / Vm; vy *= Ut / Vm; vz *= Ut / Vm;
           w += p.ksp * dl;
-          if (pts && (k % 3 === 0)) pts.push(th, s);
-          if (s >= sStop) break;
+          if (pts && (k % 3 === 0)) pushPt();
+          if (zp >= zStop) break;
         }
-        if (pts) { pts.push(th, Math.min(s, sStop)); rec.jets.push({ pts, w }); }
-        sumL += Math.max(0, uth) * r;
+        if (pts) { pushPt(); rec.jets.push({ pts, w }); }
+        sumL += Math.max(0, x * vy - y * vx);   // angular momentum per unit mass about the bowl axis
       }
       film.uthArr = sumL / nJ; film.rArr = 1;
       // apply shear impulse for this update interval
@@ -247,12 +302,12 @@
       // swirl (angular momentum of pool, solid-body)
       const Vpool = Math.max(1e-4, g.Vstatic + Vrel);
       const Rc = g.rAtLevel(z);
-      const I = 0.5 * RHO * Vpool * Rc * Rc;
+      const I = 0.25 * RHO * Vpool * Rc * Rc * (E + 1 / E);   // elliptic pool, same area as circle of radius Rc
       let om = L / I;
       const Tin = film.active ? p.eta * RHO * Qin * film.uthArr : 0;
       const Tout = (Qout / Vpool) * L;
-      const Awet = Math.PI * Rc * Rc + TAU2 * Rc * (ds + 0.03 + Math.max(z, 0));
-      const Tf = 0.5 * RHO * p.cfp * Awet * (om * Rc) ** 2 * Rc;
+      const Awet = Math.PI * Rc * Rc + perimF * TAU2 * Rc * (ds + 0.03 + Math.max(z, 0));
+      const Tf = 0.5 * RHO * p.cfp * ovPen * Awet * (om * Rc) ** 2 * Rc;
       L = Math.max(0, L + (Tin - Tout - Tf) * dt);
       om = L / I; phi += om * dt;
       const vs = om * Rc, dip = vs * vs / (2 * G);
