@@ -282,7 +282,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
       <span class="eyebrow">Flush simulator · physics model + AI</span>
       <h1>Tangential Jet Flush Model</h1>
       <p class="lede">A fast model of how a rimless toilet flushes. Rim jets wash the bowl, swirl the pool and carry waste through the trap. Each flush computes in milliseconds, so you can change the design and see the effect on cleaning, waste removal and water use right away. An AI lab searches for better designs and shows how the model would be trained and calibrated with PreonLab. The coefficients are not calibrated yet, so read the results as trends.</p>
-      <p class="lede-detail">Under the hood: a reduced-order model from cistern to trap, covering jet films on an oval bowl wall, pool swirl, washdown or siphonic outflow and waste transport. One flush takes 5 to 20 ms in the browser, thousands of times faster than a free-surface CFD case. <a href="https://fintlp.github.io/jet-flush-model/method.html" target="_blank" rel="noopener">How the model works</a></p>
+      <p class="lede-detail">Under the hood: a reduced-order model from cistern to trap, covering jet films on an oval bowl wall, pool swirl, washdown or siphonic outflow and waste transport. One flush takes 5 to 20 ms in the browser, thousands of times faster than a free-surface CFD case. <a href="https://fintlp.github.io/jet-flush-model/method.html" target="_blank" rel="noopener">How the model works</a> · <a href="https://fintlp.github.io/jet-flush-model/why.html" target="_blank" rel="noopener">Why we built this</a> · Slides: <a href="https://fintlp.github.io/jet-flush-model/slides/jet-flush-model.pptx" target="_blank" rel="noopener">PowerPoint</a>, <a href="https://fintlp.github.io/jet-flush-model/slides/jet-flush-model.pdf" target="_blank" rel="noopener">PDF</a></p>
     </div>
     <div class="actions">
       <select id="preset" aria-label="Design preset">
@@ -311,7 +311,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
   </section>
 
   <nav class="jump" aria-label="Page sections">
-    <a href="#sim">Simulate</a><a href="#results">Results</a><a href="#traces">Traces</a><a href="#wallmap">Wall map</a><a href="#sweep">Sweep</a><a href="#ai-lab">AI lab</a><a href="#how">How it works</a>
+    <a href="#sim">Simulate</a><a href="#results">Results</a><a href="#traces">Traces</a><a href="#wallmap">Wall map</a><a href="#sweep">Sweep</a><a href="#ai-lab">AI lab</a><a href="#how">How it works</a><a href="https://fintlp.github.io/jet-flush-model/why.html" target="_blank" rel="noopener">Why</a>
     <button type="button" class="jump-demo" id="demoBtn2">Demo me</button>
   </nav>
 
@@ -544,7 +544,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
         <p style="margin-top:16px"><a class="doclink" href="https://fintlp.github.io/jet-flush-model/method.html" target="_blank" rel="noopener">Read the full model description: equations, numerics, coefficients and calibration</a></p>
       </section>
       <footer class="foot">
-        <span class="footlinks"><a href="https://fintlp.github.io/jet-flush-model/method.html" target="_blank" rel="noopener">Model details</a><a href="https://fintlp.github.io/jet-flush-model/sources.html" target="_blank" rel="noopener">Sources and references</a></span>
+        <span class="footlinks"><a href="https://fintlp.github.io/jet-flush-model/why.html" target="_blank" rel="noopener">Why we built this</a><a href="https://fintlp.github.io/jet-flush-model/method.html" target="_blank" rel="noopener">Model details</a><a href="https://fintlp.github.io/jet-flush-model/sources.html" target="_blank" rel="noopener">Sources and references</a><a href="https://fintlp.github.io/jet-flush-model/slides/jet-flush-model.pptx" target="_blank" rel="noopener">Slides, PowerPoint</a><a href="https://fintlp.github.io/jet-flush-model/slides/jet-flush-model.pdf" target="_blank" rel="noopener">Slides, PDF</a></span>
         <span class="muted">Tangential Jet Flush Model · Peter Fintl</span>
       </footer>
     </div>
@@ -554,9 +554,9 @@ td code{font-family:var(--f-mono);font-size:12.5px}
     <button type="button" class="btn primary" id="mobarBtn" aria-expanded="false" aria-controls="rail">Adjust design</button>
   </div>
 </div>
-<script src="model.js?v=7"></script>
-<script src="app.js?v=7"></script>
-<script src="ai.js?v=7"></script>
-<script src="tour.js?v=7"></script>
+<script src="model.js?v=8"></script>
+<script src="app.js?v=8"></script>
+<script src="ai.js?v=8"></script>
+<script src="tour.js?v=8"></script>
 </body>
 </html>

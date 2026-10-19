@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Why build a fast physics model with AI on top: faster loops from idea to engineering to manufacturing, with high-fidelity tools used where they decide.">
+<title>Why This Model</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Layout: technical report. Narrow reading column with a sticky contents rail on wide screens; equations and tables sit in their own blocks. */
+:root{
+  --bg:#edf1f2; --surface:#f8fafa; --raised:#ffffff; --ink:#13222a; --muted:#56676f; --line:#d3dcdf; --line-strong:#9fb0b6;
+  --accent:#1f4fbf; --water:#3a8db6; --water-soft:#d6e9f2; --clean:#17876c; --solid:#8a5a2b; --warn:#a86b0c;
+  --f-display:"IBM Plex Sans Condensed","Arial Narrow",Arial,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0d151a; --surface:#131e24; --raised:#18252c; --ink:#e2eaed; --muted:#8c9fa7; --line:#24333b; --line-strong:#4a5f69;
+  --accent:#7fa6ff; --water:#4aa5d2; --water-soft:#1c3a48; --clean:#35b58e; --solid:#c48b52; --warn:#e2a646; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0d151a; --surface:#131e24; --raised:#18252c; --ink:#e2eaed; --muted:#8c9fa7; --line:#24333b; --line-strong:#4a5f69;
+  --accent:#7fa6ff; --water:#4aa5d2; --water-soft:#1c3a48; --clean:#35b58e; --solid:#c48b52; --warn:#e2a646; color-scheme:dark }
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.62}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:20px 64px}
+a{color:var(--accent)}
+.site{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:22px;font-family:var(--f-display);font-weight:600;font-size:14px;letter-spacing:.02em}
+.site a{text-decoration:none}
+.site a:hover{text-decoration:underline}
+h1,h2,h3,h4{font-family:var(--f-display);text-wrap:balance;line-height:1.15;margin:0}
+h1{font-size:clamp(30px,4vw,44px);font-weight:700}
+h2{font-size:26px;font-weight:700;margin-top:56px;padding-top:12px;border-top:1px solid var(--line)}
+h3{font-size:19px;font-weight:600;margin-top:30px}
+h4{font-size:16px;font-weight:600;margin-top:20px}
+p,ul,ol{margin:12px 0 0;max-width:68ch}
+li{margin-top:4px}
+.eyebrow{font-family:var(--f-display);font-weight:600;font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.lede{font-size:18px;color:var(--muted);max-width:62ch;margin-top:12px}
+.meta{font-family:var(--f-mono);font-size:13px;color:var(--muted);margin-top:14px}
+.layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:48px;margin-top:34px;align-items:start}
+@media (max-width:900px){ .layout{grid-template-columns:minmax(0,1fr)} .toc{position:static!important;max-height:none!important} }
+.toc{position:sticky;top:calc(env(safe-area-inset-top, 0px) + 16px);max-height:calc(100vh - 32px);overflow:auto;font-size:14px;border-left:1px solid var(--line);padding-left:14px}
+.toc ol{list-style:none;padding:0;margin:8px 0 0}
+.toc li{margin:6px 0}
+.toc a{text-decoration:none;color:var(--ink)}
+.toc a:hover{color:var(--accent)}
+.toc .n{font-family:var(--f-mono);color:var(--muted);margin-right:6px;font-size:12.5px}
+main{min-width:0}
+main > section:first-child h2{margin-top:0}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin-top:18px;max-width:72ch}
+.box h4{margin-top:0}
+.box.note{border-color:var(--warn)}
+.eq{font-family:var(--f-mono);font-size:14.5px;background:var(--raised);border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-top:14px;max-width:72ch;overflow-x:auto;white-space:pre;line-height:1.7}
+.eq .c{color:var(--muted)}
+code{font-family:var(--f-mono);font-size:.9em;background:var(--raised);border:1px solid var(--line);border-radius:5px;padding:0 4px}
+.sym{font-style:italic;font-family:var(--f-body)}
+.tablewrap{overflow-x:auto;margin-top:16px;max-width:100%}
+table{border-collapse:collapse;font-size:14px;min-width:640px;width:100%;background:var(--raised);border:1px solid var(--line)}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--f-display);font-weight:600;font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--surface)}
+td.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+figure{margin:20px 0 0;max-width:100%}
+figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
+.diagram{overflow-x:auto;background:var(--raised);border:1px solid var(--line);border-radius:12px;padding:12px}
+.diagram svg{display:block;min-width:720px;width:100%;height:auto}
+.d-box{fill:var(--surface);stroke:var(--line-strong);stroke-width:1.2}
+.d-box.out{fill:var(--water-soft);stroke:var(--water)}
+.d-t{fill:var(--ink);font-family:var(--f-display);font-weight:600;font-size:15px}
+.d-s{fill:var(--muted);font-family:var(--f-mono);font-size:11.5px}
+.d-a{stroke:var(--muted);stroke-width:1.4;fill:none}
+.d-ah{fill:var(--muted)}
+.d-fb{stroke:var(--accent);stroke-width:1.4;fill:none;stroke-dasharray:5 4}
+.d-l{fill:var(--accent);font-family:var(--f-mono);font-size:11.5px}
+.steps{counter-reset:st;list-style:none;padding:0;max-width:72ch}
+.steps li{counter-increment:st;position:relative;padding-left:34px;margin-top:10px}
+.steps li::before{content:counter(st);position:absolute;left:0;top:1px;width:23px;height:23px;border-radius:50%;background:var(--accent);color:var(--raised);font-family:var(--f-mono);font-size:12.5px;display:grid;place-items:center}
+.foot{margin-top:64px;padding-top:14px;border-top:1px solid var(--line);font-size:14px;color:var(--muted);display:flex;flex-wrap:wrap;gap:8px 20px;justify-content:space-between}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.navl{display:inline-flex;gap:18px;flex-wrap:wrap}
+.why-hero{max-width:860px}
+.why-hero h1{font-size:clamp(34px,5vw,56px)}
+.why{max-width:1000px;margin-top:10px}
+.why section{margin-top:8px}
+.why h2{max-width:none}
+.statrow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:22px;max-width:900px}
+@media (max-width:720px){ .statrow{grid-template-columns:minmax(0,1fr)} }
+.stat{background:var(--raised);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:grid;gap:6px}
+.stat .v{font-family:var(--f-display);font-weight:700;font-size:32px;line-height:1;color:var(--accent);font-variant-numeric:tabular-nums}
+.stat .l{font-size:13.5px;color:var(--muted)}
+.funnel{margin-top:20px}
+.funnel svg{display:block;width:100%;height:auto;max-width:900px;min-width:620px}
+.funnel{overflow-x:auto}
+.f-band{stroke:none}
+.f-band.b1{fill:var(--water-soft)}
+.f-band.b2{fill:color-mix(in srgb, var(--accent) 22%, var(--raised))}
+.f-band.b3{fill:color-mix(in srgb, var(--clean) 26%, var(--raised))}
+.f-t{fill:var(--ink);font-family:var(--f-display);font-weight:600;font-size:17px}
+.f-s{fill:var(--muted);font-family:var(--f-mono);font-size:12px}
+.f-l{fill:var(--accent);font-family:var(--f-mono);font-size:12px}
+.f-n{fill:var(--muted);font-family:var(--f-body);font-size:12.5px}
+.f-fb{fill:none;stroke:var(--accent);stroke-width:1.6;stroke-dasharray:6 5}
+.f-ah{fill:var(--accent)}
+.tiers,.phases{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:20px}
+@media (max-width:820px){ .tiers,.phases{grid-template-columns:minmax(0,1fr)} }
+.tier,.phase{background:var(--raised);border:1px solid var(--line);border-radius:12px;padding:16px 18px;min-width:0}
+.tier h3{margin-top:0}
+.tier p,.phase p{font-size:15px}
+.ph{display:inline-block;font-family:var(--f-display);font-weight:700;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.note{font-size:14px;color:var(--muted)}
+.ticks{list-style:none;padding:0;max-width:72ch}
+.ticks li{position:relative;padding-left:24px;margin-top:8px}
+.ticks li::before{content:"";position:absolute;left:4px;top:.55em;width:9px;height:9px;border-radius:2px;background:var(--clean)}
+.uses{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:18px}
+.uses div{background:var(--raised);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:grid;gap:3px}
+.uses b{font-family:var(--f-display);font-weight:600}
+.uses span{font-size:14px;color:var(--muted)}
+.cta{border-top:0}
+.cta-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+.btn{display:inline-block;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);border-radius:9px;padding:9px 16px;font-family:var(--f-display);font-weight:600;font-size:15px;text-decoration:none}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--raised)}
+.muted{color:var(--muted);font-size:14px;margin-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="site" aria-label="Site">
+    <span class="navl"><a href="./">← Simulator</a><a href="method.html">Model description</a><a href="sources.html">Sources</a></span>
+    <a href="https://fintlp.github.io/latest-news/#contact" target="_blank" rel="noopener">Peter Fintl · Contact</a>
+  </nav>
+
+  <header class="why-hero">
+    <span class="eyebrow">Why we built this · Tangential Jet Flush Model</span>
+    <h1>Why are we doing this?</h1>
+    <p class="lede">Engineering rarely slows down because people run out of ideas. It slows down because every idea waits for a simulation, a prototype or a test slot. This simulator is a small, concrete example of a different way to work: answer most questions in seconds, and spend the slow, expensive tools only where they make the decision.</p>
+    <p class="meta">Peter Fintl · 19 October 2026</p>
+  </header>
+
+  <div class="why">
+    <section id="problem">
+      <h2>The bottleneck is the loop, not the solver</h2>
+      <p>In a typical product development, a design question goes into a queue. Someone builds a CFD case or a prototype, it runs overnight or for days, and the answer comes back when the team has already moved on. Geberit, for example, reported about one day per design iteration for its bowl development, with more than a hundred virtual drafts before the first prototype.</p>
+      <p>That is fast by the standards of physical testing. But it means a team can only afford to ask a few questions, so most design decisions are still made on experience before any number exists. And the later a weak decision is found, the more it costs to change: in the tool, the mould, the production line.</p>
+      <div class="statrow">
+        <div class="stat"><span class="v">≈ 1 day</span><span class="l">per design iteration with overnight CFD, in a published bowl development</span></div>
+        <div class="stat"><span class="v">5–20 ms</span><span class="l">per flush with the physics model on this page, in a browser</span></div>
+        <div class="stat"><span class="v">≈ 540</span><span class="l">designs searched by the AI lab in about 4 seconds</span></div>
+      </div>
+    </section>
+
+    <section id="approach">
+      <h2>Three speeds of simulation, used together</h2>
+      <p>The answer is not to replace CFD. It is to put the right tool at each stage and connect them, so that slow tools are only used for the few designs that deserve them.</p>
+      <figure class="funnel">
+        <svg viewBox="0 0 900 330" role="img" aria-label="Three tiers: fast physics screens thousands of designs, AI narrows them to tens, high-fidelity simulation and tests check a few; their results flow back to calibrate the fast model">
+          <defs><marker id="wa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="f-ah"/></marker></defs>
+          <path class="f-band b1" d="M20 40 H620 L580 110 H60 Z"/>
+          <path class="f-band b2" d="M60 125 H580 L540 195 H100 Z"/>
+          <path class="f-band b3" d="M100 210 H540 L500 280 H140 Z"/>
+          <text class="f-t" x="320" y="72" text-anchor="middle">Fast physics model</text><text class="f-s" x="320" y="94" text-anchor="middle">thousands of variants · milliseconds each</text>
+          <text class="f-t" x="320" y="157" text-anchor="middle">AI on top</text><text class="f-s" x="320" y="179" text-anchor="middle">optimise · learn a surrogate · tens of candidates</text>
+          <text class="f-t" x="320" y="242" text-anchor="middle">High fidelity: PreonLab, CFD, rig</text><text class="f-s" x="320" y="264" text-anchor="middle">a few finalists · minutes to days each</text>
+          <path class="f-fb" d="M545 245 H760 V75 H632" marker-end="url(#wa)"/>
+          <text class="f-l" x="772" y="150">results</text><text class="f-l" x="772" y="168">calibrate</text><text class="f-l" x="772" y="186">the fast model</text>
+          <text class="f-n" x="40" y="315">Decision quality rises at each tier; cost per answer rises too.</text>
+        </svg>
+        <figcaption>Fast physics explores, AI narrows, high-fidelity tools decide. Every expensive run also improves the fast model, so the loop gets better with use.</figcaption>
+      </figure>
+      <div class="tiers">
+        <div class="tier"><h3>1 · Fast physics</h3><p>A reduced-order model keeps the main mechanisms in a few equations: here the cistern, the jet films, the pool swirl, the trap and the waste. It is explainable, it runs anywhere, and engineers can argue with it. That makes it a thinking tool, not only a calculator.</p></div>
+        <div class="tier"><h3>2 · AI on top</h3><p>Optimisation searches the design space for trade-offs and targets. Neural surrogates learn expensive models and answer in microseconds. Hybrid models combine physics with a data-driven correction. None of this needs the physics to be perfect; it needs it to point the right way.</p></div>
+        <div class="tier"><h3>3 · High fidelity where it counts</h3><p>PreonLab, CFD and the test rig check the few designs that survive. Their results flow back to calibrate the fast model and train the surrogate. Each expensive run is used twice: for the decision, and to make every later answer better.</p></div>
+      </div>
+    </section>
+
+    <section id="lifecycle">
+      <h2>From idea to engineering to manufacturing</h2>
+      <div class="phases">
+        <div class="phase"><span class="ph">Idea</span><p>Test a concept in the meeting where it comes up. Make the bowl oval, move the jets, cut a litre of water, and see the effect before the discussion ends. The <a href="./#demo">guided demo</a> shows this in one minute.</p></div>
+        <div class="phase"><span class="ph">Engineering</span><p>Narrow the design space before booking CFD or rig time. Set the targets that matter, such as water per flush, cleaning and waste removal, and let the optimiser find candidates. Spend the slow tools on five designs, not fifty.</p></div>
+        <div class="phase"><span class="ph">Manufacturing</span><p>Check how robust a design is to what production will really deliver: nozzle tolerances, glaze, small shape deviations. When one variant takes milliseconds, sweeping thousands of tolerance combinations is cheap. Rig and field data from production then recalibrate the model.</p></div>
+      </div>
+      <p class="note">The tolerance study is the natural next feature for this simulator. The design sweep already shows the principle on two parameters at a time.</p>
+    </section>
+
+    <section id="beyond">
+      <h2>Beyond classical numerical methods</h2>
+      <p>Classical simulation answers one precise question per run. The methods combined here answer many approximate questions per second, and say how far to trust them:</p>
+      <ul class="ticks">
+        <li><b>Reduced-order physics</b> instead of resolving every eddy, so the mechanism stays visible.</li>
+        <li><b>Evolutionary optimisation</b> instead of one-at-a-time parameter studies.</li>
+        <li><b>Neural surrogates</b> that turn hours of solver time into microseconds, once trained.</li>
+        <li><b>Hybrid calibration</b> that keeps the physics and lets data correct what it misses, with an uncertainty that grows away from known designs.</li>
+      </ul>
+      <div class="box">
+        <h4>What this does not do</h4>
+        <p>It does not replace validation. The model on this page is not calibrated yet, so its numbers show trends between designs, not certified values. AI suggestions are candidates for a CFD or rig check, never the final answer. The gain is in how quickly a team gets to the right few questions.</p>
+      </div>
+    </section>
+
+    <section id="elsewhere">
+      <h2>The toilet is the example, not the limit</h2>
+      <p>A flush is a good showcase because it combines free-surface flow, thin films, swirl and transport of solids, and everyone understands the result. The same pattern applies wherever fluids or other physics make design loops slow:</p>
+      <div class="uses">
+        <div><b>Vehicle water management</b><span>rain, wading and washer fluid on body, sensors and seals</span></div>
+        <div><b>Lubrication and cooling</b><span>oil splash in gearboxes, e-motor and battery cooling</span></div>
+        <div><b>Appliances</b><span>dishwashers, washing machines, coffee machines</span></div>
+        <div><b>Process and cleaning</b><span>tank cleaning, spray systems, clean-in-place</span></div>
+        <div><b>Building services</b><span>drainage, HVAC, water-saving fittings</span></div>
+        <div><b>Sensors and ADAS</b><span>keeping cameras and lidar clean and dry</span></div>
+      </div>
+    </section>
+
+    <section id="start">
+      <h2>How a team would start</h2>
+      <ol class="steps">
+        <li><b>Pick one recurring design question</b> that today waits for CFD or tests.</li>
+        <li><b>Write down the main mechanisms</b> with the people who know them, and build a fast model around them.</li>
+        <li><b>Calibrate it</b> with CFD or test data you already have, and check it on cases it has not seen.</li>
+        <li><b>Put it in front of engineers</b> as a simple web tool, so it gets used in design meetings, not only by specialists.</li>
+        <li><b>Add AI and close the loop:</b> optimisation and surrogates on top, and every new high-fidelity run feeding back into the model.</li>
+      </ol>
+    </section>
+
+    <section id="next" class="cta">
+      <h2>See it for yourself</h2>
+      <div class="cta-row">
+        <a class="btn primary" href="./#demo">▶ Start the guided demo</a>
+        <a class="btn" href="./">Open the simulator</a>
+        <a class="btn" href="slides/jet-flush-model.pptx" download>Slides, PowerPoint</a>
+        <a class="btn" href="slides/jet-flush-model.pdf" target="_blank" rel="noopener">Slides, PDF</a>
+      </div>
+      <p class="muted">Sources for the figures on this page are on the <a href="sources.html">sources and references page</a>. The 5–20 ms and 540-design figures were measured with this simulator; the one-day iteration comes from the Geberit report by CADFEM.</p>
+    </section>
+
+    <footer class="foot">
+      <span class="navl"><a href="./">← Simulator</a><a href="method.html">Model description</a><a href="sources.html">Sources and references</a></span>
+      <span>Tangential Jet Flush Model · Peter Fintl</span>
+    </footer>
+  </div>
+</div>
+</body>
+</html>

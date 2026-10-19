@@ -2,10 +2,12 @@
 
 A fast model of how a rimless toilet flushes. Rim jets wash the bowl, swirl the pool and carry waste through the trap. Each flush computes in milliseconds in the browser, so you can change the design and see the effect on cleaning, waste removal and water use right away. An AI lab searches for better designs and shows how the model would be trained and calibrated with PreonLab.
 
-**Live simulator:** https://fintlp.github.io/jet-flush-model/
-**Guided demo:** https://fintlp.github.io/jet-flush-model/#demo
-**How the model works:** https://fintlp.github.io/jet-flush-model/method.html
-**Sources and references:** https://fintlp.github.io/jet-flush-model/sources.html
+- **Live simulator:** https://fintlp.github.io/jet-flush-model/
+- **Guided demo:** https://fintlp.github.io/jet-flush-model/#demo
+- **How the model works:** https://fintlp.github.io/jet-flush-model/method.html
+- **Sources and references:** https://fintlp.github.io/jet-flush-model/sources.html
+- **Why we built this:** https://fintlp.github.io/jet-flush-model/why.html
+- **Slides:** [PowerPoint](slides/jet-flush-model.pptx) (with videos) · [PDF](slides/jet-flush-model.pdf)
 
 ![Flush playback: bowl from above and section](media/playback.png)
 
@@ -88,8 +90,9 @@ console.log(r.cleanPct, r.solidsPct, r.paperPct, r.water);
 | `tour.js` | The Demo me walkthrough |
 | `method.html` | Full model description: equations, numerics, coefficients, calibration |
 | `sources.html` | Sources and references |
+| `why.html` | Why we built this: faster loops from idea to engineering to manufacturing |
 | `media/` | Video of a flush (`flush-playback.mp4`), a recorded Demo me walkthrough (`demo-walkthrough.mp4`) and stills of each view and of the AI lab |
-| `slides/jet-flush-model.pptx` | Three slides with embedded videos, key results and links; each slide carries the author, the repository link and the date |
+| `slides/jet-flush-model.pptx`, `.pdf` | Three slides with embedded videos, key results and links; each slide carries the author, the repository link and the date |
 
 ## Calibration
 
@@ -99,6 +102,7 @@ The coefficients that describe physics the model does not resolve (film friction
 
 All changes on 19 October 2026.
 
+- **4.2** "Why we built this" page, and links to the slides (PowerPoint and PDF) from all pages.
 - **4.1** Full documentation: this README, a section on the page tools, version history, new stills, a recorded Demo me walkthrough, two more slides, and your name, the repository link and the date on every slide.
 - **4.0** Usability: Start here strip, section menu, Undo, Reset, Pin as reference, change chips on all results, help for every slider, phone drawer, and the Demo me walkthrough with a `#demo` link.
 - **3.1** Optimiser: choose which settings may change, including bowl geometry, number of jets and partial flush; meet targets; thorough search option.
