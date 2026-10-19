@@ -1,0 +1,685 @@
+(function () {
+  const M = window.FlushModel;
+  const $ = (id) => document.getElementById(id);
+  const TAU2 = Math.PI * 2, TVIEW = 10, SIM_T = 12;
+
+  const SPEC = [
+    { g: 'flush', k: 'Vfull', l: 'Full flush volume', u: 'L', min: 3, max: 7, st: 0.1, d: 1 },
+    { g: 'flush', k: 'Vpart', l: 'Partial flush volume', u: 'L', min: 2, max: 4.5, st: 0.1, d: 1 },
+    { g: 'flush', k: 'Hcr', l: 'Valve height above jets', u: 'mm', min: 50, max: 600, st: 10, d: 0 },
+    { g: 'flush', k: 'Kpath', l: 'Supply path loss K', u: '', min: 0.2, max: 3, st: 0.1, d: 1 },
+    { g: 'jets', k: 'nJets', l: 'Number of jets', u: '', min: 1, max: 3, st: 1, d: 0 },
+    { g: 'jets', k: 'Anoz', l: 'Nozzle area per jet', u: 'cm²', min: 1.5, max: 8, st: 0.1, d: 1 },
+    { g: 'jets', k: 'hNoz', l: 'Nozzle height', u: 'mm', min: 6, max: 20, st: 1, d: 0 },
+    { g: 'jets', k: 'alpha', l: 'Downward jet angle', u: '°', min: 0, max: 35, st: 1, d: 0 },
+    { g: 'bowl', k: 'Rrim', l: 'Rim radius', u: 'mm', min: 110, max: 190, st: 1, d: 0 },
+    { g: 'bowl', k: 'Rpool', l: 'Pool radius at waterline', u: 'mm', min: 40, max: 110, st: 1, d: 0 },
+    { g: 'bowl', k: 'Dwall', l: 'Rim to waterline depth', u: 'mm', min: 90, max: 200, st: 1, d: 0 },
+    { g: 'bowl', k: 'seal', l: 'Water seal depth', u: 'mm', min: 40, max: 90, st: 1, d: 0 },
+    { g: 'bowl', k: 'dTrap', l: 'Trapway diameter', u: 'mm', min: 38, max: 65, st: 1, d: 0 },
+    { g: 'siph', k: 'Hs', l: 'Siphon drop below weir', u: 'mm', min: 120, max: 400, st: 5, d: 0 },
+    { g: 'siph', k: 'Ks', l: 'Siphon loss coefficient', u: '', min: 1.5, max: 6, st: 0.1, d: 1 },
+    { g: 'siph', k: 'Qgrav', l: 'Trapway capacity before priming', u: 'L/s', min: 0.2, max: 1.5, st: 0.05, d: 2 },
+    { g: 'siph', k: 'Vtrap', l: 'Water needed to prime', u: 'L', min: 0.2, max: 1.2, st: 0.05, d: 2 },
+    { g: 'siph', k: 'refill', l: 'Bowl refill after flush', u: 'L', min: 0, max: 1.5, st: 0.05, d: 2 },
+    { g: 'load', k: 'Ms', l: 'Solid test media', u: 'g', min: 0, max: 1000, st: 10, d: 0 },
+    { g: 'load', k: 'Np', l: 'Paper', u: 'sheets', min: 0, max: 20, st: 1, d: 0 },
+    { g: 'coef', k: 'cf', l: 'Film friction factor c_f', u: '', min: 0.002, max: 0.03, st: 0.001, d: 3 },
+    { g: 'coef', k: 'ksp', l: 'Film spreading rate', u: 'm/m', min: 0.05, max: 0.6, st: 0.01, d: 2 },
+    { g: 'coef', k: 'tauC', l: 'Critical soil shear τc', u: 'Pa', min: 0.5, max: 15, st: 0.5, d: 1 },
+    { g: 'coef', k: 'Jcrit', l: 'Shear dose to clean', u: 'Pa·s', min: 0.2, max: 10, st: 0.1, d: 1 },
+    { g: 'coef', k: 'eta', l: 'Swirl transfer efficiency', u: '', min: 0.1, max: 1, st: 0.05, d: 2 },
+    { g: 'coef', k: 'cfp', l: 'Pool wall friction', u: '', min: 0.005, max: 0.06, st: 0.001, d: 3 },
+    { g: 'coef', k: 'ucS', l: 'Transport threshold, solids', u: 'm/s', min: 0.1, max: 1.2, st: 0.01, d: 2 },
+    { g: 'coef', k: 'ucP', l: 'Transport threshold, paper', u: 'm/s', min: 0.1, max: 1.2, st: 0.01, d: 2 },
+    { g: 'coef', k: 'cmax', l: 'Max solids concentration', u: 'vol.', min: 0.03, max: 0.3, st: 0.01, d: 2 },
+    { g: 'coef', k: 'kS', l: 'Solids removal rate', u: '1/s', min: 0.2, max: 6, st: 0.1, d: 1 },
+    { g: 'coef', k: 'kP', l: 'Paper removal rate', u: '1/s', min: 0.2, max: 6, st: 0.1, d: 1 },
+    { g: 'coef', k: 'Cweir', l: 'Weir coefficient', u: 'm½/s', min: 1.2, max: 2.2, st: 0.05, d: 2 }
+  ];
+  const SPECK = Object.fromEntries(SPEC.map((s) => [s.k, s]));
+  const GROUPS = [
+    ['flush', 'Cistern and flush', true, ''],
+    ['jets', 'Tangential jets', true, 'Jets sit at the rim, evenly spaced, all pointing the same way round the bowl.'],
+    ['bowl', 'Bowl and trap', true, ''],
+    ['siph', 'Siphon', false, 'Used only when the trap type is siphonic.'],
+    ['load', 'Test load', false, 'Media placed in the pool before the flush.'],
+    ['coef', 'Model coefficients', false, 'Uncalibrated defaults. Fit them to CFD or rig data, see Calibrating it below.']
+  ];
+
+  let P = M.defaults('washdown');
+  const STORE = 'tfs-params-v1';
+  try { const s = localStorage.getItem(STORE); if (s) { const o = JSON.parse(s); if (o && typeof o === 'object') for (const k in o) if (k in P) P[k] = o[k]; } } catch (e) { }
+
+  let R = null, T = 1.6, playing = false, speed = 0.5, lastTs = 0, firstRun = true;
+  const dpr = () => Math.min(2, window.devicePixelRatio || 1);
+
+  /* ---------------- controls ---------------- */
+  const rail = $('rail'), ctl = {};
+  const fmt = (v, d) => Number(v).toFixed(d);
+  let typeBtns = null;
+  GROUPS.forEach(([g, title, open, note]) => {
+    const det = document.createElement('details');
+    det.className = 'grp'; if (open) det.open = true; det.id = 'grp_' + g;
+    det.innerHTML = `<summary><h3>${title}</h3></summary><div class="body"></div>`;
+    const body = det.querySelector('.body');
+    if (note) { const n = document.createElement('p'); n.className = 'note'; n.textContent = note; body.appendChild(n); }
+    if (g === 'bowl') {
+      const w = document.createElement('div'); w.className = 'ctl';
+      w.innerHTML = `<div class="row"><span style="font-size:13px">Trap type</span></div><div class="seg" role="group" aria-label="Trap type"><button type="button" data-type="washdown">Washdown</button><button type="button" data-type="siphonic">Siphonic</button></div>`;
+      body.appendChild(w);
+      typeBtns = w.querySelectorAll('button');
+      typeBtns.forEach((b) => b.addEventListener('click', () => { P.type = b.dataset.type; syncControls(); changed(); }));
+    }
+    SPEC.filter((s) => s.g === g).forEach((s) => {
+      const id = 'p_' + s.k, w = document.createElement('div');
+      w.className = 'ctl';
+      w.innerHTML = `<div class="row"><label for="${id}">${s.l}</label><output id="o_${s.k}" for="${id}"></output></div><input type="range" id="${id}" min="${s.min}" max="${s.max}" step="${s.st}">`;
+      body.appendChild(w);
+      const inp = w.querySelector('input');
+      inp.addEventListener('input', () => { P[s.k] = parseFloat(inp.value); setOut(s); changed(); });
+      ctl[s.k] = { inp, w, s };
+    });
+    rail.appendChild(det);
+  });
+  function setOut(s) { $('o_' + s.k).innerHTML = fmt(P[s.k], s.d) + (s.u ? `<span class="u">${s.u}</span>` : ''); }
+  function syncControls() {
+    for (const k in ctl) { ctl[k].inp.value = P[k]; setOut(ctl[k].s); }
+    typeBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.type === P.type)));
+    const siph = P.type === 'siphonic';
+    SPEC.filter((s) => s.g === 'siph').forEach((s) => ctl[s.k].w.classList.toggle('off', !siph));
+    $('mFull').setAttribute('aria-pressed', String(P.flushMode !== 'partial'));
+    $('mPart').setAttribute('aria-pressed', String(P.flushMode === 'partial'));
+    ctl.Vfull.w.classList.toggle('off', P.flushMode === 'partial');
+    ctl.Vpart.w.classList.toggle('off', P.flushMode !== 'partial');
+  }
+  $('mFull').addEventListener('click', () => { P.flushMode = 'full'; syncControls(); changed(); });
+  $('mPart').addEventListener('click', () => { P.flushMode = 'partial'; syncControls(); changed(); });
+  $('preset').value = P.type;
+  $('preset').addEventListener('change', (e) => {
+    const pre = M.PRESETS[e.target.value];
+    for (const k in pre) if (k !== 'label') P[k] = pre[k];
+    syncControls(); changed();
+  });
+
+  let pend = false;
+  function changed() {
+    if (pend) return; pend = true;
+    requestAnimationFrame(() => { pend = false; if (!playing) T = TVIEW; run(); markSweepStale(); });
+  }
+
+  /* ---------------- colours ---------------- */
+  function hex(h) {
+    h = h.trim();
+    if (h[0] === '#') { if (h.length === 4) h = '#' + h[1] + h[1] + h[2] + h[2] + h[3] + h[3]; return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]; }
+    const m = h.match(/[\d.]+/g); return m ? m.slice(0, 3).map(Number) : [128, 128, 128];
+  }
+  const TOK = ['bg', 'surface', 'raised', 'ink', 'muted', 'line', 'line-strong', 'accent', 'water', 'water-soft', 'water-deep', 'dry', 'wet', 'clean', 'clean-strong', 'lip', 'solid', 'paper', 'paper-edge', 'seq0', 'seq1', 'tracer', 'bad'];
+  function readColors() {
+    const cs = getComputedStyle(document.documentElement), C = {};
+    TOK.forEach((t) => { C[t.replace(/-(\w)/g, (_, c) => c.toUpperCase())] = hex(cs.getPropertyValue('--' + t) || '#888'); });
+    return C;
+  }
+  const rgba = (c, a) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a == null ? 1 : a})`;
+  const mix = (a, b, f) => [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f];
+
+  /* ---------------- canvases ---------------- */
+  const cvTop = $('cvTop'), cvSec = $('cvSec'), cvChart = $('cvChart'), cvWall = $('cvWall'), cvSweep = $('cvSweep');
+  function sizeCanvas(cv) {
+    const d = dpr(), w = Math.max(1, Math.round(cv.clientWidth * d)), h = Math.max(1, Math.round(cv.clientHeight * d));
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; return true; }
+    return false;
+  }
+  const font = (px, w) => `${w || 400} ${px * dpr()}px "IBM Plex Mono", ui-monospace, monospace`;
+
+  // seeded random for stable tracer layouts
+  function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
+  const TR = (() => { const r = rng(7), a = []; for (let i = 0; i < 64; i++) a.push({ rf: 0.12 + 0.84 * Math.sqrt(r()), a: r() * TAU2 }); return a; })();
+  const SD = (() => { const r = rng(11), a = []; for (let i = 0; i < 20; i++) a.push({ rf: 0.15 + 0.55 * r(), a: r() * TAU2, s: 0.8 + 0.5 * r() }); return a; })();
+  const PP = (() => { const r = rng(23), a = []; for (let i = 0; i < 20; i++) a.push({ rf: 0.3 + 0.55 * r(), a: r() * TAU2, rot: r() * 3 }); return a; })();
+
+  const recIdx = (t) => Math.max(0, Math.min(R.rec.t.length - 1, Math.round(t / 0.02)));
+  const lineAt = (t) => R.lines[Math.max(0, Math.min(R.lines.length - 1, Math.floor(t / R.dtu + 1e-6)))];
+
+  /* ---------------- top view ---------------- */
+  let topMap = null;
+  function buildTopMap() {
+    const W = cvTop.width, H = cvTop.height, g = R.geom, lip = 0.014;
+    const sc = (Math.min(W, H) / 2 - 4 * dpr()) / (g.Rr + lip), cx = W / 2, cy = H / 2;
+    const idx = new Int32Array(W * H), shade = new Float32Array(W * H);
+    const ur = g.ur, NU = ur.length, NTH = R.NTH, NS = R.NS;
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const i = y * W + x, dx = (x + 0.5 - cx) / sc, dy = (y + 0.5 - cy) / sc, rho = Math.hypot(dx, dy);
+        if (rho > g.Rr + lip) { idx[i] = -3; continue; }
+        if (rho > g.Rr) { idx[i] = -2; continue; }
+        if (rho <= g.Rp) { idx[i] = -1; shade[i] = 1; continue; }
+        let lo = 0, hi = NU - 1;
+        while (hi - lo > 1) { const m = (lo + hi) >> 1; if (ur[m] >= rho) lo = m; else hi = m; }
+        const f = (ur[lo] - rho) / Math.max(1e-12, ur[lo] - ur[hi]);
+        const s = g.S * (lo + f) / (NU - 1);
+        const is = Math.min(NS - 1, Math.floor(s / R.dsb));
+        let th = Math.atan2(dy, dx); if (th < 0) th += TAU2;
+        const it = Math.min(NTH - 1, Math.floor(th / (TAU2 / NTH)));
+        idx[i] = is * NTH + it; shade[i] = 1 - 0.16 * s / g.S;
+      }
+    }
+    topMap = { W, H, sc, cx, cy, idx, shade, img: cvTop.getContext('2d').createImageData(W, H), key: geomKey() };
+  }
+  const geomKey = () => [P.Rrim, P.Rpool, P.Dwall, P.seal].join('|');
+
+  function cellColor(c, t, C) {
+    if (R.tClean[c] <= t) return R.J[c] >= 3 * P.Jcrit ? C.cleanStrong : C.clean;
+    return R.tWet[c] <= t ? C.wet : C.dry;
+  }
+
+  function drawTop(t, C) {
+    const ctx = cvTop.getContext('2d');
+    if (!topMap || topMap.W !== cvTop.width || topMap.H !== cvTop.height || topMap.key !== geomKey()) buildTopMap();
+    const { idx, shade, img, sc, cx, cy } = topMap, data = img.data, g = R.geom, d = dpr();
+    const basin = mix(C.dry, C.ink, 0.12);
+    for (let i = 0, n = idx.length; i < n; i++) {
+      const c = idx[i], o = i * 4;
+      if (c === -3) { data[o + 3] = 0; continue; }
+      let col, sh = 1;
+      if (c >= 0) { col = cellColor(c, t, C); sh = shade[i]; }
+      else if (c === -1) col = basin; else col = C.lip;
+      data[o] = col[0] * sh; data[o + 1] = col[1] * sh; data[o + 2] = col[2] * sh; data[o + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+    // rim outlines
+    ctx.lineWidth = 1 * d; ctx.strokeStyle = rgba(C.lineStrong, 0.9);
+    ctx.beginPath(); ctx.arc(cx, cy, (g.Rr + 0.014) * sc - 0.5 * d, 0, TAU2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, g.Rr * sc, 0, TAU2); ctx.stroke();
+
+    const i = recIdx(t), rec = R.rec, z = rec.z[i] / 1000, vs = rec.vs[i], phi = rec.phi[i];
+    const Rc = g.rAtLevel(z), rp = Rc * sc, om = vs / Rc, dip = vs * vs / (2 * 9.81) * 1000;
+    // pool water
+    const df = Math.min(1, dip / 40);
+    const gr = ctx.createRadialGradient(cx, cy, 0, cx, cy, rp);
+    gr.addColorStop(0, rgba(C.waterDeep, 0.55 + 0.35 * df));
+    gr.addColorStop(0.55, rgba(mix(C.water, C.waterDeep, 0.3 * df), 0.6));
+    gr.addColorStop(1, rgba(C.water, 0.5));
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(cx, cy, rp, 0, TAU2); ctx.fill();
+    ctx.strokeStyle = rgba(C.waterDeep, 0.6); ctx.lineWidth = 1 * d; ctx.stroke();
+    // swirl tracers
+    const trail = Math.min(1.1, om * 0.16 + 0.03);
+    ctx.lineCap = 'round'; ctx.strokeStyle = rgba(C.tracer, 0.55); ctx.lineWidth = 1.4 * d;
+    for (const q of TR) {
+      const a = q.a + phi, r = q.rf * rp * 0.96;
+      ctx.beginPath(); ctx.arc(cx, cy, r, a - trail, a); ctx.stroke();
+    }
+    // waste media
+    const ms0 = P.Ms, nd = ms0 > 0 ? Math.round(SD.length * rec.Ms[i] / ms0) : 0;
+    ctx.fillStyle = rgba(C.solid, 0.95);
+    for (let k = 0; k < nd; k++) {
+      const q = SD[k], a = q.a + 0.85 * phi, r = q.rf * rp;
+      ctx.beginPath(); ctx.arc(cx + r * Math.cos(a), cy + r * Math.sin(a), 3.2 * d * q.s, 0, TAU2); ctx.fill();
+    }
+    const np = Math.min(PP.length, Math.ceil(rec.Np[i] - 0.02));
+    for (let k = 0; k < np; k++) {
+      const q = PP[k], a = q.a + phi, r = q.rf * rp, x = cx + r * Math.cos(a), y = cy + r * Math.sin(a), s = 4.5 * d;
+      ctx.save(); ctx.translate(x, y); ctx.rotate(q.rot + a);
+      ctx.fillStyle = rgba(C.paper, 0.95); ctx.strokeStyle = rgba(C.paperEdge, 0.9); ctx.lineWidth = 0.8 * d;
+      ctx.fillRect(-s, -s * 0.8, 2 * s, 1.6 * s); ctx.strokeRect(-s, -s * 0.8, 2 * s, 1.6 * s); ctx.restore();
+    }
+    // jet films
+    const L = lineAt(t), w0 = (P.Anoz * 1e-4) / (P.hNoz / 1000);
+    if (L && L.jets.length && rec.Qin[i] > 0.01) {
+      for (const jt of L.jets) {
+        const pts = jt.pts, n = pts.length / 2, xy = [];
+        for (let k = 0; k < n; k++) { const r = M.geomAt(g, pts[2 * k + 1]).r * sc, a = pts[2 * k]; xy.push(cx + r * Math.cos(a), cy + r * Math.sin(a)); }
+        // film band drawn in three widening stretches so the wall colours stay readable underneath
+        ctx.strokeStyle = rgba(C.water, 0.3); ctx.lineJoin = 'round';
+        for (let part = 0; part < 3; part++) {
+          const k0 = Math.floor(part * (n - 1) / 3), k1 = Math.floor((part + 1) * (n - 1) / 3);
+          const w = w0 + (jt.w - w0) * (part + 0.5) / 3;
+          ctx.lineWidth = Math.max(2 * d, w * sc * 0.3);
+          ctx.beginPath(); ctx.moveTo(xy[2 * k0], xy[2 * k0 + 1]); for (let k = k0 + 1; k <= k1; k++) ctx.lineTo(xy[2 * k], xy[2 * k + 1]); ctx.stroke();
+        }
+        ctx.setLineDash([5 * d, 9 * d]); ctx.lineDashOffset = -t * 140 * d;
+        ctx.strokeStyle = rgba(C.tracer, 0.95); ctx.lineWidth = 1.5 * d;
+        ctx.beginPath(); ctx.moveTo(xy[0], xy[1]); for (let k = 1; k < n; k++) ctx.lineTo(xy[2 * k], xy[2 * k + 1]); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+    // nozzles
+    const nJ = Math.round(P.nJets);
+    for (let j = 0; j < nJ; j++) {
+      const a = j * TAU2 / nJ, r = (g.Rr + 0.004) * sc, x = cx + r * Math.cos(a), y = cy + r * Math.sin(a);
+      const tx = -Math.sin(a), ty = Math.cos(a), nx = Math.cos(a), ny = Math.sin(a), s = 7 * d;
+      ctx.fillStyle = rgba(C.accent, 1);
+      ctx.beginPath(); ctx.moveTo(x + tx * s, y + ty * s); ctx.lineTo(x - tx * s * 0.6 + nx * s * 0.6, y - ty * s * 0.6 + ny * s * 0.6); ctx.lineTo(x - tx * s * 0.6 - nx * s * 0.6, y - ty * s * 0.6 - ny * s * 0.6); ctx.closePath(); ctx.fill();
+    }
+    const vj = rec.Qin[i] / 1000 / (nJ * P.Anoz * 1e-4);
+    $('roTop').innerHTML = `<span>Jets <b>${vj.toFixed(2)} m/s</b></span><span>Pool swirl <b>${vs.toFixed(2)} m/s</b></span><span>Dip <b>${dip.toFixed(0)} mm</b></span>`;
+  }
+
+  /* ---------------- section view ---------------- */
+  function drawSec(t, C) {
+    const ctx = cvSec.getContext('2d'), W = cvSec.width, H = cvSec.height, d = dpr();
+    ctx.clearRect(0, 0, W, H);
+    const g = R.geom, p = R.p, i = recIdx(t), rec = R.rec;
+    const Rr = g.Rr, Rp = g.Rp, D = g.D, ds = g.ds, dt = p.dTrap / 1000, Hcr = p.Hcr / 1000, siph = p.type === 'siphonic';
+    const Ac = p.Acist, hf = Math.max(p.Vfull, p.Vpart) / 1000 / Ac;
+    const rWall = (dep) => dep <= D ? Rp + (Rr - Rp) * Math.cos(Math.PI / 2 * dep / D) : g.rAtLevel(D - dep);
+    const yb = D + ds + dt + 0.006, ycIn = yb - dt / 2;
+    const xr = Rp + dt / 2 + 0.014, xd = xr + dt * 1.5;
+    const outY = siph ? D + p.Hs / 1000 : D + 0.07, outX = siph ? xd : xd + 0.15;
+    const xmin = -Rr - 0.23, xmax = Math.max(Rr + 0.04, outX + 0.05), ymin = -(Hcr + hf + 0.06), ymax = Math.max(yb, outY) + 0.04;
+    const sc = Math.min(W / (xmax - xmin), H / (ymax - ymin)) * 0.97;
+    const ox = (W - (xmax - xmin) * sc) / 2, oy = (H - (ymax - ymin) * sc) / 2;
+    const X = (x) => ox + (x - xmin) * sc, Y = (y) => oy + (y - ymin) * sc;
+
+    // ceramic body
+    const steps = 50, body = [], inner = [];
+    for (let k = 0; k <= steps; k++) { const dep = yb * k / steps; body.push([-(rWall(dep) + 0.02), dep]); inner.push([-rWall(dep), dep]); }
+    const bodyPath = new Path2D();
+    bodyPath.moveTo(X(-(Rr + 0.02)), Y(-0.012));
+    body.forEach(([x, y]) => bodyPath.lineTo(X(x), Y(y)));
+    bodyPath.lineTo(X(-(rWall(yb) + 0.02)), Y(yb + 0.02)); bodyPath.lineTo(X(xd + dt), Y(yb + 0.02));
+    bodyPath.lineTo(X(xd + dt), Y(D - dt - 0.012)); bodyPath.lineTo(X(Rr + 0.02), Y(-0.012)); bodyPath.closePath();
+    ctx.fillStyle = rgba(C.lip); ctx.fill(bodyPath); ctx.strokeStyle = rgba(C.lineStrong); ctx.lineWidth = 1.2 * d; ctx.stroke(bodyPath);
+    const inPath = new Path2D();
+    inPath.moveTo(X(-Rr), Y(-0.013));
+    inner.forEach(([x, y]) => inPath.lineTo(X(x), Y(y)));
+    for (let k = steps; k >= 0; k--) { const dep = yb * k / steps; inPath.lineTo(X(rWall(dep)), Y(dep)); }
+    inPath.lineTo(X(Rr), Y(-0.013)); inPath.closePath();
+    ctx.fillStyle = rgba(C.surface); ctx.fill(inPath); ctx.stroke(inPath);
+
+    // trapway
+    const trapPts = [[rWall(yb) * 0.2, ycIn], [xr, ycIn], [xr, D - dt / 2], [xd, D - dt / 2], [xd, outY]];
+    if (!siph) trapPts.push([outX, outY]);
+    const poly = (pts) => { ctx.beginPath(); ctx.moveTo(X(pts[0][0]), Y(pts[0][1])); for (let k = 1; k < pts.length; k++) ctx.lineTo(X(pts[k][0]), Y(pts[k][1])); };
+    ctx.lineJoin = 'round'; ctx.lineCap = 'butt';
+    poly(trapPts); ctx.strokeStyle = rgba(C.lineStrong); ctx.lineWidth = dt * sc + 2.4 * d; ctx.stroke();
+    poly(trapPts); ctx.strokeStyle = rgba(C.surface); ctx.lineWidth = dt * sc; ctx.stroke();
+
+    const z = rec.z[i] / 1000, yl = D - z, Qin = rec.Qin[i], Qout = rec.Qout[i], primed = rec.primed[i] === 1;
+    const water = rgba(C.water, 0.75);
+    // seal water in inlet and rising leg
+    const legTop = primed ? D - dt / 2 : Math.max(Math.min(yl, ycIn), D - dt / 2);
+    ctx.strokeStyle = water; ctx.lineWidth = dt * sc;
+    poly([[rWall(yb) * 0.2, ycIn], [xr, ycIn], [xr, legTop]]); ctx.stroke();
+    // crest and down leg
+    const downLen = outY - (D - dt / 2);
+    if (primed) {
+      poly([[xr, D - dt / 2], [xd, D - dt / 2], [xd, outY]]); ctx.stroke();
+    } else if (siph && rec.Vt[i] > 0.01) {
+      const f = Math.min(1, rec.Vt[i]);
+      poly([[xd, outY - downLen * f], [xd, outY]]); ctx.stroke();
+    }
+    if (!primed && Qout > 0.02) {
+      ctx.lineWidth = Math.max(1.5 * d, dt * sc * Math.min(0.8, 0.15 + Qout / 3));
+      const pts = [[xr, D - dt / 2 + 0.002], [xd, D - dt / 2 + 0.004], [xd, outY]]; if (!siph) pts.push([outX, outY]);
+      poly(pts); ctx.stroke();
+    }
+    // pool
+    const dipM = Math.min(rec.vs[i] ** 2 / (2 * 9.81), 0.8 * (yb - yl));
+    const rl = rWall(Math.max(0, yl));
+    ctx.beginPath();
+    const n2 = 40;
+    for (let k = 0; k <= n2; k++) { const dep = yl + (yb - yl) * k / n2; ctx.lineTo(X(-rWall(dep)), Y(dep)); }
+    for (let k = n2; k >= 0; k--) { const dep = yl + (yb - yl) * k / n2; ctx.lineTo(X(rWall(dep)), Y(dep)); }
+    for (let k = 0; k <= 30; k++) { const x = rl - 2 * rl * k / 30; ctx.lineTo(X(x), Y(yl + dipM * (1 - (x / rl) ** 2))); }
+    ctx.closePath(); ctx.fillStyle = water; ctx.fill();
+    // wall film
+    if (Qin > 0.02) {
+      ctx.strokeStyle = rgba(C.water, 0.9); ctx.lineWidth = (1.2 + 1.6 * Qin / 2) * d;
+      for (const sgn of [-1, 1]) { ctx.beginPath(); for (let k = 0; k <= 30; k++) { const dep = 0.004 + (Math.max(0.01, yl) - 0.004) * k / 30; ctx.lineTo(X(sgn * (rWall(dep) - 0.002)), Y(dep)); } ctx.stroke(); }
+    }
+    // weir line
+    ctx.setLineDash([4 * d, 4 * d]); ctx.strokeStyle = rgba(C.muted, 0.8); ctx.lineWidth = 1 * d;
+    ctx.beginPath(); ctx.moveTo(X(-rWall(D) - 0.05), Y(D)); ctx.lineTo(X(xd + dt * 0.5), Y(D)); ctx.stroke(); ctx.setLineDash([]);
+    // seal bracket on the left
+    const bx = X(-rWall(D) - 0.045);
+    ctx.strokeStyle = rgba(C.ink, 0.75); ctx.lineWidth = 1 * d;
+    ctx.beginPath(); ctx.moveTo(bx - 4 * d, Y(D)); ctx.lineTo(bx + 4 * d, Y(D)); ctx.moveTo(bx, Y(D)); ctx.lineTo(bx, Y(D + ds)); ctx.moveTo(bx - 4 * d, Y(D + ds)); ctx.lineTo(bx + 4 * d, Y(D + ds)); ctx.stroke();
+    ctx.fillStyle = rgba(C.muted); ctx.font = font(10.5); ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.fillText(`seal ${p.seal} mm`, bx - 6 * d, Y(D + ds / 2));
+    ctx.textAlign = 'left';
+    ctx.fillText('weir crest', X(xd + dt * 0.5) + 4 * d, Y(D));
+
+    // cistern
+    const xL = -Rr - 0.2, xR = -Rr - 0.07, yC = -Hcr, yT = -Hcr - hf - 0.03, xc = (xL + xR) / 2;
+    const pipe = [[xc, yC], [xc, -0.006], [-Rr + 0.002, -0.006]];
+    poly(pipe); ctx.strokeStyle = rgba(C.lineStrong); ctx.lineWidth = 7 * d; ctx.stroke();
+    poly(pipe); ctx.strokeStyle = Qin > 0.02 ? water : rgba(C.surface); ctx.lineWidth = 4 * d; ctx.stroke();
+    const hw = rec.Vc[i] / 1000 / Ac;
+    ctx.fillStyle = rgba(C.surface); ctx.fillRect(X(xL), Y(yT), (xR - xL) * sc, (yC - yT) * sc);
+    ctx.fillStyle = water; ctx.fillRect(X(xL), Y(yC - hw), (xR - xL) * sc, hw * sc);
+    ctx.strokeStyle = rgba(C.lineStrong); ctx.lineWidth = 1.4 * d; ctx.strokeRect(X(xL), Y(yT), (xR - xL) * sc, (yC - yT) * sc);
+    ctx.fillStyle = rgba(C.muted); ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillText('cistern', X(xc), Y(yT) - 4 * d);
+    // nozzle marker
+    ctx.fillStyle = rgba(C.accent); ctx.beginPath(); ctx.arc(X(-Rr + 0.004), Y(-0.006), 3 * d, 0, TAU2); ctx.fill();
+    // siphon / outlet label
+    ctx.textBaseline = 'top'; ctx.textAlign = 'center';
+    ctx.fillStyle = primed ? rgba(C.accent) : rgba(C.muted);
+    if (siph) ctx.fillText(primed ? 'siphon primed' : 'to drain', X(xd), Y(outY) + 4 * d);
+    else { ctx.textAlign = 'right'; ctx.fillText('to drain', X(outX), Y(outY) + dt * sc / 2 + 4 * d); }
+
+    const lvl = rec.z[i];
+    $('roSec').innerHTML = `<span>Level <b>${lvl >= 0 ? '+' : ''}${lvl.toFixed(0)} mm</b></span><span>Cistern <b>${rec.Vc[i].toFixed(1)} L</b></span><span>Out <b>${Qout.toFixed(2)} L/s</b></span>`;
+  }
+
+  /* ---------------- traces ---------------- */
+  const niceMax = (v) => { if (v <= 0) return 1; const e = Math.pow(10, Math.floor(Math.log10(v))), m = v / e; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 2.5 ? 2.5 : m <= 5 ? 5 : 10) * e; };
+  let chartGeom = null;
+  function drawCharts(t, C) {
+    const ctx = cvChart.getContext('2d'), W = cvChart.width, H = cvChart.height, d = dpr(), rec = R.rec, p = R.p;
+    ctx.clearRect(0, 0, W, H);
+    const padL = 46 * d, padR = 12 * d, padT = 4 * d, padB = 22 * d, gap = 12 * d;
+    const siph = p.type === 'siphonic';
+    const qmax = niceMax(Math.max(...rec.Qin, ...rec.Qout) * 1.05);
+    const zmax = Math.max(10, Math.ceil((R.zPeak + 6) / 10) * 10), zmin = siph ? -Math.ceil((p.seal + 8) / 10) * 10 : -10;
+    const vmax = niceMax(Math.max(0.1, R.vsPeak) * 1.1);
+    const panels = [
+      { t: 'Flow, L/s', min: 0, max: qmax, s: [['Qin', 'into bowl', C.accent], ['Qout', 'out of trap', C.water]] },
+      { t: 'Bowl level vs. weir, mm', min: zmin, max: zmax, s: [['z', 'level', C.waterDeep]], ref: siph ? [0, -p.seal] : [0] },
+      { t: 'Pool swirl, m/s', min: 0, max: vmax, s: [['vs', 'rim speed', C.accent]] },
+      { t: 'Load left, %', min: 0, max: 100, s: [['MsP', 'solids', C.solid], ['NpP', 'paper', C.paperEdge]] }
+    ];
+    const ph = (H - padT - padB - gap * 3) / 4, pw = W - padL - padR;
+    const Xt = (tt) => padL + tt / TVIEW * pw;
+    chartGeom = { padL, pw };
+    const n = Math.min(rec.t.length, Math.round(TVIEW / 0.02) + 1);
+    panels.forEach((pn, k) => {
+      const y0 = padT + k * (ph + gap), Yv = (v) => y0 + ph - (v - pn.min) / (pn.max - pn.min) * ph;
+      ctx.fillStyle = rgba(C.raised); ctx.fillRect(padL, y0, pw, ph);
+      ctx.strokeStyle = rgba(C.line); ctx.lineWidth = 1 * d; ctx.strokeRect(padL + 0.5, y0 + 0.5, pw - 1, ph - 1);
+      ctx.beginPath(); for (let s = 1; s < TVIEW; s++) { ctx.moveTo(Xt(s), y0); ctx.lineTo(Xt(s), y0 + ph); } ctx.stroke();
+      (pn.ref || []).forEach((v) => { ctx.setLineDash([3 * d, 3 * d]); ctx.strokeStyle = rgba(C.muted, 0.7); ctx.beginPath(); ctx.moveTo(padL, Yv(v)); ctx.lineTo(padL + pw, Yv(v)); ctx.stroke(); ctx.setLineDash([]); });
+      ctx.fillStyle = rgba(C.muted); ctx.font = font(10); ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+      ctx.fillText(String(+pn.max.toFixed(2)), padL - 5 * d, y0); ctx.textBaseline = 'bottom'; ctx.fillText(String(+pn.min.toFixed(2)), padL - 5 * d, y0 + ph);
+      pn.s.forEach(([key, , col]) => {
+        const arr = rec[key];
+        ctx.strokeStyle = rgba(col); ctx.lineWidth = 1.7 * d; ctx.beginPath();
+        for (let q = 0; q < n; q++) { const x = Xt(rec.t[q]), y = Yv(Math.max(pn.min, Math.min(pn.max, arr[q]))); q ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+        ctx.stroke();
+      });
+      // title + legend
+      ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.font = font(10.5, 500);
+      let x = padL + 8 * d; const ty = y0 + 5 * d;
+      ctx.fillStyle = rgba(C.ink); ctx.fillText(pn.t, x, ty); x += ctx.measureText(pn.t).width + 12 * d;
+      ctx.font = font(10);
+      pn.s.forEach(([, lab, col]) => { ctx.fillStyle = rgba(col); ctx.fillRect(x, ty + 4 * d, 10 * d, 2.5 * d); x += 14 * d; ctx.fillStyle = rgba(C.muted); ctx.fillText(lab, x, ty); x += ctx.measureText(lab).width + 12 * d; });
+      // event markers
+      const ev = [];
+      if (k === 0 && R.tEmpty) ev.push([R.tEmpty, 'cistern empty']);
+      if (k === 1 && R.primeT != null) ev.push([R.primeT, 'siphon primes']);
+      if (k === 1 && R.breakT != null) ev.push([R.breakT, 'siphon breaks']);
+      ev.forEach(([te, lab]) => {
+        if (te > TVIEW) return;
+        ctx.strokeStyle = rgba(C.ink, 0.45); ctx.setLineDash([2 * d, 3 * d]); ctx.beginPath(); ctx.moveTo(Xt(te), y0); ctx.lineTo(Xt(te), y0 + ph); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = rgba(C.muted); ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText(lab, Xt(te) + 4 * d, y0 + ph - 3 * d);
+      });
+    });
+    // x axis
+    ctx.fillStyle = rgba(C.muted); ctx.font = font(10); ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    for (let s = 0; s <= TVIEW; s += 2) ctx.fillText(s + (s === TVIEW ? ' s' : ''), Xt(s), H - padB + 6 * d);
+    // playhead
+    ctx.strokeStyle = rgba(C.accent); ctx.lineWidth = 1.5 * d; ctx.beginPath(); ctx.moveTo(Xt(t), padT); ctx.lineTo(Xt(t), H - padB); ctx.stroke();
+  }
+  cvChart.addEventListener('click', (e) => {
+    if (!chartGeom) return;
+    const b = cvChart.getBoundingClientRect(), x = (e.clientX - b.left) * dpr();
+    T = Math.max(0, Math.min(TVIEW, (x - chartGeom.padL) / chartGeom.pw * TVIEW)); playing = false; setPlay(); draw();
+  });
+
+  /* ---------------- wall map ---------------- */
+  function drawWall(t, C) {
+    const ctx = cvWall.getContext('2d'), W = cvWall.width, H = cvWall.height, d = dpr(), g = R.geom;
+    ctx.clearRect(0, 0, W, H);
+    const padL = 44 * d, padR = 8 * d, padT = 14 * d, padB = 22 * d, w = W - padL - padR, h = H - padT - padB;
+    const NTH = R.NTH, NS = R.NS, cw = w / NTH, ch = h / NS;
+    for (let is = 0; is < NS; is++) for (let it = 0; it < NTH; it++) {
+      const c = is * NTH + it; ctx.fillStyle = rgba(cellColor(c, t, C));
+      ctx.fillRect(padL + it * cw, padT + is * ch, Math.ceil(cw) + 0.5, Math.ceil(ch) + 0.5);
+    }
+    const Ys = (s) => padT + s / g.S * h, Xa = (a) => padL + (((a % TAU2) + TAU2) % TAU2) / TAU2 * w;
+    // pool above static waterline
+    const i = recIdx(t), z = R.rec.z[i] / 1000;
+    if (z > 0.001) { const s0 = M.sAtDepth(g, g.D - z); ctx.fillStyle = rgba(C.water, 0.55); ctx.fillRect(padL, Ys(s0), w, padT + h - Ys(s0)); }
+    // rim line
+    ctx.setLineDash([4 * d, 4 * d]); ctx.strokeStyle = rgba(C.ink, 0.55); ctx.lineWidth = 1 * d;
+    ctx.beginPath(); ctx.moveTo(padL, Ys(0.025)); ctx.lineTo(padL + w, Ys(0.025)); ctx.stroke(); ctx.setLineDash([]);
+    // films
+    const L = lineAt(t);
+    if (L && L.jets.length && R.rec.Qin[i] > 0.01) {
+      ctx.strokeStyle = rgba(C.tracer, 0.95); ctx.lineWidth = 1.6 * d;
+      ctx.setLineDash([5 * d, 8 * d]); ctx.lineDashOffset = -t * 120 * d;
+      for (const jt of L.jets) {
+        const pts = jt.pts; ctx.beginPath(); let px = null;
+        for (let k = 0; k < pts.length; k += 2) { const x = Xa(pts[k]), y = Ys(pts[k + 1]); if (px === null || Math.abs(x - px) > w / 2) ctx.moveTo(x, y); else ctx.lineTo(x, y); px = x; }
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+    }
+    // nozzles
+    const nJ = Math.round(P.nJets);
+    ctx.fillStyle = rgba(C.accent);
+    for (let j = 0; j < nJ; j++) { const x = Xa(j * TAU2 / nJ) + (j === 0 ? 5 * d : 0); ctx.beginPath(); ctx.moveTo(x - 5 * d, padT - 10 * d); ctx.lineTo(x + 6 * d, padT - 5 * d); ctx.lineTo(x - 5 * d, padT); ctx.closePath(); ctx.fill(); }
+    // axes
+    ctx.fillStyle = rgba(C.muted); ctx.font = font(10); ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    [0, 90, 180, 270, 360].forEach((a) => ctx.fillText(a + '°', padL + a / 360 * w, padT + h + 6 * d));
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    for (let dep = 0; dep <= g.D * 1000 + 0.1; dep += 50) ctx.fillText(String(dep), padL - 6 * d, Ys(M.sAtDepth(g, dep / 1000)));
+    ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+    ctx.fillText('mm', 2 * d, padT - 2 * d);
+    ctx.textAlign = 'right'; ctx.fillStyle = rgba(C.ink, 0.7);
+    ctx.fillText('rim line, 25 mm', padL + w - 4 * d, Ys(0.025) - 2 * d);
+  }
+
+  /* ---------------- KPIs ---------------- */
+  function chip(el, cls, txt) { el.className = 'chip ' + cls; el.textContent = txt; }
+  function updateKPIs() {
+    const r = R, p = R.p;
+    $('kClean').innerHTML = `${r.cleanPct.toFixed(0)}<small>%</small>`;
+    $('kWet').textContent = r.wetPct.toFixed(0) + ' %';
+    $('kLine').textContent = r.linePct.toFixed(0) + ' % washed';
+    $('kPerL').textContent = r.cleanPerL.toFixed(1) + ' %/L';
+    chip($('cClean'), r.cleanPct >= 90 ? 'good' : r.cleanPct >= 75 ? 'warn' : 'bad', r.cleanPct >= 90 ? 'Good' : r.cleanPct >= 75 ? 'Fair' : 'Poor');
+
+    $('kSolids').innerHTML = p.Ms > 0 ? `${r.solidsPct.toFixed(0)}<small>%</small>` : '–';
+    $('kSolidsCap').textContent = p.Ms > 0 ? `of the ${p.Ms} g solid test load removed` : 'no solid test load set';
+    $('kPaper').textContent = p.Np > 0 ? `${r.paperPct.toFixed(0)} % of ${p.Np}` : '–';
+    $('kCap').textContent = r.capS.toFixed(0) + ' g';
+    $('kSiph').textContent = p.type !== 'siphonic' ? 'none, washdown' : r.everPrimed ? `primed ${r.primeT.toFixed(1)} s` + (r.breakT != null ? `, broke ${r.breakT.toFixed(1)} s` : '') : 'did not prime';
+    const wm = Math.min(p.Ms > 0 ? r.solidsPct : 100, p.Np > 0 ? r.paperPct : 100);
+    if (p.type === 'siphonic' && !r.everPrimed) chip($('cWaste'), 'bad', 'No siphon');
+    else chip($('cWaste'), wm >= 95 ? 'good' : wm >= 80 ? 'warn' : 'bad', wm >= 95 ? 'Clear' : wm >= 80 ? 'Partial' : 'Poor');
+
+    $('kWater').innerHTML = `${r.water.toFixed(1)}<small>L</small>`;
+    $('kQ').textContent = r.Qpeak.toFixed(2) + ' L/s';
+    $('kDur').textContent = r.tEmpty ? r.tEmpty.toFixed(1) + ' s' : '–';
+    $('kSeal').textContent = r.sealEnd.toFixed(0) + ' mm' + (r.sealOK ? '' : ', low');
+    if (!r.sealOK) chip($('cWater'), 'bad', 'Seal low');
+    else chip($('cWater'), r.water <= 4.0 ? 'good' : r.water <= 6.0 ? 'neutral' : 'warn', r.water <= 4.0 ? 'Low use' : r.water <= 6.0 ? 'Moderate' : 'High use');
+
+    const over = r.zPeak > 0.8 * p.Dwall;
+    $('strip').innerHTML = [
+      `Peak bowl rise <b>+${r.zPeak.toFixed(0)} mm</b>`,
+      `Peak pool swirl <b>${r.vsPeak.toFixed(2)} m/s</b>`,
+      `Vortex dip, solid-body <b>${r.dipPeak.toFixed(0)} mm</b>`,
+      over ? `<span style="color:var(--bad)">Bowl close to overflowing</span>` : '',
+      `This flush computed in <b>${r.runMs.toFixed(1)} ms</b>`
+    ].filter(Boolean).map((s) => `<span>${s}</span>`).join('');
+  }
+
+  /* ---------------- main loop ---------------- */
+  function run() {
+    R = M.simulate(P, { Tend: SIM_T });
+    const rec = R.rec;
+    rec.MsP = rec.Ms.map((v) => P.Ms > 0 ? 100 * v / P.Ms : 0);
+    rec.NpP = rec.Np.map((v) => P.Np > 0 ? 100 * v / P.Np : 0);
+    try { localStorage.setItem(STORE, JSON.stringify(P)); } catch (e) { }
+    updateKPIs();
+    if (firstRun) { firstRun = false; }
+    draw();
+  }
+  function draw() {
+    if (!R) return;
+    [cvTop, cvSec, cvChart, cvWall].forEach(sizeCanvas);
+    const C = readColors();
+    drawTop(T, C); drawSec(T, C); drawCharts(T, C); drawWall(T, C);
+    $('scrub').value = T; $('tnow').textContent = T.toFixed(2) + ' s';
+  }
+  function setPlay() { $('play').textContent = playing ? 'Pause' : (T >= TVIEW - 0.01 ? 'Replay flush' : 'Play flush'); }
+  function tick(ts) {
+    if (!playing) return;
+    const dw = lastTs ? Math.min(0.1, (ts - lastTs) / 1000) : 0; lastTs = ts;
+    T += dw * speed;
+    if (T >= TVIEW) { T = TVIEW; playing = false; }
+    draw(); setPlay();
+    if (playing) requestAnimationFrame(tick);
+  }
+  $('play').addEventListener('click', () => {
+    if (playing) { playing = false; setPlay(); return; }
+    if (T >= TVIEW - 0.01) T = 0;
+    playing = true; lastTs = 0; setPlay(); requestAnimationFrame(tick);
+  });
+  $('scrub').addEventListener('input', (e) => { T = parseFloat(e.target.value); playing = false; setPlay(); draw(); });
+  document.querySelectorAll('[data-speed]').forEach((b) => b.addEventListener('click', () => {
+    speed = parseFloat(b.dataset.speed);
+    document.querySelectorAll('[data-speed]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  }));
+
+  /* ---------------- sweep ---------------- */
+  const SW_P = ['Anoz', 'alpha', 'hNoz', 'nJets', 'Hcr', 'Kpath', 'Vfull', 'Vpart', 'Rrim', 'Rpool', 'Dwall', 'dTrap', 'seal'];
+  const SW_M = [
+    ['cleanPct', 'Wall area cleaned', '%', 1, 1], ['solidsPct', 'Solids removed', '%', 1, 1], ['paperPct', 'Paper removed', '%', 1, 1],
+    ['capS', 'Solids transport capacity', 'g', 0, 1], ['cleanPerL', 'Cleaned per litre', '%/L', 1, 1],
+    ['water', 'Water per flush', 'L', 2, -1], ['sealEnd', 'Seal after flush', 'mm', 0, 1], ['Qpeak', 'Peak flow', 'L/s', 2, 1]
+  ];
+  const swX = $('swX'), swY = $('swY'), swM = $('swM');
+  SW_P.forEach((k) => { const s = SPECK[k]; [swX, swY].forEach((sel) => { const o = document.createElement('option'); o.value = k; o.textContent = `${s.l}${s.u ? ', ' + s.u : ''}`; sel.appendChild(o); }); });
+  SW_M.forEach(([k, l, u]) => { const o = document.createElement('option'); o.value = k; o.textContent = `${l}, ${u}`; swM.appendChild(o); });
+  swX.value = 'Anoz'; swY.value = 'alpha'; swM.value = 'cleanPct';
+  let SW = null, swRunning = false;
+  const N = 12;
+  function axisVals(k) {
+    const s = SPECK[k];
+    if (k === 'nJets') return [1, 2, 3];
+    const out = [];
+    for (let i = 0; i < N; i++) { const v = s.min + (s.max - s.min) * i / (N - 1); out.push(Math.round(v / s.st) * s.st); }
+    return out.map((v) => +v.toFixed(4));
+  }
+  function runSweep() {
+    if (swRunning) return;
+    const xk = swX.value, yk = swY.value;
+    if (xk === yk) { $('swHov').textContent = 'Pick two different parameters for the axes.'; return; }
+    const xs = axisVals(xk), ys = axisVals(yk), total = xs.length * ys.length;
+    SW = { xk, yk, xs, ys, res: new Array(total).fill(null), done: 0, stale: false, ms: 0, mode: P.flushMode, type: P.type };
+    swRunning = true; $('swRun').disabled = true;
+    const base = Object.assign({}, P); let k = 0; const t0 = performance.now();
+    (function chunk() {
+      const c0 = performance.now();
+      while (k < total && performance.now() - c0 < 14) {
+        const q = Object.assign({}, base); q[xk] = xs[k % xs.length]; q[yk] = ys[Math.floor(k / xs.length)];
+        const r = M.simulate(q, { light: true, coarse: true, Tend: SIM_T });
+        SW.res[k] = {}; SW_M.forEach(([m]) => { SW.res[k][m] = r[m]; });
+        k++;
+      }
+      SW.done = k; SW.ms = performance.now() - t0;
+      $('swInfo').textContent = `${k} of ${total} flushes · ${(SW.ms / 1000).toFixed(1)} s`;
+      drawSweep();
+      if (k < total) requestAnimationFrame(chunk);
+      else {
+        swRunning = false; $('swRun').disabled = false;
+        $('swInfo').textContent = `${total} flushes in ${(SW.ms / 1000).toFixed(1)} s, ${(SW.ms / total).toFixed(1)} ms each`;
+        drawSweep();
+      }
+    })();
+  }
+  $('swRun').addEventListener('click', runSweep);
+  swM.addEventListener('change', drawSweep);
+  [swX, swY].forEach((s) => s.addEventListener('change', () => { if (SW) { SW.stale = true; drawSweep(); } }));
+  function markSweepStale() { if (SW && !swRunning) { SW.stale = true; drawSweep(); } }
+
+  let swGeom = null;
+  function drawSweep() {
+    sizeCanvas(cvSweep);
+    const ctx = cvSweep.getContext('2d'), W = cvSweep.width, H = cvSweep.height, d = dpr(), C = readColors();
+    ctx.clearRect(0, 0, W, H);
+    const padL = 54 * d, padR = 56 * d, padT = 8 * d, padB = 40 * d, w = W - padL - padR, h = H - padT - padB;
+    ctx.fillStyle = rgba(C.raised); ctx.fillRect(padL, padT, w, h);
+    ctx.strokeStyle = rgba(C.line); ctx.lineWidth = 1 * d; ctx.strokeRect(padL + 0.5, padT + 0.5, w - 1, h - 1);
+    if (!SW) {
+      ctx.fillStyle = rgba(C.muted); ctx.font = font(11); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('Choose two parameters and run the sweep', padL + w / 2, padT + h / 2);
+      swGeom = null; return;
+    }
+    const mk = swM.value, md = SW_M.find((m) => m[0] === mk), nx = SW.xs.length, ny = SW.ys.length, cw = w / nx, chh = h / ny;
+    let lo = Infinity, hi = -Infinity;
+    SW.res.forEach((r) => { if (r) { lo = Math.min(lo, r[mk]); hi = Math.max(hi, r[mk]); } });
+    if (hi - lo < 1e-9) { hi = lo + 1; }
+    let best = -1, bv = md[4] > 0 ? -Infinity : Infinity;
+    SW.res.forEach((r, k) => {
+      if (!r) return;
+      const v = r[mk], f = (v - lo) / (hi - lo), ix = k % nx, iy = Math.floor(k / nx);
+      ctx.fillStyle = rgba(mix(C.seq0, C.seq1, f));
+      ctx.fillRect(padL + ix * cw, padT + h - (iy + 1) * chh, Math.ceil(cw) + 0.5, Math.ceil(chh) + 0.5);
+      if ((md[4] > 0 && v > bv) || (md[4] < 0 && v < bv)) { bv = v; best = k; }
+    });
+    if (best >= 0 && SW.done === SW.res.length) {
+      const ix = best % nx, iy = Math.floor(best / nx);
+      ctx.strokeStyle = rgba(C.ink); ctx.lineWidth = 2 * d;
+      ctx.strokeRect(padL + ix * cw + 2 * d, padT + h - (iy + 1) * chh + 2 * d, cw - 4 * d, chh - 4 * d);
+      $('swBest').textContent = `${md[4] > 0 ? 'Highest' : 'Lowest'} ${md[1].toLowerCase()}: ${bv.toFixed(md[3])} ${md[2]} at ${SPECK[SW.xk].l.toLowerCase()} ${SW.xs[ix]} ${SPECK[SW.xk].u}, ${SPECK[SW.yk].l.toLowerCase()} ${SW.ys[iy]} ${SPECK[SW.yk].u} (outlined).`;
+    }
+    // current design marker
+    const xs = SW.xs, ys = SW.ys;
+    const fx = (v, arr) => { const i0 = arr[0], i1 = arr[arr.length - 1]; return (v - i0) / ((i1 - i0) || 1) * (arr.length - 1); };
+    const mx = padL + (fx(P[SW.xk], xs) + 0.5) * cw, my = padT + h - (fx(P[SW.yk], ys) + 0.5) * chh;
+    if (mx >= padL && mx <= padL + w && my >= padT && my <= padT + h) {
+      ctx.strokeStyle = rgba(C.bad); ctx.lineWidth = 2 * d; ctx.beginPath(); ctx.arc(mx, my, 6 * d, 0, TAU2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(mx - 10 * d, my); ctx.lineTo(mx - 6 * d, my); ctx.moveTo(mx + 6 * d, my); ctx.lineTo(mx + 10 * d, my); ctx.moveTo(mx, my - 10 * d); ctx.lineTo(mx, my - 6 * d); ctx.moveTo(mx, my + 6 * d); ctx.lineTo(mx, my + 10 * d); ctx.stroke();
+    }
+    // axes labels
+    ctx.fillStyle = rgba(C.muted); ctx.font = font(10); ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    [0, Math.floor((nx - 1) / 2), nx - 1].forEach((i) => ctx.fillText(String(xs[i]), padL + (i + 0.5) * cw, padT + h + 5 * d));
+    ctx.fillStyle = rgba(C.ink); ctx.fillText(`${SPECK[SW.xk].l}${SPECK[SW.xk].u ? ', ' + SPECK[SW.xk].u : ''}`, padL + w / 2, padT + h + 20 * d);
+    ctx.fillStyle = rgba(C.muted); ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    [0, Math.floor((ny - 1) / 2), ny - 1].forEach((i) => ctx.fillText(String(ys[i]), padL - 6 * d, padT + h - (i + 0.5) * chh));
+    ctx.save(); ctx.translate(12 * d, padT + h / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillStyle = rgba(C.ink);
+    ctx.fillText(`${SPECK[SW.yk].l}${SPECK[SW.yk].u ? ', ' + SPECK[SW.yk].u : ''}`, 0, 0); ctx.restore();
+    // colour bar
+    const bx = padL + w + 16 * d, bw = 10 * d;
+    for (let k = 0; k < 40; k++) { ctx.fillStyle = rgba(mix(C.seq0, C.seq1, 1 - k / 39)); ctx.fillRect(bx, padT + k * h / 40, bw, h / 40 + 1); }
+    ctx.strokeStyle = rgba(C.line); ctx.strokeRect(bx + 0.5, padT + 0.5, bw - 1, h - 1);
+    ctx.fillStyle = rgba(C.muted); ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(hi.toFixed(md[3]), bx + bw + 4 * d, padT);
+    ctx.textBaseline = 'bottom'; ctx.fillText(lo.toFixed(md[3]), bx + bw + 4 * d, padT + h); ctx.textBaseline = 'middle'; ctx.fillText(md[2], bx + bw + 4 * d, padT + h / 2);
+    if (SW.stale) { ctx.fillStyle = rgba(C.surface, 0.72); ctx.fillRect(padL, padT, w, h); ctx.fillStyle = rgba(C.ink); ctx.font = font(11, 500); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('Inputs changed. Run the sweep again to update.', padL + w / 2, padT + h / 2); }
+    swGeom = { padL, padT, w, h, cw, chh, nx, ny };
+  }
+  function swCell(e) {
+    if (!swGeom || !SW) return null;
+    const b = cvSweep.getBoundingClientRect(), x = (e.clientX - b.left) * dpr(), y = (e.clientY - b.top) * dpr();
+    const ix = Math.floor((x - swGeom.padL) / swGeom.cw), iy = Math.floor((swGeom.padT + swGeom.h - y) / swGeom.chh);
+    if (ix < 0 || iy < 0 || ix >= swGeom.nx || iy >= swGeom.ny) return null;
+    return { ix, iy, k: iy * swGeom.nx + ix };
+  }
+  cvSweep.addEventListener('mousemove', (e) => {
+    const c = swCell(e); if (!c || !SW.res[c.k]) return;
+    const md = SW_M.find((m) => m[0] === swM.value), sx = SPECK[SW.xk], sy = SPECK[SW.yk];
+    $('swHov').textContent = `${sx.l} ${SW.xs[c.ix]} ${sx.u}, ${sy.l.toLowerCase()} ${SW.ys[c.iy]} ${sy.u}: ${md[1].toLowerCase()} ${SW.res[c.k][md[0]].toFixed(md[3])} ${md[2]}`;
+  });
+  cvSweep.addEventListener('click', (e) => {
+    const c = swCell(e); if (!c || SW.stale) return;
+    P[SW.xk] = SW.xs[c.ix]; P[SW.yk] = SW.ys[c.iy];
+    syncControls(); T = TVIEW; playing = false; setPlay(); run(); drawSweep();
+  });
+
+  /* ---------------- boot ---------------- */
+  const ro = new ResizeObserver(() => requestAnimationFrame(() => { draw(); drawSweep(); }));
+  [cvTop, cvSec, cvChart, cvWall, cvSweep].forEach((c) => ro.observe(c));
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  const redrawAll = () => { draw(); drawSweep(); };
+  if (mq.addEventListener) mq.addEventListener('change', redrawAll);
+  new MutationObserver(redrawAll).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  syncControls();
+  M.simulate(P, { Tend: SIM_T }); // warm up the JIT so the reported run time is representative
+  run(); setPlay(); drawSweep();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(redrawAll);
+})();
