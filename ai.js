@@ -80,9 +80,11 @@
     return { ctx, X, Y, C, d, pad, w, h };
   }
   function legend(f, items) {
-    const { ctx, pad, d } = f; let x = pad.l + 8 * d; const y = pad.t + 8 * d;
+    const { ctx, pad, d, w } = f; let x = pad.l + 8 * d, y = pad.t + 8 * d;
     ctx.font = A.font(10); ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
     items.forEach(([lab, col, dot]) => {
+      const need = 14 * d + ctx.measureText(lab).width + 14 * d;
+      if (x + need > pad.l + w - 4 * d && x > pad.l + 8 * d) { x = pad.l + 8 * d; y += 14 * d; }
       ctx.fillStyle = A.rgba(col);
       if (dot) { ctx.beginPath(); ctx.arc(x + 4 * d, y, 3.5 * d, 0, TAU2); ctx.fill(); } else ctx.fillRect(x, y - 1.5 * d, 10 * d, 3 * d);
       x += 14 * d; ctx.fillStyle = A.rgba(f.C.muted); ctx.fillText(lab, x, y); x += ctx.measureText(lab).width + 14 * d;
@@ -92,20 +94,75 @@
 
   /* =====================================================================
      1. Evolutionary multi-objective design search
+        - the user picks which settings may change (jets, flush, bowl geometry)
+        - goal: weighted score vs. water, or targets (constraints) plus a criterion
+        - constrained Pareto ranking in the style of NSGA-II
      ===================================================================== */
-  const O = { all: [], front: [], running: false, cur: null, hover: null, stop: null };
+  const CAND = [
+    { k: 'Anoz', grp: 'jets', on: true }, { k: 'alpha', grp: 'jets', on: true }, { k: 'jetPhase', grp: 'jets', on: true },
+    { k: 'hNoz', grp: 'jets', on: true }, { k: 'nJets', grp: 'jets', on: false }, { k: 'Hcr', grp: 'jets', on: true },
+    { k: 'VOL', grp: 'jets', on: true },
+    { k: 'ovality', grp: 'bowl', on: false }, { k: 'Rrim', grp: 'bowl', on: false }, { k: 'Rpool', grp: 'bowl', on: false },
+    { k: 'Dwall', grp: 'bowl', on: false }, { k: 'seal', grp: 'bowl', on: false }, { k: 'dTrap', grp: 'bowl', on: false }
+  ];
+  const optMode = () => ($('optFlush').value === 'partial' ? 'partial' : 'full');
+  const volKey = () => (optMode() === 'partial' ? 'Vpart' : 'Vfull');
+  function varSpec(k) {
+    const key = k === 'VOL' ? volKey() : k, s = A.SPECK[key];
+    return { k: key, l: k === 'VOL' ? (optMode() === 'partial' ? 'Partial flush volume' : 'Full flush volume') : s.l, u: s.u, min: s.min, max: s.max, st: s.st, dp: s.d, int: key === 'nJets' };
+  }
+  // build the checkbox lists once
+  (function buildVarPick() {
+    const wrap = { jets: $('optVarsJets'), bowl: $('optVarsBowl') };
+    CAND.forEach((c) => {
+      const id = 'ov_' + c.k, lab = document.createElement('label'); lab.className = 'chk';
+      const name = c.k === 'VOL' ? 'Flush volume' : A.SPECK[c.k].l;
+      lab.innerHTML = `<input type="checkbox" id="${id}" ${c.on ? 'checked' : ''}> <span>${name}</span>`;
+      wrap[c.grp].appendChild(lab);
+    });
+  })();
+  const chosenVars = () => CAND.filter((c) => $('ov_' + c.k).checked).map((c) => varSpec(c.k));
+  const snapV = (d, v) => d.int ? Math.round(v) : +(Math.round(v / d.st) * d.st).toFixed(4);
+  const desOf = (vars, x) => {
+    const o = {}; vars.forEach((d, i) => { o[d.k] = snapV(d, d.min + Math.min(1, Math.max(0, x[i])) * (d.max - d.min)); });
+    // keep the geometry consistent: pool clearly smaller than the rim
+    if (o.Rpool != null || o.Rrim != null) { const rr = o.Rrim != null ? o.Rrim : O.base.Rrim, rp = o.Rpool != null ? o.Rpool : O.base.Rpool; if (rp > rr - 25) o.Rpool = Math.max(40, rr - 25); }
+    return o;
+  };
+  const xOf = (vars, o) => vars.map((d) => (o[d.k] - d.min) / ((d.max - d.min) || 1));
+
+  const O = { all: [], front: [], running: false, cur: null, hover: null, stop: null, vars: [], base: null, goal: 'weights', best: null };
   function weights() {
     const a = +$('wClean').value, b = +$('wSolids').value, c = +$('wPaper').value, s = a + b + c || 1;
     return [a / s, b / s, c / s];
   }
-  function scoreOf(e, w) { return w[0] * e.clean + w[1] * e.solids + w[2] * e.paper - (e.sealOK ? 0 : 40); }
-  function dominates(a, b) { return a.score >= b.score && a.water <= b.water && (a.score > b.score || a.water < b.water); }
+  const targets = () => ({ water: +$('tWater').value, clean: +$('tClean').value, solids: +$('tSolids').value, paper: +$('tPaper').value, pick: $('tPick').value });
+  const goal = () => ($('goalTargets').getAttribute('aria-pressed') === 'true' ? 'targets' : 'weights');
+  // score, and how far a design misses the constraints (0 = meets all)
+  function rate(e) {
+    const w = weights(); e.score = w[0] * e.clean + w[1] * e.solids + w[2] * e.paper;
+    let v = e.sealOK ? 0 : 1; const miss = [];
+    if (!e.sealOK) miss.push('water seal not restored');
+    if (O.goal === 'targets') {
+      const t = targets();
+      if (e.water > t.water + 1e-9) { v += (e.water - t.water) / 0.5; miss.push(`water ${fmt(e.water - t.water, 1)} L over`); }
+      [['clean', 'cleaned'], ['solids', 'solids'], ['paper', 'paper']].forEach(([k, lab]) => { if (e[k] < t[k] - 1e-9) { v += (t[k] - e[k]) / 5; miss.push(`${lab} ${fmt(t[k] - e[k], 0)} points short`); } });
+    }
+    e.viol = v; e.miss = miss; return e;
+  }
+  // constrained domination: meeting the constraints beats missing them; then Pareto on (score up, water down)
+  function dominates(a, b) {
+    if (a.viol === 0 && b.viol > 0) return true;
+    if (a.viol > 0 && b.viol === 0) return false;
+    if (a.viol > 0 && b.viol > 0) return a.viol < b.viol;
+    return a.score >= b.score && a.water <= b.water && (a.score > b.score || a.water < b.water);
+  }
   function ndSort(pop) {
     const fronts = [[]], S = pop.map(() => []), n = pop.map(() => 0);
     pop.forEach((p, i) => { pop.forEach((q, j) => { if (i === j) return; if (dominates(p, q)) S[i].push(j); else if (dominates(q, p)) n[i]++; }); if (n[i] === 0) { p.rank = 0; fronts[0].push(i); } });
     let k = 0;
     while (fronts[k].length) { const nx = []; fronts[k].forEach((i) => S[i].forEach((j) => { if (--n[j] === 0) { pop[j].rank = k + 1; nx.push(j); } })); k++; fronts.push(nx); }
-    fronts.forEach((f) => { // crowding distance on the two objectives
+    fronts.forEach((f) => {
       f.forEach((i) => { pop[i].crowd = 0; });
       ['score', 'water'].forEach((key) => {
         const s = f.slice().sort((a, b) => pop[a][key] - pop[b][key]);
@@ -117,99 +174,155 @@
     });
   }
   function paretoOf(list) {
-    const f = list.filter((a) => a.sealOK && !list.some((b) => b !== a && b.sealOK && dominates(b, a)));
-    return f.sort((a, b) => a.water - b.water);
+    const ok = list.filter((a) => a.viol === 0);
+    return ok.filter((a) => !ok.some((b) => b !== a && b.score >= a.score && b.water <= a.water && (b.score > a.score || b.water < a.water))).sort((a, b) => a.water - b.water);
   }
+  function pickBest() {
+    if (O.goal !== 'targets') return null;
+    const ok = O.all.filter((e) => e.viol === 0), t = targets();
+    if (ok.length) return ok.slice().sort((a, b) => t.pick === 'water' ? (a.water - b.water || b.score - a.score) : (b.score - a.score || a.water - b.water))[0];
+    return null;
+  }
+  function closest() { return O.all.length ? O.all.slice().sort((a, b) => a.viol - b.viol || b.score - a.score)[0] : null; }
+
   function runOpt() {
     if (O.running) return;
-    const base = A.getP(), w = weights(), r = rng(1234);
-    const POP = 36, GENS = 14;
-    O.all = []; O.front = []; O.running = true; O.hover = null; O.base = base;
+    const vars = chosenVars();
+    if (!vars.length) { $('optStatus').textContent = 'Tick at least one setting the search may change.'; return; }
+    const base = A.getP(), r = rng(1234), mode = optMode();
+    const [POP, GENS] = $('optEffort').value === 'thorough' ? [60, 24] : [36, 14];
+    O.all = []; O.front = []; O.running = true; O.hover = null; O.base = base; O.vars = vars; O.goal = goal(); O.mode = mode; O.best = null;
     $('optRun').disabled = true;
-    const ev = (x) => { const des = toDesign(x), e = Object.assign({ x: toX(des), des }, evalPhysics(base, des)); e.score = scoreOf(e, w); O.all.push(e); return e; };
-    O.cur = (() => { const des = {}; DV.forEach((d) => { des[d.k] = base[d.k]; }); const e = Object.assign({ des }, evalPhysics(base, des)); e.score = scoreOf(e, w); return e; })();
-    let pop = [], children = [], gen = 0, queue = lhs(POP, r).map((x) => x); const t0 = now();
+    const ND2 = vars.length;
+    const ev = (x) => { const des = desOf(vars, x), e = rate(Object.assign({ x: xOf(vars, des), des }, evalPhysicsMode(base, des, mode))); O.all.push(e); return e; };
+    O.cur = (() => { const des = {}; vars.forEach((d) => { des[d.k] = base[d.k]; }); return rate(Object.assign({ des }, evalPhysicsMode(base, des, mode))); })();
+    let pop = [], children = [], gen = 0, queue = lhsN(POP, ND2, r); const t0 = now();
     const tour = () => { const a = pop[Math.floor(r() * pop.length)], b = pop[Math.floor(r() * pop.length)]; return (a.rank < b.rank || (a.rank === b.rank && a.crowd > b.crowd)) ? a : b; };
     const breed = () => {
       const kids = [];
       for (let i = 0; i < POP; i++) {
         const p1 = tour(), p2 = tour();
-        kids.push(p1.x.map((v, j) => { let c = v + (r() * 1.5 - 0.25) * (p2.x[j] - v); if (r() < 1.5 / ND) c += gauss(r) * 0.12; return Math.min(1, Math.max(0, c)); }));
+        kids.push(p1.x.map((v, j) => { let c = v + (r() * 1.5 - 0.25) * (p2.x[j] - v); if (r() < 1.5 / ND2) c += gauss(r) * 0.12; return Math.min(1, Math.max(0, c)); }));
       }
       return kids;
     };
     O.stop = slices(() => {
       if (queue.length) { (gen === 0 ? pop : children).push(ev(queue.shift())); return true; }
-      if (gen > 0) { // environmental selection
-        const merged = pop.concat(children); ndSort(merged);
-        merged.sort((a, b) => a.rank - b.rank || b.crowd - a.crowd); pop = merged.slice(0, POP); children = [];
-      } else ndSort(pop);
-      O.front = paretoOf(O.all);
+      if (gen > 0) { const merged = pop.concat(children); ndSort(merged); merged.sort((a, b) => a.rank - b.rank || b.crowd - a.crowd); pop = merged.slice(0, POP); children = []; }
+      else ndSort(pop);
+      O.front = paretoOf(O.all); O.best = pickBest();
       $('optStatus').textContent = `Generation ${gen + 1} of ${GENS + 1} · ${O.all.length} designs evaluated · ${((now() - t0) / 1000).toFixed(1)} s`;
       drawOpt(); fillOptTable();
       if (gen >= GENS) return false;
       gen++; queue = breed(); return true;
     }, () => {
       O.running = false; $('optRun').disabled = false;
-      $('optStatus').textContent = `Done: ${O.all.length} designs in ${((now() - t0) / 1000).toFixed(1)} s, ${((now() - t0) / O.all.length).toFixed(1)} ms each. ${O.front.length} designs on the best trade-off curve.`;
+      const nOk = O.all.filter((e) => e.viol === 0).length;
+      $('optStatus').textContent = `Done: ${O.all.length} designs in ${((now() - t0) / 1000).toFixed(1)} s, ${((now() - t0) / O.all.length).toFixed(1)} ms each. ${O.goal === 'targets' ? nOk + ' meet all targets.' : O.front.length + ' designs on the best trade-off curve.'}`;
       drawOpt(); fillOptTable(); optSummary();
     });
   }
+  function evalPhysicsMode(base, des, mode) {
+    const q = Object.assign({}, base, des, { flushMode: mode });
+    const r = M.simulate(q, SIM);
+    return { clean: r.cleanPct, solids: r.solidsPct, paper: r.paperPct, water: r.water, seal: r.sealEnd, sealOK: r.sealOK };
+  }
+  function lhsN(n, nd, r) {
+    const cols = Array.from({ length: nd }, () => { const p = Array.from({ length: n }, (_, i) => (i + r()) / n); for (let i = n - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [p[i], p[j]] = [p[j], p[i]]; } return p; });
+    return Array.from({ length: n }, (_, i) => cols.map((c) => c[i]));
+  }
+  const metricsLine = (e) => `cleaned ${fmt(e.clean, 0)} %, solids ${fmt(e.solids, 0)} %, paper ${fmt(e.paper, 0)} %, ${fmt(e.water, 1)} L`;
   function optSummary() {
-    const c = O.cur; if (!c || !O.front.length) return;
-    const same = O.front.filter((e) => e.water <= c.water + 1e-9).sort((a, b) => b.score - a.score)[0];
-    const lean = O.front.filter((e) => e.score >= c.score).sort((a, b) => a.water - b.water)[0];
-    const lines = [`Current design: score ${fmt(c.score, 1)} at ${fmt(c.water, 1)} L.`];
-    if (same) lines.push(`Best found with the same or less water: score ${fmt(same.score, 1)} at ${fmt(same.water, 1)} L (${same.score >= c.score ? '+' : ''}${fmt(same.score - c.score, 1)} points).`);
-    if (lean && lean.water < c.water - 0.05) lines.push(`Same score with less water: ${fmt(lean.water, 1)} L, saving ${fmt(c.water - lean.water, 1)} L per flush.`);
-    $('optBest').innerHTML = lines.map((l) => `<p>${l}</p>`).join('');
+    const c = O.cur; if (!c) return;
+    const box = $('optBest'); let html = `<p><b>Current design:</b> ${metricsLine(c)}, score ${fmt(c.score, 1)}${c.viol > 0 ? ` (${c.miss.join(', ')})` : ''}.</p>`;
+    if (O.goal === 'targets') {
+      const b = O.best, t = targets();
+      if (b) html += `<p><b>Best design meeting all targets</b> (${t.pick === 'water' ? 'lowest water' : 'highest score'}): ${metricsLine(b)}, score ${fmt(b.score, 1)}.</p><p><button class="btn primary mini" type="button" id="optLoadBest">Load this design</button></p>`;
+      else { const cl = closest(); html += `<p><b>No design met all targets.</b>${cl ? ` Closest: ${metricsLine(cl)}; ${cl.miss.join(', ')}.` : ''} Try loosening a target, allowing more settings to change, or the thorough search.</p>` + (cl ? `<p><button class="btn mini" type="button" id="optLoadBest">Load the closest design</button></p>` : ''); }
+    } else if (O.front.length) {
+      const same = O.front.filter((e) => e.water <= c.water + 1e-9).sort((a, b) => b.score - a.score)[0];
+      const lean = O.front.filter((e) => e.score >= c.score).sort((a, b) => a.water - b.water)[0];
+      if (same) html += `<p>Best with the same or less water: score ${fmt(same.score, 1)} at ${fmt(same.water, 1)} L (${same.score >= c.score ? '+' : ''}${fmt(same.score - c.score, 1)} points).</p>`;
+      if (lean && lean.water < c.water - 0.05) html += `<p>Same score with less water: ${fmt(lean.water, 1)} L, saving ${fmt(c.water - lean.water, 1)} L per flush.</p>`;
+    }
+    box.innerHTML = html;
+    const btn = $('optLoadBest'); if (btn) btn.addEventListener('click', () => loadOpt(O.best || closest()));
   }
   let optGeom = null;
   function drawOpt() {
     const cv = $('cvOpt'); if ($('aiOpt').hidden) return;
     const pts = O.all, all = pts.concat(O.cur ? [O.cur] : []);
-    const ys = all.map((e) => e.score), lo = Math.max(0, Math.floor(Math.min(...(ys.length ? ys : [0])) / 10) * 10), hi = Math.min(100, Math.ceil(Math.max(...(ys.length ? ys : [100])) / 10) * 10 || 100);
-    const f = frame(cv, { x: [3, 7], y: [lo, Math.max(lo + 10, hi)], xt: [3, 4, 5, 6, 7], xl: 'Water per flush, L', yl: 'Weighted score', yt: [lo, (lo + hi) / 2, hi] });
+    const ys = all.map((e) => e.score), ws = all.map((e) => e.water);
+    const lo = ys.length ? Math.max(0, Math.floor(Math.min(...ys) / 10) * 10) : 0, hi = ys.length ? Math.min(100, Math.ceil(Math.max(...ys) / 10) * 10) : 100;
+    const wl = ws.length ? Math.floor(Math.min(2, ...ws)) : 2, wh = ws.length ? Math.ceil(Math.max(7, ...ws)) : 7;
+    const xt = []; for (let v = wl; v <= wh; v++) xt.push(v);
+    const f = frame(cv, { x: [wl, wh], y: [lo, Math.max(lo + 10, hi)], xt, xl: 'Water per flush, L', yl: 'Weighted score', yt: [lo, (lo + Math.max(lo + 10, hi)) / 2, Math.max(lo + 10, hi)] });
     const { ctx, X, Y, C, d } = f;
-    ctx.fillStyle = A.rgba(C.lineStrong, 0.55);
-    pts.forEach((e) => { if (!e.sealOK) return; ctx.beginPath(); ctx.arc(X(e.water), Y(e.score), 2.6 * d, 0, TAU2); ctx.fill(); });
-    ctx.strokeStyle = A.rgba(C.bad, 0.7); ctx.lineWidth = 1 * d;
-    pts.forEach((e) => { if (e.sealOK) return; const x = X(e.water), y = Y(Math.max(lo, e.score)); ctx.beginPath(); ctx.moveTo(x - 2.5 * d, y - 2.5 * d); ctx.lineTo(x + 2.5 * d, y + 2.5 * d); ctx.moveTo(x + 2.5 * d, y - 2.5 * d); ctx.lineTo(x - 2.5 * d, y + 2.5 * d); ctx.stroke(); });
+    if (O.goal === 'targets' && pts.length) { const t = targets(); ctx.strokeStyle = A.rgba(C.ink, 0.5); ctx.setLineDash([5 * d, 4 * d]); ctx.lineWidth = 1.2 * d; ctx.beginPath(); ctx.moveTo(X(t.water), f.pad.t); ctx.lineTo(X(t.water), f.pad.t + f.h); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = A.rgba(C.muted); ctx.font = A.font(10); ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText('water target', X(t.water) + 4 * d, f.pad.t + f.h - 4 * d); }
+    pts.forEach((e) => {
+      const x = X(e.water), y = Y(Math.max(lo, e.score));
+      if (e.viol === 0) { ctx.fillStyle = A.rgba(C.lineStrong, 0.6); ctx.beginPath(); ctx.arc(x, y, 2.6 * d, 0, TAU2); ctx.fill(); }
+      else { ctx.strokeStyle = A.rgba(C.bad, 0.55); ctx.lineWidth = 1 * d; ctx.beginPath(); ctx.arc(x, y, 2.4 * d, 0, TAU2); ctx.stroke(); }
+    });
     if (O.front.length) {
       ctx.strokeStyle = A.rgba(C.accent); ctx.lineWidth = 2 * d; ctx.beginPath();
       O.front.forEach((e, i) => { const x = X(e.water), y = Y(e.score); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke();
       ctx.fillStyle = A.rgba(C.accent); O.front.forEach((e) => { ctx.beginPath(); ctx.arc(X(e.water), Y(e.score), 4 * d, 0, TAU2); ctx.fill(); });
     }
-    if (O.cur) { const x = X(O.cur.water), y = Y(O.cur.score); ctx.strokeStyle = A.rgba(C.ink); ctx.lineWidth = 2 * d; ctx.beginPath(); ctx.arc(x, y, 7 * d, 0, TAU2); ctx.stroke(); }
-    if (O.hover) { const x = X(O.hover.water), y = Y(O.hover.score); ctx.strokeStyle = A.rgba(C.accent); ctx.lineWidth = 2 * d; ctx.beginPath(); ctx.arc(x, y, 8 * d, 0, TAU2); ctx.stroke(); }
-    legend(f, [['evaluated', C.lineStrong, true], ['best trade-off', C.accent, true], ['seal not restored', C.bad, true], ['current design (ring)', C.ink, false]]);
-    if (!pts.length) { ctx.fillStyle = A.rgba(C.muted); ctx.font = A.font(11); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('Set the weights and start the search', f.pad.l + f.w / 2, f.pad.t + f.h / 2); }
-    optGeom = { X, Y, d };
+    if (O.best) { const x = X(O.best.water), y = Y(O.best.score), s = 9 * d; ctx.fillStyle = A.rgba(C.clean); ctx.beginPath(); for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, rr = k % 2 ? s * 0.45 : s; ctx.lineTo(x + rr * Math.cos(a), y + rr * Math.sin(a)); } ctx.closePath(); ctx.fill(); }
+    if (O.cur) { const x = X(O.cur.water), y = Y(Math.max(lo, O.cur.score)); ctx.strokeStyle = A.rgba(C.ink); ctx.lineWidth = 2 * d; ctx.beginPath(); ctx.arc(x, y, 7 * d, 0, TAU2); ctx.stroke(); }
+    if (O.hover) { const x = X(O.hover.water), y = Y(Math.max(lo, O.hover.score)); ctx.strokeStyle = A.rgba(C.accent); ctx.lineWidth = 2 * d; ctx.beginPath(); ctx.arc(x, y, 8 * d, 0, TAU2); ctx.stroke(); }
+    const leg = [['meets constraints', C.lineStrong, true], ['misses a target or the seal', C.bad, true], ['best trade-off', C.accent, true]];
+    if (O.goal === 'targets') leg.push(['best meeting targets', C.clean, true]);
+    leg.push(['current (ring)', C.ink, false]);
+    legend(f, leg);
+    if (!pts.length) { ctx.fillStyle = A.rgba(C.muted); ctx.font = A.font(11); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('Choose what may change and start the search', f.pad.l + f.w / 2, f.pad.t + f.h / 2); }
+    optGeom = { X, Y, lo };
   }
   function fillOptTable() {
-    const rows = O.front.slice(0, 10);
-    $('optTable').innerHTML = `<thead><tr><th></th><th>Water, L</th><th>Score</th><th>Cleaned, %</th><th>Solids, %</th><th>Paper, %</th>${designHead()}</tr></thead><tbody>` +
-      rows.map((e, i) => `<tr><td><button class="btn mini" type="button" data-opt="${i}">Load</button></td><td class="num">${fmt(e.water, 1)}</td><td class="num">${fmt(e.score, 1)}</td><td class="num">${fmt(e.clean, 0)}</td><td class="num">${fmt(e.solids, 0)}</td><td class="num">${fmt(e.paper, 0)}</td>${designCells(e.des)}</tr>`).join('') + '</tbody>';
+    const vars = O.vars;
+    let rows, title;
+    if (O.goal === 'targets') {
+      const t = targets(), ok = O.all.filter((e) => e.viol === 0);
+      rows = ok.sort((a, b) => t.pick === 'water' ? (a.water - b.water || b.score - a.score) : (b.score - a.score || a.water - b.water)).slice(0, 10);
+      title = rows.length ? `Designs meeting all targets, sorted by ${t.pick === 'water' ? 'water' : 'score'}` : 'No design meets all targets yet';
+    } else { rows = O.front.slice(0, 12); title = rows.length ? 'Best trade-off designs, sorted by water' : ''; }
+    $('optTableTitle').textContent = title;
+    $('optTable').innerHTML = rows.length ? `<thead><tr><th></th><th>Water, L</th><th>Score</th><th>Cleaned, %</th><th>Solids, %</th><th>Paper, %</th>${vars.map((d) => `<th>${d.l}${d.u ? ', ' + d.u : ''}</th>`).join('')}</tr></thead><tbody>` +
+      rows.map((e, i) => `<tr${e === O.best ? ' class="best"' : ''}><td><button class="btn mini" type="button" data-opt="${i}">Load</button></td><td class="num">${fmt(e.water, 1)}</td><td class="num">${fmt(e.score, 1)}</td><td class="num">${fmt(e.clean, 0)}</td><td class="num">${fmt(e.solids, 0)}</td><td class="num">${fmt(e.paper, 0)}</td>${vars.map((d) => `<td class="num">${fmt(e.des[d.k], d.int ? 0 : d.dp)}</td>`).join('')}</tr>`).join('') + '</tbody>' : '';
     $('optTable').querySelectorAll('[data-opt]').forEach((b) => b.addEventListener('click', () => loadOpt(rows[+b.dataset.opt])));
   }
-  function loadOpt(e) { if (!e) return; A.apply(Object.assign({ flushMode: 'full' }, e.des)); $('optHover').textContent = `Loaded: ${fmt(e.water, 1)} L, score ${fmt(e.score, 1)}. Scroll up to see the flush.`; }
+  function loadOpt(e) { if (!e) return; A.apply(Object.assign({ flushMode: O.mode || 'full' }, e.des)); $('optHover').textContent = `Loaded: ${metricsLine(e)}. Scroll up to watch the flush.`; }
   function nearestOpt(ev) {
     if (!optGeom || !O.all.length) return null;
     const b = $('cvOpt').getBoundingClientRect(), x = (ev.clientX - b.left) * A.dpr(), y = (ev.clientY - b.top) * A.dpr();
     let best = null, bd = 14 * A.dpr();
-    O.all.forEach((e) => { const dd = Math.hypot(optGeom.X(e.water) - x, optGeom.Y(e.score) - y); if (dd < bd) { bd = dd; best = e; } });
+    O.all.forEach((e) => { const dd = Math.hypot(optGeom.X(e.water) - x, optGeom.Y(Math.max(optGeom.lo, e.score)) - y); if (dd < bd) { bd = dd; best = e; } });
     return best;
   }
   $('cvOpt').addEventListener('mousemove', (ev) => {
     const e = nearestOpt(ev); O.hover = e; drawOpt();
-    $('optHover').textContent = e ? `${fmt(e.water, 1)} L · score ${fmt(e.score, 1)} · cleaned ${fmt(e.clean, 0)} % · solids ${fmt(e.solids, 0)} % · paper ${fmt(e.paper, 0)} %. Click to load.` : 'Hover a point to read it, click to load that design.';
+    $('optHover').textContent = e ? `${metricsLine(e)} · score ${fmt(e.score, 1)}${e.viol > 0 ? ' · ' + e.miss.join(', ') : ''}. Click to load.` : 'Hover a point to read it, click to load that design.';
   });
   $('cvOpt').addEventListener('click', (ev) => loadOpt(nearestOpt(ev)));
   $('optRun').addEventListener('click', runOpt);
+  // re-rate existing results when weights or targets change, without re-running
+  function rerate() {
+    if (!O.all.length || O.running) return;
+    O.goal = goal(); O.all.forEach(rate); if (O.cur) rate(O.cur);
+    O.front = paretoOf(O.all); O.best = pickBest(); drawOpt(); fillOptTable(); optSummary();
+  }
   ['wClean', 'wSolids', 'wPaper'].forEach((id) => $(id).addEventListener('input', () => {
-    const w = weights(); $('wOut').textContent = `cleaning ${Math.round(w[0] * 100)} % · solids ${Math.round(w[1] * 100)} % · paper ${Math.round(w[2] * 100)} %`;
-    if (O.all.length && !O.running) { O.all.forEach((e) => { e.score = scoreOf(e, w); }); if (O.cur) O.cur.score = scoreOf(O.cur, w); O.front = paretoOf(O.all); drawOpt(); fillOptTable(); optSummary(); }
+    const w = weights(); $('wOut').textContent = `Score weights: cleaning ${Math.round(w[0] * 100)} % · solids ${Math.round(w[1] * 100)} % · paper ${Math.round(w[2] * 100)} %`; rerate();
   }));
+  ['tWater', 'tClean', 'tSolids', 'tPaper', 'tPick'].forEach((id) => $(id).addEventListener('input', rerate));
+  function setGoal(g) {
+    $('goalWeights').setAttribute('aria-pressed', String(g === 'weights')); $('goalTargets').setAttribute('aria-pressed', String(g === 'targets'));
+    $('optTargets').hidden = g !== 'targets'; rerate();
+  }
+  $('goalWeights').addEventListener('click', () => setGoal('weights'));
+  $('goalTargets').addEventListener('click', () => setGoal('targets'));
+  $('optFlush').addEventListener('change', () => { const lab = document.querySelector('label[for="ov_VOL"], #ov_VOL + span'); if (lab) lab.textContent = optMode() === 'partial' ? 'Flush volume (partial)' : 'Flush volume'; });
 
   /* =====================================================================
      2. Neural surrogate (MLP 6-32-32-3, tanh, Adam), trained in the browser

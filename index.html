@@ -172,6 +172,23 @@ canvas{display:block;width:100%;max-width:100%}
 .ai-results{display:grid;gap:10px;font-size:13.5px;max-width:90ch}
 .ai-log{margin:0;padding-left:20px;font-size:13px;color:var(--muted);display:grid;gap:2px}
 table.compact{min-width:420px}
+.opt-setup{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:14px;align-items:start}
+@media (max-width:980px){ .opt-setup{grid-template-columns:minmax(0,1fr)} }
+.opt-box.run{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:end}
+.opt-box select{max-width:100%}
+.opt-box{border:1px solid var(--line);border-radius:10px;padding:10px 14px 14px;margin:0;min-width:0;display:grid;gap:10px;background:var(--raised)}
+.opt-box legend{font-family:var(--f-display);font-weight:600;font-size:13px;padding:0 6px}
+.chk-group{display:grid;gap:4px}
+.chk-head{font-size:12px;color:var(--muted);font-family:var(--f-display);font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.chk-list{display:flex;flex-wrap:wrap;gap:4px 14px}
+.chk{display:inline-flex;gap:6px;align-items:center;font-size:13px;cursor:pointer}
+.chk input{accent-color:var(--accent);margin:0}
+.opt-box .f{display:grid;gap:4px;font-size:12.5px;color:var(--muted)}
+.targets{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px 12px}
+.targets input,.targets select{border:1px solid var(--line-strong);background:var(--surface);border-radius:8px;padding:6px 8px;font-size:13px;width:100%;font-family:var(--f-mono)}
+.weights{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px 12px}
+.opt-table-title{font-size:14px;margin-top:4px}
+tr.best td{background:color-mix(in srgb, var(--clean) 12%, transparent)}
 .btn.mini{padding:3px 8px;font-size:12px}
 /* method */
 .method{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px 24px}
@@ -323,19 +340,46 @@ td code{font-family:var(--f-mono);font-size:12.5px}
         </div>
 
         <div id="aiOpt" role="tabpanel" class="ai-pane">
-          <p class="ai-lede">An evolutionary search breeds about 500 designs over 15 generations and keeps the ones with the best trade-off between flush performance and water. It varies nozzle area, jet angle, jet position, nozzle height, valve height and full flush volume. The bowl and all other settings stay as they are now.</p>
-          <div class="ai-ctl">
-            <label class="f" for="wClean">Weight on cleaning<input type="range" id="wClean" min="0" max="100" step="5" value="50"></label>
-            <label class="f" for="wSolids">Weight on solids<input type="range" id="wSolids" min="0" max="100" step="5" value="30"></label>
-            <label class="f" for="wPaper">Weight on paper<input type="range" id="wPaper" min="0" max="100" step="5" value="20"></label>
-            <button class="btn primary" type="button" id="optRun">Start search</button>
+          <p class="ai-lede">An evolutionary search breeds hundreds of designs and keeps the best ones. You choose which settings it may change, and whether it should trade performance against water or meet targets you set. Everything you do not tick stays as it is in the simulator.</p>
+          <div class="opt-setup">
+            <fieldset class="opt-box">
+              <legend>1 · What may change</legend>
+              <div class="chk-group"><span class="chk-head">Flush and jets</span><div id="optVarsJets" class="chk-list"></div></div>
+              <div class="chk-group"><span class="chk-head">Bowl geometry</span><div id="optVarsBowl" class="chk-list"></div></div>
+              <label class="f inline" for="optFlush">Flush to optimise<select id="optFlush"><option value="full" selected>Full flush</option><option value="partial">Partial flush</option></select></label>
+            </fieldset>
+            <fieldset class="opt-box">
+              <legend>2 · Goal</legend>
+              <div class="seg" role="group" aria-label="Goal">
+                <button type="button" id="goalWeights" aria-pressed="true">Best trade-off</button>
+                <button type="button" id="goalTargets" aria-pressed="false">Meet targets</button>
+              </div>
+              <div id="optTargets" class="targets" hidden>
+                <label class="f" for="tWater">Water at most, L<input type="number" id="tWater" min="2" max="9" step="0.1" value="4.0"></label>
+                <label class="f" for="tClean">Cleaned at least, %<input type="number" id="tClean" min="0" max="100" step="1" value="90"></label>
+                <label class="f" for="tSolids">Solids at least, %<input type="number" id="tSolids" min="0" max="100" step="1" value="95"></label>
+                <label class="f" for="tPaper">Paper at least, %<input type="number" id="tPaper" min="0" max="100" step="1" value="80"></label>
+                <label class="f" for="tPick">Among those, pick<select id="tPick"><option value="score" selected>highest score</option><option value="water">lowest water</option></select></label>
+              </div>
+              <div class="weights">
+                <label class="f" for="wClean">Weight on cleaning<input type="range" id="wClean" min="0" max="100" step="5" value="50"></label>
+                <label class="f" for="wSolids">Weight on solids<input type="range" id="wSolids" min="0" max="100" step="5" value="30"></label>
+                <label class="f" for="wPaper">Weight on paper<input type="range" id="wPaper" min="0" max="100" step="5" value="20"></label>
+              </div>
+              <p class="ai-note" id="wOut">Score weights: cleaning 50 % · solids 30 % · paper 20 %</p>
+            </fieldset>
+            <fieldset class="opt-box run">
+              <legend>3 · Run</legend>
+              <label class="f" for="optEffort">Search effort<select id="optEffort"><option value="quick" selected>Quick, about 540 designs</option><option value="thorough">Thorough, about 1,500 designs</option></select></label>
+              <button class="btn primary" type="button" id="optRun">Start search</button>
+            </fieldset>
           </div>
-          <p class="ai-note" id="wOut">cleaning 50 % · solids 30 % · paper 20 %</p>
-          <p class="ai-status" id="optStatus">Score = weighted sum of cleaned, solids removed and paper removed, in %. Designs that do not restore the water seal are marked and excluded from the best trade-off.</p>
+          <p class="ai-status" id="optStatus">Score = weighted sum of cleaned, solids removed and paper removed, in %. Designs that do not restore the water seal never count as a solution.</p>
           <div class="ai-grid">
             <canvas id="cvOpt" class="ai-cv-wide" aria-label="Scatter of evaluated designs: water per flush against weighted score, with the best trade-off curve"></canvas>
             <div class="ai-side"><p class="hov" id="optHover">Hover a point to read it, click to load that design.</p><div id="optBest"></div></div>
           </div>
+          <h3 class="opt-table-title" id="optTableTitle"></h3>
           <div class="tablewrap"><table id="optTable"></table></div>
         </div>
 

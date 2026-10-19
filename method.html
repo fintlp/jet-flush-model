@@ -382,14 +382,17 @@ dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
         <p>The simulator has an AI lab with three tools. All of them use the physics model described above as their engine, and all run in the browser. They show three different roles AI can play next to a physics model: searching designs, replacing the model with a faster learned copy, and correcting the model with data.</p>
 
         <h3>Design optimiser</h3>
-        <p>An evolutionary multi-objective search in the style of NSGA-II. It varies six design variables: nozzle area, downward jet angle, jet position, nozzle height, valve height and full flush volume. Everything else, including the bowl shape, stays at the current simulator settings, and the full flush is used.</p>
+        <p>An evolutionary multi-objective search in the style of NSGA-II. The user decides what it may change and what counts as good.</p>
         <ul>
-          <li><strong>Objectives:</strong> maximise a weighted score and minimise water per flush. The score is the weighted sum of cleaned area, solids removed and paper removed, with weights set by the user (default 50, 30 and 20 %).</li>
-          <li><strong>Constraint:</strong> designs that do not restore the water seal lose 40 points and are excluded from the best trade-off curve.</li>
-          <li><strong>Search:</strong> 36 designs per generation, a Latin hypercube start and 14 further generations, about 540 flushes in 3 to 5 seconds. Parents are picked by tournament on Pareto rank and crowding distance. Children come from blend crossover and occasional Gaussian mutation.</li>
-          <li><strong>Result:</strong> the set of designs no other design beats on both score and water, plus a comparison with the current design at the same water or the same score.</li>
+          <li><strong>What may change:</strong> any mix of nozzle area, downward jet angle, jet position, nozzle height, number of jets, valve height and flush volume, plus the bowl geometry: ovality, rim radius, pool radius, rim-to-waterline depth, seal depth and trapway diameter. Each setting is searched over its full slider range. Everything not ticked stays at the current simulator value. The pool radius is kept at least 25 mm smaller than the rim radius.</li>
+          <li><strong>Flush to optimise:</strong> the full or the partial flush. Its volume is the flush volume variable, and water per flush includes any bowl refill.</li>
+          <li><strong>Goal "best trade-off":</strong> maximise a weighted score and minimise water. The score is the weighted sum of cleaned area, solids removed and paper removed, with weights set by the user (default 50, 30 and 20 %).</li>
+          <li><strong>Goal "meet targets":</strong> the user sets a maximum water use and minimum cleaned, solids and paper shares. Among the designs that meet all of them, the tool reports the one with the highest score or the lowest water. If none qualifies, it reports the closest design and which targets it misses.</li>
+          <li><strong>Constraints:</strong> handled by constrained domination. A design that meets all constraints always ranks above one that does not; among designs that miss, the smaller miss ranks higher. A restored water seal is always a constraint.</li>
+          <li><strong>Search:</strong> 36 designs per generation over 15 generations (about 540 flushes, 3 to 5 s), or 60 over 25 generations (about 1,500 flushes) in the thorough setting. It starts from a Latin hypercube. Parents are picked by tournament on rank and crowding distance; children come from blend crossover and occasional Gaussian mutation.</li>
+          <li><strong>Re-rating:</strong> changing weights or targets after a run re-ranks the designs already found without running them again.</li>
         </ul>
-        <p>The optimiser finds the best designs <em>of the model</em>. Its suggestions are only as good as the model's calibration, so they are candidates for a CFD or rig check, not final answers.</p>
+        <p>The search uses a coarser film update than the main simulator, so a loaded design can show about one point more or less cleaning in the simulator. The optimiser finds the best designs <em>of the model</em>. Its suggestions are only as good as the model's calibration, so they are candidates for a CFD or rig check, not final answers.</p>
 
         <h3>Neural surrogate</h3>
         <p>A fully connected network with 6 inputs (the same design variables, scaled to 0 to 1), two hidden layers of 32 tanh units and 3 linear outputs (cleaned, solids removed and paper removed, scaled to 0 to 1).</p>
