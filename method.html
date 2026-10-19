@@ -94,7 +94,7 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
     <span class="eyebrow">Model description · Tangential Jet Flush Model</span>
     <h1>How the jet flush model works</h1>
     <p class="lede">A reduced-order model of a rimless WC flushed by tangential rim jets. It traces each jet as a film on the bowl wall, follows the pool level, swirl and trap flow, and estimates cleaning, waste removal and water use. One flush takes about 5 to 20 milliseconds to compute in a web browser.</p>
-    <p class="meta">Version 1.0.0 · 19 October 2026 · <a href="https://github.com/fintlp/jet-flush-model#change-log">change log</a> · model code: <a href="https://github.com/fintlp/jet-flush-model/blob/main/model.js">model.js</a></p>
+    <p class="meta">Version 1.1.0 · 19 October 2026 · <a href="https://github.com/fintlp/jet-flush-model#change-log">change log</a> · model code: <a href="https://github.com/fintlp/jet-flush-model/blob/main/model.js">model.js</a></p>
   </header>
 
   <div class="layout">
@@ -159,6 +159,8 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
 
         <h3>Seeing the effect</h3>
         <ul>
+          <li><strong>Estimates and validity:</strong> every result card is labelled as an estimate. If a design overflows the bowl or its flush does not finish within 60 s, a red notice above the results says so and the chips read Overflow or Incomplete. In the design sweep such cells carry a red cross.</li>
+          <li><strong>AI results after changes:</strong> if you change a setting that an AI tool did not vary itself, for example the bowl after training the surrogate, its panel says the results are for the earlier configuration and asks you to run it again.</li>
           <li><strong>Change chips:</strong> each result card shows a green or red chip with the change, for example +5 or −12, and briefly pulses when its value moves. For water, less is shown as an improvement.</li>
           <li><strong>What the chips compare with:</strong> by default, the design before your last edit. A series of quick slider moves counts as one edit, so the chip shows the effect of the whole adjustment.</li>
           <li><strong>Pin as reference:</strong> fixes the current results as a reference. Every change after that is compared with it, until you clear the reference.</li>
@@ -308,7 +310,9 @@ Q_out  = min(Q_weir, Q_cap)</div>
         <div class="eq">dV_trap/dt = Q_weir − Q_g                 <span class="c">before priming, V_trap ≥ 0</span>
 Q_siphon  = A_t · √( 2 g (z_p + H_s) / K_s )
 siphon breaks when z_p ≤ −d_s            <span class="c">air reaches the trap inlet</span></div>
-        <p>After the siphon breaks, any remaining cistern flow and the bowl refill raise the level again. The seal after the flush is the final level above the trap inlet, capped at the seal depth. A seal below 50 mm is flagged.</p>
+        <p>After the siphon breaks, any remaining cistern flow and the bowl refill raise the level again. The seal after the flush is the final level above the trap inlet, capped at the seal depth. A seal below 50 mm is flagged, whether it comes from the flush or from a seal depth set below 50 mm.</p>
+        <h3>Overflow</h3>
+        <p>If inflow exceeds what the weir or siphon can take for long enough, the pool rises. The level table runs up to the rim; water beyond it is counted as spilled over the rim. Such a design is marked as overflowing, its results are shown as not valid, and the optimiser never counts it as a solution. Splashing over the rim before the pool is full is not modelled.</p>
       </section>
 
       <section id="swirl">
@@ -349,8 +353,10 @@ dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
           <table>
             <thead><tr><th>Item</th><th>Setting</th><th>Why</th></tr></thead>
             <tbody>
-              <tr><td>Time integration</td><td>Explicit Euler, Δt = 10 ms, 12 s simulated</td><td>The pool and cistern change slowly enough that this is stable and accurate to well under 1 %.</td></tr>
-              <tr><td>Film re-trace</td><td>Every 100 ms (200 ms in the design sweep)</td><td>The film responds within a fraction of a second, so it is treated as quasi-steady.</td></tr>
+              <tr><td>Time integration</td><td>Explicit Euler, Δt = 10 ms</td><td>The pool and cistern change slowly enough that this is stable and accurate to well under 1 %.</td></tr>
+              <tr><td>Simulated time</td><td>Until the flush is over: at least 12 s, then until the cistern is empty plus 6 s of settling, at most 60 s</td><td>Slow flushes run to completion. If the cistern is still not empty at 60 s, the result is marked incomplete and not counted as a solution.</td></tr>
+              <tr><td>Overflow</td><td>The level table reaches the rim; water above it is counted as spilled</td><td>A design whose pool reaches the rim is marked as overflowing and its results as not valid.</td></tr>
+              <tr><td>Film re-trace</td><td>Every 100 ms (200 ms in the design sweep and the optimiser search)</td><td>The film responds within a fraction of a second, so it is treated as quasi-steady.</td></tr>
               <tr><td>Film step</td><td>6 mm arc length, at most 500 steps per jet</td><td>Smaller than the wall cell size, so the footprint has no gaps.</td></tr>
               <tr><td>Wall grid</td><td>90 × 40 cells, about 4 mm high and 10 mm wide</td><td>Resolves the gaps behind the nozzles while staying cheap.</td></tr>
               <tr><td>Level from volume</td><td>Pre-computed table of 800 levels</td><td>Turns the irregular basin into a single lookup per step.</td></tr>
@@ -423,7 +429,7 @@ dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
 
         <h3>Calibration procedure</h3>
         <ol class="steps">
-          <li><strong>Choose 3 to 5 reference designs</strong> that span the design space you care about, for example low and high nozzle area, two jet angles and two ovalities.</li>
+          <li><strong>Choose a small set of reference designs</strong> that span the design space you care about, for example low and high nozzle area, two jet angles and two ovalities.</li>
           <li><strong>Run them in PreonLab</strong> and export: inflow Q(t) at the nozzles, wall wetting and wall shear maps at fixed times, pool level and outflow over time, pool angular momentum, and the media removed over time.</li>
           <li><strong>Fit hydraulics first:</strong> K and the valve height from Q(t), then the weir and siphon coefficients from level and outflow.</li>
           <li><strong>Fit the film next:</strong> c<sub>f</sub> and k<sub>sp</sub> from the wetted footprint, then τ<sub>c</sub> and J<sub>crit</sub> from the wall shear map combined with a soil threshold or a physical wash test.</li>
@@ -452,7 +458,7 @@ dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
           <li><strong>Search:</strong> 36 designs per generation over 15 generations (about 540 flushes, 3 to 5 s), or 60 over 25 generations (about 1,500 flushes) in the thorough setting. It starts from a Latin hypercube. Parents are picked by tournament on rank and crowding distance; children come from blend crossover and occasional Gaussian mutation.</li>
           <li><strong>Re-rating:</strong> changing weights or targets after a run re-ranks the designs already found without running them again.</li>
         </ul>
-        <p>The search uses a coarser film update than the main simulator, so a loaded design can show about one point more or less cleaning in the simulator. The optimiser finds the best designs <em>of the model</em>. Its suggestions are only as good as the model's calibration, so they are candidates for a CFD or rig check, not final answers.</p>
+        <p>The search uses a coarser film update than the main simulator for speed. At the end, the designs it can report (the trade-off curve and the best candidates for the targets) and the current design are re-checked at the simulator's own resolution, so the reported numbers match what the simulator shows once a design is loaded. Other points in the chart keep their coarse values, which can differ by about one point of cleaning. The optimiser finds the best designs <em>of the model</em>. Its suggestions are only as good as the model's calibration, so they are candidates for a CFD or rig check, not final answers.</p>
 
         <h3>Neural surrogate</h3>
         <p>A fully connected network with 6 inputs (the same design variables, scaled to 0 to 1), two hidden layers of 32 tanh units and 3 linear outputs (cleaned, solids removed and paper removed, scaled to 0 to 1).</p>
@@ -461,7 +467,7 @@ dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
           <li><strong>Training:</strong> mean squared error, full batch, Adam with a learning rate of 0.01 that decays tenfold over 1,500 epochs.</li>
           <li><strong>Checks:</strong> mean absolute error and R² on the unseen test designs, and the measured time per prediction against the physics model.</li>
         </ul>
-        <p>With 300 training flushes the network typically reaches an R² around 0.9 to 0.96 on unseen designs and answers in about 5 µs, roughly 1,000 to 2,000 times faster than the physics model. The physics model plays the part that PreonLab runs would play in practice. Trained on PreonLab, the same network would be about 10⁶ to 10⁸ times faster than a new PreonLab run, but each of its training runs would cost minutes to hours.</p>
+        <p>With 300 training flushes the network typically reaches an R² around 0.9 to 0.96 on unseen designs and answers in about 5 µs, roughly 1,000 to 2,000 times faster than the physics model. The physics model plays the part that PreonLab runs would play in practice. Trained on PreonLab runs, the same kind of network could be faster than a new PreonLab run by a much larger factor. That is a rough expectation, not a benchmark, and each training run would cost minutes to hours.</p>
 
         <h3>Hybrid calibration</h3>
         <p>An end-to-end run of the calibration workflow in <a href="#calibration">section 12</a>, against synthetic reference data.</p>
@@ -471,7 +477,7 @@ dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
           <li><strong>Correction:</strong> a Gaussian process with a squared-exponential kernel learns what the calibrated model still gets wrong. The length scale is chosen by leave-one-out error, and the correction is dropped when it would not beat no correction.</li>
           <li><strong>Test:</strong> all three versions, uncalibrated, calibrated and hybrid, are scored on 24 hold-out designs the fit never saw.</li>
         </ul>
-        <p>In typical runs calibration cuts the hold-out error by a factor of about two to eight. The correction adds a smaller gain and only when there are enough reference runs to see a pattern in what is left. That matches what to expect with real data: get the physics right first, then let a small data model handle the rest.</p>
+        <p>In typical runs on this synthetic data, calibration cuts the hold-out error by a factor of about two to eight. With real data the gain is unknown until tried. The correction adds a smaller gain and only when there are enough reference runs to see a pattern in what is left. That matches what to expect with real data: get the physics right first, then let a small data model handle the rest.</p>
       </section>
 
       <section id="approaches">
@@ -480,7 +486,7 @@ dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
           <table>
             <thead><tr><th>Approach</th><th>Time per flush case</th><th>One-off cost</th><th>Fidelity</th></tr></thead>
             <tbody>
-              <tr><td>This reduced-order model</td><td class="num">5–20 ms</td><td>3 to 5 reference runs to calibrate</td><td>Trends; roughly ±10 % after calibration (estimate)</td></tr>
+              <tr><td>This reduced-order model</td><td class="num">5–20 ms</td><td>A handful of reference runs to calibrate; how many is still open</td><td>Trends; accuracy unknown until calibrated</td></tr>
               <tr><td>PreonLab (SPH) or VOF CFD</td><td class="num">minutes to hours</td><td>Setup, meshing or particle resolution study</td><td>High</td></tr>
               <tr><td>PINN trained per case</td><td class="num">hours to days of training</td><td>None</td><td>Often unreliable for transient free-surface flows</td></tr>
               <tr><td>Neural surrogate trained on CFD</td><td class="num">milliseconds to seconds</td><td>Tens to hundreds of CFD runs plus training</td><td>Good inside the trained design range</td></tr>
@@ -500,6 +506,9 @@ dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
           <li>The pool rotates as one body. There is no resolved vortex core, no air entrainment and no wave motion.</li>
           <li>The trap is a lumped weir, orifice and siphon model. Its geometry beyond diameter, seal depth and siphon drop is not represented.</li>
           <li>Waste is two lumped classes. Clogging, media shape, paper tearing and carry along the drain line are not modelled.</li>
+          <li>Splashing, jets hitting each other and spill-over before the pool is full are not modelled, so the model cannot say whether a design splashes. It only detects a pool that reaches the rim.</li>
+          <li>The AI lab uses a conventional neural network surrogate, not a physics-informed network (PINN). The calibration demo runs on synthetic data. Nothing here replaces CFD or tests.</li>
+          <li>The presets are generic EU washdown and siphonic bowls and are not modelled on any manufacturer's product.</li>
           <li>Status chips on the simulator use display bands chosen for the tool. They are not values from a standard.</li>
         </ul>
       </section>
@@ -552,7 +561,7 @@ console.log(r.cleanPct, r.solidsPct, r.water);</div>
 
       <footer class="foot">
         <span class="navl"><a href="./">← Simulator</a><a href="why.html">Why</a><a href="sources.html">Sources and references</a></span>
-        <span>Tangential Jet Flush Model · v1.0.0 · Peter Fintl</span>
+        <span>Tangential Jet Flush Model · v1.1.0 · Peter Fintl</span>
       </footer>
     </main>
   </div>

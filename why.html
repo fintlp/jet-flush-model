@@ -193,12 +193,12 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
       <ul class="ticks">
         <li><b>Reduced-order physics</b> instead of resolving every eddy, so the mechanism stays visible.</li>
         <li><b>Evolutionary optimisation</b> instead of one-at-a-time parameter studies.</li>
-        <li><b>Neural surrogates</b> that turn hours of solver time into microseconds, once trained.</li>
+        <li><b>Neural surrogates</b> that answer in microseconds once trained on solver results.</li>
         <li><b>Hybrid calibration</b> that keeps the physics and lets data correct what it misses, with an uncertainty that grows away from known designs.</li>
       </ul>
       <div class="box">
         <h4>What this does not do</h4>
-        <p>It does not replace validation. The model on this page is not calibrated yet, so its numbers show trends between designs, not certified values. AI suggestions are candidates for a CFD or rig check, never the final answer. The gain is in how quickly a team gets to the right few questions.</p>
+        <p>It does not replace validation. The model on this page is not calibrated yet, so its numbers show trends between designs, not certified values. AI suggestions are candidates for a CFD or rig check, never the final answer.</p><p>Some things are out of scope: splashing, jets hitting each other and spill-over are not modelled, so the page cannot say whether a design splashes. The AI is a conventional neural surrogate, not a physics-informed network, and the calibration demo uses synthetic data. The presets are generic bowls, not any manufacturer's product.</p><p>The gain is in how quickly a team gets to the right few questions.</p>
       </div>
     </section>
 
@@ -239,7 +239,7 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
 
     <footer class="foot">
       <span class="navl"><a href="./">← Simulator</a><a href="method.html">Model description</a><a href="sources.html">Sources and references</a></span>
-      <span>Tangential Jet Flush Model · v1.0.0 · Peter Fintl</span>
+      <span>Tangential Jet Flush Model · v1.1.0 · Peter Fintl</span>
     </footer>
   </div>
 </div>

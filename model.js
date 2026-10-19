@@ -63,7 +63,7 @@
       udz[k] = (zz[j + 1] - zz[j]) / dl;
     }
     // pool area vs level z (relative to weir crest = static waterline, +up)
-    const zMin = -ds - 0.03, zMax = 0.9 * D, NZ = 800;
+    const zMin = -ds - 0.03, zMax = D, NZ = 800;   // up to the rim; above it the bowl overflows
     const zt = new Float64Array(NZ), vt = new Float64Array(NZ);
     const rAtLevel = (z) => {
       if (z >= 0) { const ze = Math.max(0, (D - Math.min(z, D)) / D); return Rp + (Rr - Rp) * Math.cos(Math.PI / 2 * ze); }
@@ -81,7 +81,8 @@
     const v0 = vt[i0] + f0 * (vt[i0 + 1] - vt[i0]);
     for (let i = 0; i < NZ; i++) vt[i] -= v0;
     const Vstatic = -vt[0]; // pool water below weir crest
-    return { Rr, Rp, D, ds, S, ur, udr, udz, uz, zt, vt, NZ, rAtLevel, Vstatic, zMin, zMax };
+    const Vrim = vt[NZ - 1]; // volume above the crest when the bowl is full to the rim
+    return { Rr, Rp, D, ds, S, ur, udr, udz, uz, zt, vt, NZ, rAtLevel, Vstatic, Vrim, zMin, zMax };
   }
 
   function geomAt(g, s) {
@@ -120,7 +121,7 @@
     opts = opts || {};
     const t0 = (typeof performance !== 'undefined' ? performance.now() : Date.now());
     const g = buildGeom(p);
-    const dt = 0.01, Tend = opts.Tend || 14;
+    const dt = 0.01, Tend = opts.Tend || 14, Tmax = Math.max(Tend, opts.Tmax || 60);   // run at least Tend, until settled, at most Tmax
     const uEvery = opts.coarse ? 20 : 10, dtu = uEvery * dt;
     const light = !!opts.light;
     const Vfl = (p.flushMode === 'partial' ? p.Vpart : p.Vfull) / 1000;
@@ -266,9 +267,12 @@
     let tEmpty = null, Qpeak = 0, vsPeak = 0, zPeak = 0, dipPeak = 0;
     const rec = light ? null : { t: [], Qin: [], Qout: [], z: [], Vc: [], vs: [], phi: [], Ms: [], Np: [], primed: [], Vt: [] };
 
-    const nSteps = Math.round(Tend / dt);
-    for (let n = 0; n <= nSteps; n++) {
-      const t = n * dt;
+    let tEnd = 0, Vspill = 0, overflowT = null;
+    for (let n = 0; ; n++) {
+      const t = n * dt; tEnd = t;
+      // stop once the flush is over: cistern empty and 6 s of settling, but never before Tend or after Tmax
+      if (t > Tend && tEmpty !== null && t > tEmpty + 6) break;
+      if (t > Tmax) break;
       // cistern and jets
       const open = Vc > 1e-7 ? Math.min(1, t / p.tOpen) : 0;
       const H = Vc / p.Acist + Hcr;
@@ -298,6 +302,7 @@
       }
       Vrel += (Qin - Qout) * dt;
       if (Vrel < g.vt[0] + 1e-6) Vrel = g.vt[0] + 1e-6;
+      if (Vrel > g.Vrim) { Vspill += Vrel - g.Vrim; Vrel = g.Vrim; if (overflowT === null) overflowT = t; }   // water over the rim
 
       // swirl (angular momentum of pool, solid-body)
       const Vpool = Math.max(1e-4, g.Vstatic + Vrel);
@@ -342,13 +347,15 @@
     let lineHit = 0;
     for (let it = 0; it < NTH; it++) if (J[lineRow * NTH + it] >= p.Jcrit) lineHit++;
 
-    const water = Vfl * 1000 + (siph ? p.refill : 0);
+    const incomplete = Vc > 1e-6;   // cistern still not empty at Tmax
+    const water = Vin * 1000 + (siph ? p.refill : 0);   // water actually released, plus bowl refill
     const out = {
       p, geom: g, NTH, NS, dsb,
       cleanPct: 100 * Aclean / Atot, wetPct: 100 * Awet / Atot, linePct: 100 * lineHit / NTH,
       solidsPct: p.Ms > 0 ? 100 * (1 - Ms / p.Ms) : 100, paperPct: p.Np > 0 ? 100 * (1 - Np / p.Np) : 100,
       capS, water, flushVol: Vfl * 1000, Qpeak: Qpeak * 1000, tEmpty, vsPeak, zPeak: zPeak * 1000, dipPeak: dipPeak * 1000,
-      primeT, breakT, everPrimed, sealEnd, sealOK: sealEnd >= Math.min(p.sealMin, p.seal) - 0.5, zEnd: zEnd * 1000,
+      primeT, breakT, everPrimed, sealEnd, sealOK: sealEnd >= p.sealMin - 0.5, zEnd: zEnd * 1000,
+      tEnd, incomplete, cisternLeft: Vc * 1000, overflow: overflowT !== null, overflowT, spill: Vspill * 1000, valid: overflowT === null && !incomplete,
       cleanPerL: 100 * Aclean / Atot / water,
       runMs: 0
     };

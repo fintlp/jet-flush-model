@@ -179,6 +179,10 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 @media (prefers-reduced-motion: reduce){ .jump-demo,.jump-demo.away{transition:none} }
 section[id],.panel[id]{scroll-margin-top:64px}
 .seg button:disabled{opacity:.45;cursor:default}
+.validity{margin:0 0 10px;padding:10px 14px;border:1px solid var(--bad);border-radius:10px;color:var(--ink);background:color-mix(in srgb, var(--bad) 10%, var(--surface));font-size:13.5px}
+.validity b{color:var(--bad)}
+.est{font-weight:500;letter-spacing:.04em;color:var(--muted);text-transform:none;font-family:var(--f-body);font-size:11.5px}
+.estline{font-size:12.5px;color:var(--muted);margin:6px 2px 0}
 .cmpbar{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:10px}
 .cmpbar b{color:var(--ink);font-weight:600}
 .delta{display:inline-block;font-family:var(--f-mono);font-size:12.5px;font-weight:500;padding:1px 6px;border-radius:6px;margin-left:8px;vertical-align:middle;line-height:1.4}
@@ -282,7 +286,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
       <span class="eyebrow">Flush simulator · physics model + AI</span>
       <h1>Tangential Jet Flush Model</h1>
       <p class="lede">A fast model of how a rimless toilet flushes. Rim jets wash the bowl, swirl the pool and carry waste through the trap. Each flush computes in milliseconds, so you can change the design and see the effect on cleaning, waste removal and water use right away. An AI lab searches for better designs and shows how the model would be trained and calibrated with PreonLab. The coefficients are not calibrated yet, so read the results as trends.</p>
-      <p class="lede-detail">Under the hood: a reduced-order model from cistern to trap, covering jet films on an oval bowl wall, pool swirl, washdown or siphonic outflow and waste transport. One flush takes 5 to 20 ms in the browser, thousands of times faster than a free-surface CFD case. <a href="https://fintlp.github.io/jet-flush-model/method.html" target="_blank" rel="noopener">How the model works</a> · <a href="https://fintlp.github.io/jet-flush-model/why.html" target="_blank" rel="noopener">Why we built this</a> · Slides: <a href="https://fintlp.github.io/jet-flush-model/slides/jet-flush-model.pptx" target="_blank" rel="noopener">PowerPoint</a>, <a href="https://fintlp.github.io/jet-flush-model/slides/jet-flush-model.pdf" target="_blank" rel="noopener">PDF</a></p>
+      <p class="lede-detail">Under the hood: a reduced-order model from cistern to trap, covering jet films on an oval bowl wall, pool swirl, washdown or siphonic outflow and waste transport. One flush takes 5 to 20 ms in the browser; a free-surface CFD case of a flush typically runs for hours. <a href="https://fintlp.github.io/jet-flush-model/method.html" target="_blank" rel="noopener">How the model works</a> · <a href="https://fintlp.github.io/jet-flush-model/why.html" target="_blank" rel="noopener">Why we built this</a> · Slides: <a href="https://fintlp.github.io/jet-flush-model/slides/jet-flush-model.pptx" target="_blank" rel="noopener">PowerPoint</a>, <a href="https://fintlp.github.io/jet-flush-model/slides/jet-flush-model.pdf" target="_blank" rel="noopener">PDF</a></p>
     </div>
     <div class="actions">
       <select id="preset" aria-label="Design preset">
@@ -352,10 +356,11 @@ td code{font-family:var(--f-mono);font-size:12.5px}
       </section>
 
       <section aria-label="Results" id="results">
+        <p class="validity" id="validity" role="alert" hidden></p>
         <div class="cmpbar"><span id="cmpLine" aria-live="polite">Change a setting and the results show how much it helped or hurt.</span><button type="button" class="btn mini" id="pinBtn">Pin as reference</button></div>
         <div class="kpis">
           <article class="kpi" id="kpiClean">
-            <div class="head"><span class="eyebrow">Cleaning</span><span class="chip" id="cClean"></span></div>
+            <div class="head"><span class="eyebrow">Cleaning <span class="est" title="Illustrative estimate from an uncalibrated model">· estimate</span></span><span class="chip" id="cClean" title="Display band chosen for this tool, not a standard"></span></div>
             <div><div class="big" id="kClean"></div><div class="cap">of the bowl wall above the waterline cleaned</div></div>
             <dl>
               <dt>Wall wetted</dt><dd id="kWet"></dd>
@@ -364,7 +369,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
             </dl>
           </article>
           <article class="kpi" id="kpiWaste">
-            <div class="head"><span class="eyebrow">Waste removal</span><span class="chip" id="cWaste"></span></div>
+            <div class="head"><span class="eyebrow">Waste removal <span class="est" title="Illustrative estimate from an uncalibrated model">· estimate</span></span><span class="chip" id="cWaste" title="Display band chosen for this tool, not a standard"></span></div>
             <div><div class="big" id="kSolids"></div><div class="cap" id="kSolidsCap">of the solid test load removed</div></div>
             <dl>
               <dt>Paper removed</dt><dd id="kPaper"></dd>
@@ -373,7 +378,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
             </dl>
           </article>
           <article class="kpi" id="kpiWater">
-            <div class="head"><span class="eyebrow">Water use</span><span class="chip" id="cWater"></span></div>
+            <div class="head"><span class="eyebrow">Water use <span class="est" title="Illustrative estimate from an uncalibrated model">· estimate</span></span><span class="chip" id="cWater" title="Display band chosen for this tool, not a standard"></span></div>
             <div><div class="big" id="kWater"></div><div class="cap">per flush, incl. bowl refill</div></div>
             <dl>
               <dt>Peak flow into bowl</dt><dd id="kQ"></dd>
@@ -383,6 +388,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
           </article>
         </div>
         <div class="strip" id="strip"></div>
+        <p class="estline">All results are illustrative estimates from a model that is not yet calibrated against CFD or tests. Use them to compare designs, not as product values.</p>
       </section>
 
       <section class="panel" aria-label="Time traces" id="traces">
@@ -429,6 +435,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
         </div>
 
         <div id="aiOpt" role="tabpanel" class="ai-pane">
+          <p class="validity" id="optStale" role="status" hidden></p>
           <p class="ai-lede">An evolutionary search breeds hundreds of designs and keeps the best ones. You choose which settings it may change, and whether it should trade performance against water or meet targets you set. Everything you do not tick stays as it is in the simulator.</p>
           <div class="opt-setup">
             <fieldset class="opt-box">
@@ -473,6 +480,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
         </div>
 
         <div id="aiSur" role="tabpanel" class="ai-pane" hidden>
+          <p class="validity" id="surStale" role="status" hidden></p>
           <p class="ai-lede">A small neural network (6 inputs, two hidden layers of 32, 3 outputs) learns the physics model from a few hundred example flushes, then answers in microseconds. This stands in for the real use case: training the same kind of network on PreonLab runs.</p>
           <div class="ai-ctl">
             <label class="f" for="surN">Training flushes<select id="surN"><option value="100">100</option><option value="300" selected>300</option><option value="800">800</option></select></label>
@@ -491,6 +499,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
         </div>
 
         <div id="aiHyb" role="tabpanel" class="ai-pane" hidden>
+          <p class="validity" id="hybStale" role="status" hidden></p>
           <p class="ai-lede">The calibration workflow from the model description, end to end. A hidden reference model plays the role of PreonLab: it uses different coefficients and adds effects the physics model cannot represent. The tool fits six coefficients to a few reference runs with Nelder-Mead, adds a Gaussian-process correction for what is left, and checks all three versions on designs it never saw.</p>
           <div class="ai-ctl">
             <label class="f" for="hybN">Reference runs<select id="hybN"><option value="4">4</option><option value="6" selected>6</option><option value="10">10</option></select></label>
@@ -519,7 +528,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
           <div class="blk"><h3>5 · AI lab</h3><p>Three tools use the model as their engine. An evolutionary optimiser searches the settings you allow for the best trade-off or for targets you set. A small neural network learns the model and answers about a thousand times faster. A hybrid calibration fits the coefficients to reference runs and adds a data-driven correction.</p></div>
         </div>
         <h3 style="margin-top:20px">Calibrating it</h3>
-        <p class="muted" style="margin-top:4px;max-width:80ch">Three to five reference runs fix the coefficients. After that the model interpolates between them at this speed. Fit in this order, because later groups depend on earlier ones.</p>
+        <p class="muted" style="margin-top:4px;max-width:80ch">A handful of reference runs should be enough to start fitting them; how many are really needed is still open. Fit in this order, because later groups depend on earlier ones.</p>
         <div class="tablewrap">
           <table>
             <thead><tr><th>Coefficient</th><th>Controls</th><th>Fit against</th></tr></thead>
@@ -539,13 +548,16 @@ td code{font-family:var(--f-mono);font-size:12.5px}
           <li>The film is quasi-steady, stays attached to the wall and does not splash or interact with the other jet.</li>
           <li>The pool rotates as a solid body. A real vortex core is deeper than the dip shown.</li>
           <li>Waste is lumped into two classes. Clogging, media shape and drain-line carry are not modelled.</li>
+          <li>Splashing, jets hitting each other and water spilling over the rim are not modelled, so the model cannot say whether a design splashes or spills. It only flags when the pool level reaches the rim.</li>
+          <li>The AI lab uses a conventional neural network surrogate, not a physics-informed network (PINN), and its calibration demo runs on synthetic data. Nothing here replaces CFD or tests.</li>
+          <li>The presets are generic EU washdown and siphonic bowls and are not modelled on any manufacturer's product.</li>
           <li>Status chips use display bands chosen for this tool, not values from a standard.</li>
         </ul>
         <p style="margin-top:16px"><a class="doclink" href="https://fintlp.github.io/jet-flush-model/method.html" target="_blank" rel="noopener">Read the full model description: equations, numerics, coefficients and calibration</a></p>
       </section>
       <footer class="foot">
         <span class="footlinks"><a href="https://fintlp.github.io/jet-flush-model/why.html" target="_blank" rel="noopener">Why we built this</a><a href="https://fintlp.github.io/jet-flush-model/method.html" target="_blank" rel="noopener">Model details</a><a href="https://fintlp.github.io/jet-flush-model/sources.html" target="_blank" rel="noopener">Sources and references</a><a href="https://fintlp.github.io/jet-flush-model/slides/jet-flush-model.pptx" target="_blank" rel="noopener">Slides, PowerPoint</a><a href="https://fintlp.github.io/jet-flush-model/slides/jet-flush-model.pdf" target="_blank" rel="noopener">Slides, PDF</a></span>
-        <span class="muted">Tangential Jet Flush Model · v1.0.0 · Peter Fintl</span>
+        <span class="muted">Tangential Jet Flush Model · v1.1.0 · Peter Fintl</span>
       </footer>
     </div>
   </div>
@@ -554,9 +566,9 @@ td code{font-family:var(--f-mono);font-size:12.5px}
     <button type="button" class="btn primary" id="mobarBtn" aria-expanded="false" aria-controls="rail">Adjust design</button>
   </div>
 </div>
-<script src="model.js?v=8"></script>
-<script src="app.js?v=8"></script>
-<script src="ai.js?v=8"></script>
-<script src="tour.js?v=8"></script>
+<script src="model.js?v=9"></script>
+<script src="app.js?v=9"></script>
+<script src="ai.js?v=9"></script>
+<script src="tour.js?v=9"></script>
 </body>
 </html>

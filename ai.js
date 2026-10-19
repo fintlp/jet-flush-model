@@ -9,6 +9,7 @@
   const $ = (id) => document.getElementById(id);
   const TAU2 = Math.PI * 2;
   const SIM = { light: true, coarse: true, Tend: 12 };
+  const SIM_FULL = { light: true, Tend: 12 };   // same resolution as the main simulator
 
   // design variables shared by all three tools
   const DV = [
@@ -28,10 +29,10 @@
     const cols = DV.map(() => { const p = Array.from({ length: n }, (_, i) => (i + r()) / n); for (let i = n - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [p[i], p[j]] = [p[j], p[i]]; } return p; });
     return Array.from({ length: n }, (_, i) => cols.map((c) => c[i]));
   }
-  function evalPhysics(base, design, coeff) {
+  function evalPhysics(base, design, coeff, opts) {
     const q = Object.assign({}, base, design, coeff || {}, { flushMode: 'full' });
-    const r = M.simulate(q, SIM);
-    return { clean: r.cleanPct, solids: r.solidsPct, paper: r.paperPct, water: r.water, seal: r.sealEnd, sealOK: r.sealOK };
+    const r = M.simulate(q, opts || SIM);
+    return { clean: r.cleanPct, solids: r.solidsPct, paper: r.paperPct, water: r.water, seal: r.sealEnd, sealOK: r.sealOK, overflow: r.overflow, incomplete: r.incomplete };
   }
   // run a list of jobs in time slices so the page stays responsive
   function slices(step, done, budget = 14) {
@@ -48,6 +49,14 @@
   const designCells = (o) => DV.map((d) => `<td class="num">${fmt(o[d.k], d.dp)}</td>`).join('');
   const designHead = () => DV.map((d) => `<th>${d.l}${d.u ? ', ' + d.u : ''}</th>`).join('');
 
+  /* ---------------- stale results ---------------- */
+  // A tool's results stay valid only while the settings it did not vary are unchanged.
+  const fingerprint = (p, skip) => JSON.stringify(Object.keys(p).filter((k) => !skip.includes(k)).sort().map((k) => [k, p[k]]));
+  function staleNote(id, isStale, what) {
+    const el = $(id); if (!el) return;
+    el.hidden = !isStale;
+    if (isStale) el.innerHTML = `<b>Settings changed since this ${what}.</b> The results below are for the earlier configuration. Run it again to update them.`;
+  }
   /* ---------------- tabs ---------------- */
   const tabs = document.querySelectorAll('[data-aitab]');
   tabs.forEach((b) => b.addEventListener('click', () => {
@@ -142,7 +151,9 @@
   function rate(e) {
     const w = weights(); e.score = w[0] * e.clean + w[1] * e.solids + w[2] * e.paper;
     let v = e.sealOK ? 0 : 1; const miss = [];
-    if (!e.sealOK) miss.push('water seal not restored');
+    if (!e.sealOK) miss.push('water seal below 50 mm');
+    if (e.overflow) { v += 2; miss.push('bowl overflows'); }
+    if (e.incomplete) { v += 2; miss.push('flush not finished in 60 s'); }
     if (O.goal === 'targets') {
       const t = targets();
       if (e.water > t.water + 1e-9) { v += (e.water - t.water) / 0.5; miss.push(`water ${fmt(e.water - t.water, 1)} L over`); }
@@ -192,10 +203,11 @@
     const base = A.getP(), r = rng(1234), mode = optMode();
     const [POP, GENS] = $('optEffort').value === 'thorough' ? [60, 24] : [36, 14];
     O.all = []; O.front = []; O.running = true; O.hover = null; O.base = base; O.vars = vars; O.goal = goal(); O.mode = mode; O.best = null;
+    O.fp = fingerprint(base, vars.map((d) => d.k).concat(['flushMode'])); staleNote('optStale', false);
     $('optRun').disabled = true;
     const ND2 = vars.length;
     const ev = (x) => { const des = desOf(vars, x), e = rate(Object.assign({ x: xOf(vars, des), des }, evalPhysicsMode(base, des, mode))); O.all.push(e); return e; };
-    O.cur = (() => { const des = {}; vars.forEach((d) => { des[d.k] = base[d.k]; }); return rate(Object.assign({ des }, evalPhysicsMode(base, des, mode))); })();
+    O.cur = (() => { const des = {}; vars.forEach((d) => { des[d.k] = base[d.k]; }); return rate(Object.assign({ des, full: true }, evalPhysicsMode(base, des, mode, SIM_FULL))); })();
     let pop = [], children = [], gen = 0, queue = lhsN(POP, ND2, r); const t0 = now();
     const tour = () => { const a = pop[Math.floor(r() * pop.length)], b = pop[Math.floor(r() * pop.length)]; return (a.rank < b.rank || (a.rank === b.rank && a.crowd > b.crowd)) ? a : b; };
     const breed = () => {
@@ -216,16 +228,42 @@
       if (gen >= GENS) return false;
       gen++; queue = breed(); return true;
     }, () => {
-      O.running = false; $('optRun').disabled = false;
-      const nOk = O.all.filter((e) => e.viol === 0).length;
-      $('optStatus').textContent = `Done: ${O.all.length} designs in ${((now() - t0) / 1000).toFixed(1)} s, ${((now() - t0) / O.all.length).toFixed(1)} ms each. ${O.goal === 'targets' ? nOk + ' meet all targets.' : O.front.length + ' designs on the best trade-off curve.'}`;
-      drawOpt(); fillOptTable(); optSummary();
+      // The search runs at coarse wall-film resolution for speed. Re-check the designs
+      // that could be reported (trade-off curve and best target candidates) at the
+      // simulator's own resolution, so the numbers shown match the page once loaded.
+      const tSearch = now() - t0, nSearch = O.all.length, seen = new Set(), check = [];
+      const add = (e) => { if (e && !e.full && !seen.has(e)) { seen.add(e); check.push(e); } };
+      O.front.forEach(add);
+      if (O.goal === 'targets') {
+        const t = targets(), ok = O.all.filter((e) => e.viol === 0);
+        ok.sort((a, b) => t.pick === 'water' ? (a.water - b.water || b.score - a.score) : (b.score - a.score || a.water - b.water)).slice(0, 12).forEach(add);
+        if (!ok.length) O.all.slice().sort((a, b) => a.viol - b.viol || b.score - a.score).slice(0, 6).forEach(add);
+      }
+      $('optStatus').textContent = `Checking ${check.length} best designs at full resolution…`;
+      O.stop = slices(() => {
+        let e = check.shift();
+        if (!e) {
+          // a coarse design may have moved up when a checked one dropped out: check it too
+          if (seen.size >= 80) return false;
+          O.front = paretoOf(O.all); O.best = pickBest();
+          O.front.forEach(add); add(O.best);
+          e = check.shift(); if (!e) return false;
+        }
+        Object.assign(e, evalPhysicsMode(base, e.des, mode, SIM_FULL), { full: true }); rate(e);
+        return true;
+      }, () => {
+        O.front = paretoOf(O.all); O.best = pickBest();
+        O.running = false; $('optRun').disabled = false;
+        const nOk = O.all.filter((e) => e.viol === 0).length;
+        $('optStatus').textContent = `Done: ${nSearch} designs in ${(tSearch / 1000).toFixed(1)} s, ${(tSearch / nSearch).toFixed(1)} ms each; the best ones re-checked at full resolution. ${O.goal === 'targets' ? nOk + ' meet all targets.' : O.front.length + ' designs on the best trade-off curve.'}`;
+        drawOpt(); fillOptTable(); optSummary();
+      });
     });
   }
-  function evalPhysicsMode(base, des, mode) {
+  function evalPhysicsMode(base, des, mode, opts) {
     const q = Object.assign({}, base, des, { flushMode: mode });
-    const r = M.simulate(q, SIM);
-    return { clean: r.cleanPct, solids: r.solidsPct, paper: r.paperPct, water: r.water, seal: r.sealEnd, sealOK: r.sealOK };
+    const r = M.simulate(q, opts || SIM);
+    return { clean: r.cleanPct, solids: r.solidsPct, paper: r.paperPct, water: r.water, seal: r.sealEnd, sealOK: r.sealOK, overflow: r.overflow, incomplete: r.incomplete };
   }
   function lhsN(n, nd, r) {
     const cols = Array.from({ length: nd }, () => { const p = Array.from({ length: n }, (_, i) => (i + r()) / n); for (let i = n - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [p[i], p[j]] = [p[j], p[i]]; } return p; });
@@ -378,13 +416,14 @@
     if (S.running) return;
     const base = A.getP(), n = +$('surN').value, nTest = 150, r = rng(777), EPOCHS = 1500;
     S.running = true; S.hist = []; S.net = null; S.metrics = null; S.base = base; $('surRun').disabled = true;
+    S.fp = fingerprint(base, DV.map((d) => d.k).concat(['flushMode'])); staleNote('surStale', false);
     const Xtr = [], Ytr = [], Xte = [], Yte = [], trainX = lhs(n, r), testX = lhs(nTest, rng(999));
     let phase = 'data', k = 0, ep = 0, simMs = 0; const t0 = now();
     const yOf = (e) => OUT.map(([key]) => e[key] / 100);
     S.stop = slices(() => {
       if (phase === 'data') {
         const isTrain = k < n, x = isTrain ? trainX[k] : testX[k - n];
-        const des = toDesign(x), ts = now(), e = evalPhysics(base, des); simMs += now() - ts;
+        const des = toDesign(x), ts = now(), e = evalPhysics(base, des, null, SIM_FULL); simMs += now() - ts;
         (isTrain ? Xtr : Xte).push(toX(des)); (isTrain ? Ytr : Yte).push(yOf(e)); k++;
         if (k % 10 === 0) $('surStatus').textContent = `Step 1 of 2: running the physics model for training data · ${k} of ${n + nTest} flushes`;
         if (k >= n + nTest) { phase = 'train'; S.net = makeNet([ND, 32, 32, OUT.length], rng(42)); S.simMs = simMs / (n + nTest); S.data = { Xtr, Ytr, Xte, Yte }; }
@@ -414,14 +453,18 @@
     $('surStatus').textContent = `Trained in ${secs.toFixed(1)} s on ${S.data.Xtr.length} physics runs, tested on ${Xte.length} unseen designs.`;
     $('surTable').innerHTML = `<thead><tr><th>Output</th><th>Mean abs. error</th><th>R² on unseen designs</th></tr></thead><tbody>` +
       OUT.map(([, lab], j) => `<tr><td>${lab}</td><td class="num">${fmt(m[j].mae, 1)} points</td><td class="num">${fmt(m[j].r2, 3)}</td></tr>`).join('') + '</tbody>';
-    $('surSpeed').innerHTML = `<p><b>${fmt(S.simMs, 1)} ms</b> per flush with the physics model, <b>${fmt(nnUs, 1)} µs</b> with the network: about <b>${Math.round(speed).toLocaleString('en')} times faster</b>.</p><p class="muted">Against a PreonLab run of minutes to hours, the same network would answer roughly 10⁶ to 10⁸ times faster, once its training runs exist.</p>`;
+    $('surSpeed').innerHTML = `<p><b>${fmt(S.simMs, 1)} ms</b> per flush with the physics model, <b>${fmt(nnUs, 1)} µs</b> with the network: about <b>${Math.round(speed).toLocaleString('en')} times faster</b>.</p><p class="muted">Both timings are measured in this browser. A PreonLab or CFD run of a flush takes minutes to hours, so a network trained on such runs could be faster still by a much larger factor. That is a rough expectation, not a benchmark, and the training runs would have to be paid for first.</p>`;
     surCurrent(); drawSurLoss(); drawSurParity();
   }
   function surCurrent() {
     if (!S.net || !S.metrics) return;
     const p = A.getP(), des = {}; DV.forEach((d) => { des[d.k] = p[d.k]; });
     const inRange = DV.every((d) => p[d.k] >= d.min && p[d.k] <= d.max);
-    const nn = predict(S.net, toX(des)), ph = evalPhysics(S.base, des);
+    if (fingerprint(p, DV.map((d) => d.k).concat(['flushMode'])) !== S.fp) {
+      $('surCur').innerHTML = '<p><b>Current design:</b> no prediction. The network was trained with different bowl or flush settings, so it does not apply to this configuration. Train it again.</p>';
+      return;
+    }
+    const nn = predict(S.net, toX(des)), ph = evalPhysics(p, des, null, SIM_FULL);
     $('surCur').innerHTML = `<p><b>Current design</b>${inRange ? '' : ' (outside the training range)'}: network ${OUT.map(([, l], j) => `${l.toLowerCase()} ${fmt(nn[j] * 100, 0)} %`).join(', ')}. Physics model ${OUT.map(([k, l]) => `${fmt(ph[k], 0)} %`).join(', ')}.</p>`;
   }
   function drawSurLoss() {
@@ -496,6 +539,7 @@
   function runHyb() {
     if (H.running) return;
     const base = A.getP(), nRef = +$('hybN').value, r = rng(2026), nHold = 24;
+    H.fp = fingerprint(base, DV.map((d) => d.k).concat(CAL.map((c) => c.k), ['flushMode'])); staleNote('hybStale', false);
     H.running = true; H.res = null; H.ell = null; H.best = null; $('hybRun').disabled = true;
     const refX = lhs(nRef, rng(5)), holdX = lhs(nHold, rng(6));
     const refD = refX.map(toDesign), holdD = holdX.map(toDesign);
@@ -589,7 +633,12 @@
   ['cvOpt', 'cvSurLoss', 'cvSurPar', 'cvHybBars', 'cvHybPar'].forEach((id) => ro.observe($(id)));
   const mq = window.matchMedia('(prefers-color-scheme: dark)'); if (mq.addEventListener) mq.addEventListener('change', redraw);
   new MutationObserver(redraw).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-  A.onChange(() => { if (S.net && S.metrics) requestAnimationFrame(surCurrent); });
+  A.onChange(() => requestAnimationFrame(() => {
+    const p = A.getP();
+    if (O.fp && O.all.length && !O.running) staleNote('optStale', fingerprint(p, O.vars.map((d) => d.k).concat(['flushMode'])) !== O.fp, 'search');
+    if (S.fp && S.metrics) { staleNote('surStale', fingerprint(p, DV.map((d) => d.k).concat(['flushMode'])) !== S.fp, 'training'); surCurrent(); }
+    if (H.fp && H.res) staleNote('hybStale', fingerprint(p, DV.map((d) => d.k).concat(CAL.map((c) => c.k), ['flushMode'])) !== H.fp, 'calibration');
+  }));
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(redraw);
   redraw();
 })();

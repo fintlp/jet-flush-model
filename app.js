@@ -1,7 +1,8 @@
 (function () {
   const M = window.FlushModel;
   const $ = (id) => document.getElementById(id);
-  const TAU2 = Math.PI * 2, TVIEW = 10, SIM_T = 12;
+  const TAU2 = Math.PI * 2, SIM_T = 12;
+  let TVIEW = 10;   // playback length, follows the flush: at least 10 s, up to 60 s
 
   const SPEC = [
     { g: 'flush', k: 'Vfull', l: 'Full flush volume', u: 'L', min: 3, max: 7, st: 0.1, d: 1 },
@@ -465,13 +466,14 @@
     ];
     const ph = (H - padT - padB - gap * 3) / 4, pw = W - padL - padR;
     const Xt = (tt) => padL + tt / TVIEW * pw;
+    const lstep = TVIEW <= 12 ? 2 : TVIEW <= 30 ? 5 : 10, gstep = TVIEW <= 12 ? 1 : 5;
     chartGeom = { padL, pw };
     const n = Math.min(rec.t.length, Math.round(TVIEW / 0.02) + 1);
     panels.forEach((pn, k) => {
       const y0 = padT + k * (ph + gap), Yv = (v) => y0 + ph - (v - pn.min) / (pn.max - pn.min) * ph;
       ctx.fillStyle = rgba(C.raised); ctx.fillRect(padL, y0, pw, ph);
       ctx.strokeStyle = rgba(C.line); ctx.lineWidth = 1 * d; ctx.strokeRect(padL + 0.5, y0 + 0.5, pw - 1, ph - 1);
-      ctx.beginPath(); for (let s = 1; s < TVIEW; s++) { ctx.moveTo(Xt(s), y0); ctx.lineTo(Xt(s), y0 + ph); } ctx.stroke();
+      ctx.beginPath(); for (let s = gstep; s < TVIEW - 1e-6; s += gstep) { ctx.moveTo(Xt(s), y0); ctx.lineTo(Xt(s), y0 + ph); } ctx.stroke();
       (pn.ref || []).forEach((v) => { ctx.setLineDash([3 * d, 3 * d]); ctx.strokeStyle = rgba(C.muted, 0.7); ctx.beginPath(); ctx.moveTo(padL, Yv(v)); ctx.lineTo(padL + pw, Yv(v)); ctx.stroke(); ctx.setLineDash([]); });
       ctx.fillStyle = rgba(C.muted); ctx.font = font(10); ctx.textAlign = 'right'; ctx.textBaseline = 'top';
       ctx.fillText(String(+pn.max.toFixed(2)), padL - 5 * d, y0); ctx.textBaseline = 'bottom'; ctx.fillText(String(+pn.min.toFixed(2)), padL - 5 * d, y0 + ph);
@@ -500,7 +502,7 @@
     });
     // x axis
     ctx.fillStyle = rgba(C.muted); ctx.font = font(10); ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    for (let s = 0; s <= TVIEW; s += 2) ctx.fillText(s + (s === TVIEW ? ' s' : ''), Xt(s), H - padB + 6 * d);
+    for (let s = 0; s <= TVIEW + 1e-6; s += lstep) ctx.fillText(s + (Math.abs(s - TVIEW) < 1e-6 ? ' s' : ''), Xt(s), H - padB + 6 * d);
     // playhead
     ctx.strokeStyle = rgba(C.accent); ctx.lineWidth = 1.5 * d; ctx.beginPath(); ctx.moveTo(Xt(t), padT); ctx.lineTo(Xt(t), H - padB); ctx.stroke();
   }
@@ -589,6 +591,16 @@
     if (!r.sealOK) chip($('cWater'), 'bad', 'Seal low');
     else chip($('cWater'), r.water <= 4.0 ? 'good' : r.water <= 6.0 ? 'neutral' : 'warn', r.water <= 4.0 ? 'Low use' : r.water <= 6.0 ? 'Moderate' : 'High use');
 
+    // validity: overflow or unfinished flush make the numbers meaningless
+    const vb = $('validity');
+    if (r.overflow) {
+      vb.hidden = false; vb.innerHTML = `<b>This design overflows the bowl.</b> About ${r.spill.toFixed(1)} L spill over the rim from ${r.overflowT.toFixed(1)} s on. The model is not valid beyond that point, so the results below are not meaningful. Try less flow, a wider trapway or a deeper bowl.`;
+      chip($('cClean'), 'bad', 'Overflow'); chip($('cWaste'), 'bad', 'Overflow'); chip($('cWater'), 'bad', 'Spills');
+    } else if (r.incomplete) {
+      vb.hidden = false; vb.innerHTML = `<b>The flush did not finish within 60 s.</b> ${r.cisternLeft.toFixed(1)} L were still in the cistern. The results only cover the water that flowed. Try a larger nozzle area or a higher valve.`;
+      chip($('cClean'), 'bad', 'Incomplete'); chip($('cWaste'), 'bad', 'Incomplete'); chip($('cWater'), 'bad', 'Incomplete');
+    } else vb.hidden = true;
+    if (r.incomplete) $('kDur').textContent = 'over 60 s';
     // comparison line, flash on change, phone mini bar
     const cmp = $('cmpLine');
     if (pinned) cmp.innerHTML = `Changes compared with your <b>pinned reference</b> from ${pinned.t}.`;
@@ -607,14 +619,20 @@
       `Peak bowl rise <b>+${r.zPeak.toFixed(0)} mm</b>`,
       `Peak pool swirl <b>${r.vsPeak.toFixed(2)} m/s</b>`,
       `Vortex dip, solid-body <b>${r.dipPeak.toFixed(0)} mm</b>`,
-      over ? `<span style="color:var(--bad)">Bowl close to overflowing</span>` : '',
+      over && !r.overflow ? `<span style="color:var(--bad)">Bowl close to overflowing</span>` : '',
+      r.tEmpty && r.tEmpty > 10 && !r.incomplete ? `Slow flush, <b>${r.tEmpty.toFixed(0)} s</b>: playback extended` : '',
       `This flush computed in <b>${r.runMs.toFixed(1)} ms</b>`
     ].filter(Boolean).map((s) => `<span>${s}</span>`).join('');
   }
 
   /* ---------------- main loop ---------------- */
   function run() {
+    const wasEnd = T >= TVIEW - 0.01;
     R = M.simulate(P, { Tend: SIM_T });
+    const need = Math.max(10, Math.ceil(((R.tEmpty || R.tEnd) + 5) / 5) * 5);
+    TVIEW = Math.min(need, Math.floor(R.tEnd * 10) / 10);
+    const sc = $('scrub'); sc.max = String(TVIEW);
+    T = wasEnd ? TVIEW : Math.min(T, TVIEW);
     const rec = R.rec;
     rec.MsP = rec.Ms.map((v) => P.Ms > 0 ? 100 * v / P.Ms : 0);
     rec.NpP = rec.Np.map((v) => P.Np > 0 ? 100 * v / P.Np : 0);
@@ -683,7 +701,7 @@
       while (k < total && performance.now() - c0 < 14) {
         const q = Object.assign({}, base); q[xk] = xs[k % xs.length]; q[yk] = ys[Math.floor(k / xs.length)];
         const r = M.simulate(q, { light: true, coarse: true, Tend: SIM_T });
-        SW.res[k] = {}; SW_M.forEach(([m]) => { SW.res[k][m] = r[m]; });
+        SW.res[k] = { valid: r.valid }; SW_M.forEach(([m]) => { SW.res[k][m] = r[m]; });
         k++;
       }
       SW.done = k; SW.ms = performance.now() - t0;
@@ -717,7 +735,7 @@
     }
     const mk = swM.value, md = SW_M.find((m) => m[0] === mk), nx = SW.xs.length, ny = SW.ys.length, cw = w / nx, chh = h / ny;
     let lo = Infinity, hi = -Infinity;
-    SW.res.forEach((r) => { if (r) { lo = Math.min(lo, r[mk]); hi = Math.max(hi, r[mk]); } });
+    SW.res.forEach((r) => { if (r && r.valid !== false) { lo = Math.min(lo, r[mk]); hi = Math.max(hi, r[mk]); } });
     if (hi - lo < 1e-9) { hi = lo + 1; }
     let best = -1, bv = md[4] > 0 ? -Infinity : Infinity;
     SW.res.forEach((r, k) => {
@@ -725,6 +743,12 @@
       const v = r[mk], f = (v - lo) / (hi - lo), ix = k % nx, iy = Math.floor(k / nx);
       ctx.fillStyle = rgba(mix(C.seq0, C.seq1, f));
       ctx.fillRect(padL + ix * cw, padT + h - (iy + 1) * chh, Math.ceil(cw) + 0.5, Math.ceil(chh) + 0.5);
+      if (r.valid === false) { // overflow or unfinished flush: not a usable result
+        const x0 = padL + ix * cw, y0 = padT + h - (iy + 1) * chh, m = Math.min(cw, chh) * 0.28;
+        ctx.strokeStyle = rgba(C.bad, 0.9); ctx.lineWidth = 1.5 * d; ctx.beginPath();
+        ctx.moveTo(x0 + cw / 2 - m, y0 + chh / 2 - m); ctx.lineTo(x0 + cw / 2 + m, y0 + chh / 2 + m); ctx.moveTo(x0 + cw / 2 + m, y0 + chh / 2 - m); ctx.lineTo(x0 + cw / 2 - m, y0 + chh / 2 + m); ctx.stroke();
+        return;
+      }
       if ((md[4] > 0 && v > bv) || (md[4] < 0 && v < bv)) { bv = v; best = k; }
     });
     if (best >= 0 && SW.done === SW.res.length) {
@@ -768,7 +792,7 @@
   cvSweep.addEventListener('mousemove', (e) => {
     const c = swCell(e); if (!c || !SW.res[c.k]) return;
     const md = SW_M.find((m) => m[0] === swM.value), sx = SPECK[SW.xk], sy = SPECK[SW.yk];
-    $('swHov').textContent = `${sx.l} ${SW.xs[c.ix]} ${sx.u}, ${sy.l.toLowerCase()} ${SW.ys[c.iy]} ${sy.u}: ${md[1].toLowerCase()} ${SW.res[c.k][md[0]].toFixed(md[3])} ${md[2]}`;
+    $('swHov').textContent = `${sx.l} ${SW.xs[c.ix]} ${sx.u}, ${sy.l.toLowerCase()} ${SW.ys[c.iy]} ${sy.u}: ${md[1].toLowerCase()} ${SW.res[c.k][md[0]].toFixed(md[3])} ${md[2]}${SW.res[c.k].valid === false ? ' (not valid: overflow or unfinished flush)' : ''}`;
   });
   cvSweep.addEventListener('click', (e) => {
     const c = swCell(e); if (!c || SW.stale) return;

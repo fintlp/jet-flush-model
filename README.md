@@ -12,6 +12,8 @@ A fast model of how a rimless toilet flushes. Rim jets wash the bowl, swirl the 
 ![Flush playback: bowl from above and section](media/playback.png)
 
 > **Status.** The model is physics-based, but its coefficients are not yet calibrated against CFD or rig data. Use the results to compare designs and to see which way a change pushes the result, not as validated values.
+>
+> **Scope.** Splashing, jets hitting each other and spill-over are not modelled, so the model cannot say whether a design splashes; it only flags a pool that reaches the rim. The AI lab uses a conventional neural surrogate, not a physics-informed network (PINN), and its calibration demo runs on synthetic data. The presets are generic EU washdown and siphonic bowls, not modelled on any manufacturer's product. Nothing here replaces CFD or tests.
 
 ## What it does
 
@@ -21,7 +23,7 @@ The simulator answers three questions for a given bowl and flush design, in this
 2. **Waste removal:** how much of a solid test load and of floating paper leaves through the trap.
 3. **Water use:** how much water the flush takes, and whether the water seal is restored.
 
-It splits the flush into simple physical sub-models: cistern, rim jets, wall film on an oval bowl, pool level and swirl, washdown or siphonic trap, and waste transport. One flush takes about 5 to 20 ms in a browser, thousands of times faster than a free-surface CFD case.
+It splits the flush into simple physical sub-models: cistern, rim jets, wall film on an oval bowl, pool level and swirl, washdown or siphonic trap, and waste transport. One flush takes about 5 to 20 ms in a browser; a free-surface CFD case of a flush typically runs for hours.
 
 ## Quick start
 
@@ -99,6 +101,16 @@ console.log(r.cleanPct, r.solidsPct, r.paperPct, r.water);
 The coefficients that describe physics the model does not resolve (film friction, spreading, soil shear threshold, swirl transfer, transport thresholds and others) are fitted to a few reference runs. The procedure, the order of fitting and which measurement or CFD output to use for each coefficient are in [section 12 of the model description](https://fintlp.github.io/jet-flush-model/method.html#calibration). PreonLab is a good candidate for the reference runs; its fit for paper and other flexible media should be checked in a benchmark first.
 
 ## Change log
+
+### 1.1.0 · 19 October 2026
+
+Fixes from an external review, and clearer scope.
+
+- Slow flushes now run to completion, up to 60 s, and the playback follows; a flush that does not finish is marked incomplete. Water use counts the water actually released.
+- A pool that reaches the rim is detected as an overflow; spilled water is counted and the results are marked not valid.
+- A water seal below 50 mm is now always flagged, also when the seal depth itself is set below 50 mm, as the documentation says.
+- AI lab results notice when settings they did not vary have changed, say they are for the earlier configuration, and compare against the current settings. The optimiser never counts overflowing or unfinished designs as solutions; the sweep marks them with a red cross. The optimiser re-checks the designs it reports at the simulator's own resolution, so its numbers match the page.
+- Every result card is labelled as an estimate. Scope statements on splashing, the kind of AI used and generic presets added to all pages. Calibration and speed claims softened to what is actually shown.
 
 ### 1.0.0 · 19 October 2026
 
