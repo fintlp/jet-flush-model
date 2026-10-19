@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Sources and references for the Tangential Jet Flush Model: standards, hydraulics, wall films, swirl, toilet CFD, PreonLab and machine learning.">
+<title>Jet Flush Model Sources</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Layout: technical report. Narrow reading column with a sticky contents rail on wide screens; equations and tables sit in their own blocks. */
+:root{
+  --bg:#edf1f2; --surface:#f8fafa; --raised:#ffffff; --ink:#13222a; --muted:#56676f; --line:#d3dcdf; --line-strong:#9fb0b6;
+  --accent:#1f4fbf; --water:#3a8db6; --water-soft:#d6e9f2; --clean:#17876c; --solid:#8a5a2b; --warn:#a86b0c;
+  --f-display:"IBM Plex Sans Condensed","Arial Narrow",Arial,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0d151a; --surface:#131e24; --raised:#18252c; --ink:#e2eaed; --muted:#8c9fa7; --line:#24333b; --line-strong:#4a5f69;
+  --accent:#7fa6ff; --water:#4aa5d2; --water-soft:#1c3a48; --clean:#35b58e; --solid:#c48b52; --warn:#e2a646; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0d151a; --surface:#131e24; --raised:#18252c; --ink:#e2eaed; --muted:#8c9fa7; --line:#24333b; --line-strong:#4a5f69;
+  --accent:#7fa6ff; --water:#4aa5d2; --water-soft:#1c3a48; --clean:#35b58e; --solid:#c48b52; --warn:#e2a646; color-scheme:dark }
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.62}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:20px 64px}
+a{color:var(--accent)}
+.site{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:22px;font-family:var(--f-display);font-weight:600;font-size:14px;letter-spacing:.02em}
+.site a{text-decoration:none}
+.site a:hover{text-decoration:underline}
+h1,h2,h3,h4{font-family:var(--f-display);text-wrap:balance;line-height:1.15;margin:0}
+h1{font-size:clamp(30px,4vw,44px);font-weight:700}
+h2{font-size:26px;font-weight:700;margin-top:56px;padding-top:12px;border-top:1px solid var(--line)}
+h3{font-size:19px;font-weight:600;margin-top:30px}
+h4{font-size:16px;font-weight:600;margin-top:20px}
+p,ul,ol{margin:12px 0 0;max-width:68ch}
+li{margin-top:4px}
+.eyebrow{font-family:var(--f-display);font-weight:600;font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.lede{font-size:18px;color:var(--muted);max-width:62ch;margin-top:12px}
+.meta{font-family:var(--f-mono);font-size:13px;color:var(--muted);margin-top:14px}
+.layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:48px;margin-top:34px;align-items:start}
+@media (max-width:900px){ .layout{grid-template-columns:minmax(0,1fr)} .toc{position:static!important;max-height:none!important} }
+.toc{position:sticky;top:calc(env(safe-area-inset-top, 0px) + 16px);max-height:calc(100vh - 32px);overflow:auto;font-size:14px;border-left:1px solid var(--line);padding-left:14px}
+.toc ol{list-style:none;padding:0;margin:8px 0 0}
+.toc li{margin:6px 0}
+.toc a{text-decoration:none;color:var(--ink)}
+.toc a:hover{color:var(--accent)}
+.toc .n{font-family:var(--f-mono);color:var(--muted);margin-right:6px;font-size:12.5px}
+main{min-width:0}
+main > section:first-child h2{margin-top:0}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin-top:18px;max-width:72ch}
+.box h4{margin-top:0}
+.box.note{border-color:var(--warn)}
+.eq{font-family:var(--f-mono);font-size:14.5px;background:var(--raised);border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-top:14px;max-width:72ch;overflow-x:auto;white-space:pre;line-height:1.7}
+.eq .c{color:var(--muted)}
+code{font-family:var(--f-mono);font-size:.9em;background:var(--raised);border:1px solid var(--line);border-radius:5px;padding:0 4px}
+.sym{font-style:italic;font-family:var(--f-body)}
+.tablewrap{overflow-x:auto;margin-top:16px;max-width:100%}
+table{border-collapse:collapse;font-size:14px;min-width:640px;width:100%;background:var(--raised);border:1px solid var(--line)}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--f-display);font-weight:600;font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--surface)}
+td.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+figure{margin:20px 0 0;max-width:100%}
+figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
+.diagram{overflow-x:auto;background:var(--raised);border:1px solid var(--line);border-radius:12px;padding:12px}
+.diagram svg{display:block;min-width:720px;width:100%;height:auto}
+.d-box{fill:var(--surface);stroke:var(--line-strong);stroke-width:1.2}
+.d-box.out{fill:var(--water-soft);stroke:var(--water)}
+.d-t{fill:var(--ink);font-family:var(--f-display);font-weight:600;font-size:15px}
+.d-s{fill:var(--muted);font-family:var(--f-mono);font-size:11.5px}
+.d-a{stroke:var(--muted);stroke-width:1.4;fill:none}
+.d-ah{fill:var(--muted)}
+.d-fb{stroke:var(--accent);stroke-width:1.4;fill:none;stroke-dasharray:5 4}
+.d-l{fill:var(--accent);font-family:var(--f-mono);font-size:11.5px}
+.steps{counter-reset:st;list-style:none;padding:0;max-width:72ch}
+.steps li{counter-increment:st;position:relative;padding-left:34px;margin-top:10px}
+.steps li::before{content:counter(st);position:absolute;left:0;top:1px;width:23px;height:23px;border-radius:50%;background:var(--accent);color:var(--raised);font-family:var(--f-mono);font-size:12.5px;display:grid;place-items:center}
+.foot{margin-top:64px;padding-top:14px;border-top:1px solid var(--line);font-size:14px;color:var(--muted);display:flex;flex-wrap:wrap;gap:8px 20px;justify-content:space-between}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.navl{display:inline-flex;gap:18px;flex-wrap:wrap}
+.refs{list-style:none;padding:0;max-width:74ch;margin-top:16px;display:grid;gap:14px}
+.refs li{background:var(--raised);border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin:0;font-size:15px}
+.refs cite{font-style:normal;font-weight:600}
+.refs .use{display:block;color:var(--muted);font-size:14px;margin-top:4px}
+.refs a{font-family:var(--f-mono);font-size:13px;word-break:break-word}
+.tag{display:inline-block;font-family:var(--f-display);font-weight:600;font-size:11px;letter-spacing:.08em;text-transform:uppercase;border:1px solid currentColor;border-radius:999px;padding:0 7px;margin-right:8px;vertical-align:1px;color:var(--muted)}
+.tag.cited{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="site" aria-label="Site">
+    <span class="navl"><a href="./">← Simulator</a><a href="method.html">Model description</a></span>
+    <a href="https://fintlp.github.io/latest-news/#contact" target="_blank" rel="noopener">Peter Fintl · Contact</a>
+  </nav>
+
+  <header>
+    <span class="eyebrow">Sources and references · Tangential Jet Flush Model</span>
+    <h1>Sources and references</h1>
+    <p class="lede">The standards, papers, books and web sources behind the simulator and its model description, grouped by topic. Each entry says what it is used for.</p>
+    <p class="meta">October 2026 · web sources checked on 19 October 2026</p>
+  </header>
+
+  <div class="layout">
+    <nav class="toc" aria-label="Contents">
+      <span class="eyebrow">Topics</span>
+      <ol>
+        <li><a href="#how"><span class="n">0</span>How to read this page</a></li>
+        <li><a href="#tests"><span class="n">1</span>Flush tests and standards</a></li>
+        <li><a href="#hydraulics"><span class="n">2</span>Hydraulics</a></li>
+        <li><a href="#films"><span class="n">3</span>Wall films and cleaning</a></li>
+        <li><a href="#swirl"><span class="n">4</span>Swirl and vortices</a></li>
+        <li><a href="#toiletcfd"><span class="n">5</span>Toilet flushing CFD</a></li>
+        <li><a href="#methods"><span class="n">6</span>Free-surface methods and PreonLab</a></li>
+        <li><a href="#ml"><span class="n">7</span>Machine learning for flow</a></li>
+        <li><a href="#calib"><span class="n">8</span>Calibration and fitting</a></li>
+        <li><a href="#other"><span class="n">9</span>Other</a></li>
+      </ol>
+    </nav>
+
+    <main>
+      <section id="how">
+        <h2>0 · How to read this page</h2>
+        <p>There are two kinds of entries. <strong>Cited</strong> sources back a specific statement or number in the simulator or the model description, for example a runtime or a test requirement. <strong>Background</strong> sources are standard textbooks and papers for the physics used in a sub-model. They explain the kind of equation used, not the exact coefficient values, which are uncalibrated estimates.</p>
+        <p>Model coefficients are not taken from any of these sources. They are reasonable starting values, to be replaced by values fitted to CFD or test data as described in the <a href="method.html#calibration">calibration section</a>.</p>
+      </section>
+
+      <section id="tests">
+        <h2>1 · Flush tests and standards</h2>
+        <ol class="refs">
+          <li><span class="tag">Background</span><cite>BS EN 997:2018. WC pans and WC suites with integral trap.</cite> British Standards Institution, 2018. European standard for construction, performance and test methods of WC pans with integral trap and close-coupled suites. <span class="use">Used for: the European context of washdown bowls, flush volumes and test methods.</span> <a href="https://www.technickenormy.cz/en/bs-en-997-2018-wc-pans-and-wc-suites-with-integral-trap/" target="_blank" rel="noopener">Standard summary</a></li>
+          <li><span class="tag cited">Cited</span><cite>U.S. EPA WaterSense. WaterSense Performance Overview: Tank-Type Toilets.</cite> 2022. States that WaterSense toilets must clear 350 g of soybean paste test media and four balls of toilet paper in four of five flushes, that the test is part of ASME A112.19.2/CSA B45.1, and that voluntary MaP testing goes up to 1,000 g. <span class="use">Used for: the solids and paper test load idea and the "transport capacity" result.</span> <a href="https://www.epa.gov/system/files/documents/2022-05/ws-products-perfomance-toilets.pdf" target="_blank" rel="noopener">PDF</a></li>
+          <li><span class="tag">Background</span><cite>ASME A112.19.2/CSA B45.1. Ceramic Plumbing Fixtures.</cite> North American standard that contains the waste extraction test referred to by WaterSense. <span class="use">Used for: the North American siphonic context.</span></li>
+        </ol>
+      </section>
+
+      <section id="hydraulics">
+        <h2>2 · Hydraulics</h2>
+        <ol class="refs">
+          <li><span class="tag">Background</span><cite>Chow, V. T. (1959). Open-Channel Hydraulics.</cite> McGraw-Hill. <span class="use">Used for: the broad-crested weir law Q = C L z<sup>1.5</sup> for flow over the trap weir.</span></li>
+          <li><span class="tag">Background</span><cite>Henderson, F. M. (1966). Open Channel Flow.</cite> Macmillan. <span class="use">Used for: weir and critical-flow relations.</span></li>
+          <li><span class="tag">Background</span><cite>Idelchik, I. E. (1996). Handbook of Hydraulic Resistance, 3rd edition.</cite> Begell House. <span class="use">Used for: lumped loss coefficients K for valve, flush pipe, nozzles and siphon.</span></li>
+          <li><span class="tag">Background</span><cite>White, F. M. Fluid Mechanics.</cite> McGraw-Hill, any recent edition. <span class="use">Used for: the energy balance behind the jet speed v = √(2gH / (1+K)) and orifice flow through the trapway.</span></li>
+        </ol>
+      </section>
+
+      <section id="films">
+        <h2>3 · Wall films and cleaning</h2>
+        <ol class="refs">
+          <li><span class="tag">Background</span><cite>Schlichting, H., &amp; Gersten, K. (2017). Boundary-Layer Theory, 9th edition.</cite> Springer. <span class="use">Used for: the friction-factor form of turbulent wall shear, τ = ½ρc<sub>f</sub>u².</span></li>
+          <li><span class="tag">Background</span><cite>Wilson, D. I., Atkinson, P., Köhler, H., Mauermann, M., Stoye, H., Suddaby, K., Wang, T., Davidson, J. F., &amp; Majschak, J.-P. (2014). Cleaning of soft-solid soil layers on vertical and horizontal surfaces by stationary coherent impinging liquid jets.</cite> Chemical Engineering Science, 109, 183–196. <span class="use">Used for: the link between liquid films from jets, the area they wet and how they remove soil from walls.</span> <a href="https://doi.org/10.1016/j.ces.2014.01.034" target="_blank" rel="noopener">doi:10.1016/j.ces.2014.01.034</a></li>
+          <li><span class="tag">Background</span><cite>Fryer, P. J., &amp; Asteriadou, K. (2009). A prototype cleaning map: A classification of industrial cleaning processes.</cite> Trends in Food Science &amp; Technology, 20(6–7), 255–262. <span class="use">Used for: treating cleaning as a combination of soil type and mechanical action, which motivates a shear threshold τ<sub>c</sub> and a shear dose J.</span> <a href="https://doi.org/10.1016/j.tifs.2009.03.005" target="_blank" rel="noopener">doi:10.1016/j.tifs.2009.03.005</a></li>
+        </ol>
+      </section>
+
+      <section id="swirl">
+        <h2>4 · Swirl and vortices</h2>
+        <ol class="refs">
+          <li><span class="tag">Background</span><cite>Andersen, A., Bohr, T., Stenum, B., Rasmussen, J. J., &amp; Lautrup, B. (2003). Anatomy of a bathtub vortex.</cite> Physical Review Letters, 91, 104502. <span class="use">Used for: the structure of a draining free-surface vortex, and why a solid-body dip underestimates the real core.</span> <a href="https://doi.org/10.1103/PhysRevLett.91.104502" target="_blank" rel="noopener">doi:10.1103/PhysRevLett.91.104502</a></li>
+          <li><span class="tag">Background</span><cite>Greenspan, H. P. (1968). The Theory of Rotating Fluids.</cite> Cambridge University Press. <span class="use">Used for: spin-up and spin-down of rotating fluid in a container, the basis of the pool angular momentum budget.</span></li>
+          <li><span class="tag">Background</span><cite>Ramanujan, S. (1914). Modular equations and approximations to π.</cite> Quarterly Journal of Mathematics, 45, 350–372. <span class="use">Used for: the ellipse perimeter approximation in the oval pool friction term.</span></li>
+        </ol>
+      </section>
+
+      <section id="toiletcfd">
+        <h2>5 · Toilet flushing CFD</h2>
+        <ol class="refs">
+          <li><span class="tag cited">Cited</span><cite>CADFEM. Simulation leads Geberit to design a toilet bowl with asymmetrical geometry.</cite> CADFEM Journal. Describes CFD-led development of an asymmetrical bowl with a lateral inlet, more than 100 virtual design drafts, and about one day per design iteration. <span class="use">Used for: the industrial turnaround time in the comparison of approaches.</span> <a href="https://www.cadfem.net/en/cadfem-informs/media-center/cadfem-journal/geberit.html" target="_blank" rel="noopener">Article</a></li>
+          <li><span class="tag cited">Cited</span><cite>Li et al. (2020). Siphon pipe parameter optimization of the toilet using CFD-DEM coupling method.</cite> Uses Ansys Fluent with the VOF model coupled to EDEM for polypropylene test balls, with a mesh of about 2.3 million cells and a 0.2 ms time step. <span class="use">Used for: the example of mesh-based CFD with discrete solids for toilets.</span> <a href="https://www.scipedia.com/public/Li_et_al_2020c" target="_blank" rel="noopener">Paper page</a></li>
+          <li><span class="tag">Background</span><cite>Lopes, A. G., &amp; Costa, V. A. F. (2019). Using CFD in the design process of a toilet bowl.</cite> Journal of Fluid Flow, Heat and Mass Transfer, 6, 1–8. Transient free-surface CFD in Ansys CFX, validated against flow visualisation. <span class="use">Used for: typical CFD setup and validation of bowl flushing.</span> <a href="https://doi.org/10.11159/jffhmt.2019.001" target="_blank" rel="noopener">doi:10.11159/jffhmt.2019.001</a></li>
+        </ol>
+      </section>
+
+      <section id="methods">
+        <h2>6 · Free-surface methods and PreonLab</h2>
+        <ol class="refs">
+          <li><span class="tag">Background</span><cite>Hirt, C. W., &amp; Nichols, B. D. (1981). Volume of fluid (VOF) method for the dynamics of free boundaries.</cite> Journal of Computational Physics, 39(1), 201–225. <span class="use">Used for: the VOF method named in the comparison of approaches.</span> <a href="https://doi.org/10.1016/0021-9991(81)90145-5" target="_blank" rel="noopener">doi:10.1016/0021-9991(81)90145-5</a></li>
+          <li><span class="tag">Background</span><cite>Monaghan, J. J. (2005). Smoothed particle hydrodynamics.</cite> Reports on Progress in Physics, 68(8), 1703–1759. <span class="use">Used for: the SPH method in general.</span> <a href="https://doi.org/10.1088/0034-4885/68/8/R01" target="_blank" rel="noopener">doi:10.1088/0034-4885/68/8/R01</a></li>
+          <li><span class="tag">Background</span><cite>Ihmsen, M., Cornelis, J., Solenthaler, B., Horvath, C., &amp; Teschner, M. (2014). Implicit incompressible SPH.</cite> IEEE Transactions on Visualization and Computer Graphics, 20(3), 426–435. <span class="use">Used for: incompressible SPH for liquids with free surfaces.</span> <a href="https://doi.org/10.1109/TVCG.2013.105" target="_blank" rel="noopener">doi:10.1109/TVCG.2013.105</a></li>
+          <li><span class="tag cited">Cited</span><cite>FIFTY2. Boost your simulation performance with GPU.</cite> Reports PreonLab GPU runtimes, for example about 6 minutes for 1.8 million particles over 2 s, and about 45 hours for a 2.2 million particle multiphase case over 5 s. <span class="use">Used for: the PreonLab runtime range per flush.</span> <a href="https://www.fifty2.eu/innovation/boost-your-simulation-performance-with-gpu/" target="_blank" rel="noopener">Article</a></li>
+          <li><span class="tag cited">Cited</span><cite>FIFTY2. PreonLab 6.2 release event.</cite> Lists GPU support for the rigid body solver, an experimental linear elastic solver and the Carreau-Yasuda non-Newtonian model. <span class="use">Used for: what PreonLab can do for solids, flexibles and paste-like media.</span> <a href="https://www.fifty2.eu/innovation/preonlab-6-2-release-event" target="_blank" rel="noopener">Page</a></li>
+          <li><span class="tag cited">Cited</span><cite>FIFTY2. FSI in PreonLab: sloshing tank with elastic beam.</cite> Shows fluid-structure interaction with the built-in elastic solver. <span class="use">Used for: flexible bodies in PreonLab.</span> <a href="https://fifty2.eu/innovation/fsi-in-preonlab-sloshing-tank-with-elastic-beam" target="_blank" rel="noopener">Article</a></li>
+          <li><span class="tag cited">Cited</span><cite>FIFTY2. Water entry simulation of two-way coupled rigid bodies in PreonLab.</cite> <span class="use">Used for: two-way coupled rigid bodies in PreonLab.</span> <a href="https://www.fifty2.eu/innovation/water-entry-simulation-of-two-way-coupled-rigid-bodies-in-preonlab/" target="_blank" rel="noopener">Article</a></li>
+        </ol>
+      </section>
+
+      <section id="ml">
+        <h2>7 · Machine learning for flow</h2>
+        <ol class="refs">
+          <li><span class="tag">Background</span><cite>Raissi, M., Perdikaris, P., &amp; Karniadakis, G. E. (2019). Physics-informed neural networks: A deep learning framework for solving forward and inverse problems involving nonlinear partial differential equations.</cite> Journal of Computational Physics, 378, 686–707. <span class="use">Used for: what a PINN is.</span> <a href="https://doi.org/10.1016/j.jcp.2018.10.045" target="_blank" rel="noopener">doi:10.1016/j.jcp.2018.10.045</a></li>
+          <li><span class="tag cited">Cited</span><cite>McGreivy, N., &amp; Hakim, A. (2024). Weak baselines and reporting biases lead to overoptimism in machine learning for fluid-related partial differential equations.</cite> arXiv:2407.07218. Finds that most of the reviewed papers compared against weak numerical baselines, and describes PINNs as much slower than standard numerical methods for forward problems. <span class="use">Used for: the assessment of PINNs for forward flush simulation.</span> <a href="https://arxiv.org/abs/2407.07218" target="_blank" rel="noopener">arXiv</a> · <a href="https://www.pppl.gov/news/2024/replacing-hype-about-artificial-intelligence-accurate-measurements-success" target="_blank" rel="noopener">PPPL summary</a></li>
+          <li><span class="tag">Background</span><cite>Li, Z., Kovachki, N., Azizzadenesheli, K., Liu, B., Bhattacharya, K., Stuart, A., &amp; Anandkumar, A. (2021). Fourier neural operator for parametric partial differential equations.</cite> International Conference on Learning Representations. <span class="use">Used for: neural operators as data-driven surrogates.</span> <a href="https://arxiv.org/abs/2010.08895" target="_blank" rel="noopener">arXiv:2010.08895</a></li>
+          <li><span class="tag">Background</span><cite>Pfaff, T., Fortunato, M., Sanchez-Gonzalez, A., &amp; Battaglia, P. W. (2021). Learning mesh-based simulation with graph networks.</cite> International Conference on Learning Representations. <span class="use">Used for: graph-network surrogates trained on solver results.</span> <a href="https://arxiv.org/abs/2010.03409" target="_blank" rel="noopener">arXiv:2010.03409</a></li>
+        </ol>
+      </section>
+
+      <section id="calib">
+        <h2>8 · Calibration and fitting</h2>
+        <ol class="refs">
+          <li><span class="tag">Background</span><cite>Nelder, J. A., &amp; Mead, R. (1965). A simplex method for function minimization.</cite> The Computer Journal, 7(4), 308–313. <span class="use">Used for: the suggested optimiser for fitting coefficients.</span> <a href="https://doi.org/10.1093/comjnl/7.4.308" target="_blank" rel="noopener">doi:10.1093/comjnl/7.4.308</a></li>
+          <li><span class="tag">Background</span><cite>Rasmussen, C. E., &amp; Williams, C. K. I. (2006). Gaussian Processes for Machine Learning.</cite> MIT Press. <span class="use">Used for: the hybrid option, a Gaussian process correction on top of the physics model.</span> <a href="http://gaussianprocess.org/gpml/" target="_blank" rel="noopener">Book site</a></li>
+        </ol>
+      </section>
+
+      <section id="other">
+        <h2>9 · Other</h2>
+        <ol class="refs">
+          <li><span class="tag cited">Cited</span><cite>Justia Trademarks. TORNADO FLUSH, trademark details.</cite> Lists TORNADO FLUSH as a TOTO mark, with related marks such as 3D TORNADO FLUSH. <span class="use">Used for: the reason the simulator uses the neutral name "tangential jet flush".</span> <a href="https://trademarks.justia.com/867/63/tornado-86763394.html" target="_blank" rel="noopener">Record</a></li>
+        </ol>
+      </section>
+
+      <footer class="foot">
+        <span class="navl"><a href="./">← Simulator</a><a href="method.html">Model description</a></span>
+        <span>Tangential Jet Flush Model · Peter Fintl</span>
+      </footer>
+    </main>
+  </div>
+</div>
+</body>
+</html>

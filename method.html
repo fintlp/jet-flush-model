@@ -80,12 +80,13 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
 .steps li::before{content:counter(st);position:absolute;left:0;top:1px;width:23px;height:23px;border-radius:50%;background:var(--accent);color:var(--raised);font-family:var(--f-mono);font-size:12.5px;display:grid;place-items:center}
 .foot{margin-top:64px;padding-top:14px;border-top:1px solid var(--line);font-size:14px;color:var(--muted);display:flex;flex-wrap:wrap;gap:8px 20px;justify-content:space-between}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.navl{display:inline-flex;gap:18px;flex-wrap:wrap}
 </style>
 </head>
 <body>
 <div class="wrap">
   <nav class="site" aria-label="Site">
-    <a href="./">← Back to the simulator</a>
+    <span class="navl"><a href="./">← Simulator</a><a href="sources.html">Sources and references</a></span>
     <a href="https://fintlp.github.io/latest-news/#contact" target="_blank" rel="noopener">Peter Fintl · Contact</a>
   </nav>
 
@@ -115,7 +116,7 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
         <li><a href="#limits"><span class="n">13</span>Assumptions and limits</a></li>
         <li><a href="#code"><span class="n">14</span>Code map</a></li>
         <li><a href="#glossary"><span class="n">15</span>Glossary</a></li>
-        <li><a href="#sources"><span class="n">16</span>Sources</a></li>
+        <li><a href="sources.html"><span class="n">16</span>Sources and references ↗</a></li>
       </ol>
     </nav>
 
@@ -448,19 +449,11 @@ console.log(r.cleanPct, r.solidsPct, r.water);</div>
 
       <section id="sources">
         <h2>16 · Sources</h2>
-        <ul>
-          <li>FIFTY2: <a href="https://www.fifty2.eu/innovation/boost-your-simulation-performance-with-gpu/" target="_blank" rel="noopener">Boost your simulation performance with GPU</a> (PreonLab runtimes and particle counts)</li>
-          <li>FIFTY2: <a href="https://www.fifty2.eu/innovation/preonlab-6-2-release-event" target="_blank" rel="noopener">PreonLab 6.2 release</a> (GPU rigid bodies, experimental linear elastic solver, Carreau-Yasuda model)</li>
-          <li>FIFTY2: <a href="https://fifty2.eu/innovation/fsi-in-preonlab-sloshing-tank-with-elastic-beam" target="_blank" rel="noopener">FSI in PreonLab, sloshing tank with elastic beam</a></li>
-          <li>FIFTY2: <a href="https://www.fifty2.eu/innovation/water-entry-simulation-of-two-way-coupled-rigid-bodies-in-preonlab/" target="_blank" rel="noopener">Water entry simulation of two-way coupled rigid bodies in PreonLab</a></li>
-          <li>CADFEM: <a href="https://www.cadfem.net/en/cadfem-informs/media-center/cadfem-journal/geberit.html" target="_blank" rel="noopener">Simulation leads Geberit to design a toilet bowl with asymmetrical geometry</a></li>
-          <li>Li et al. (2020): <a href="https://www.scipedia.com/public/Li_et_al_2020c" target="_blank" rel="noopener">Siphon pipe parameter optimization of the toilet using CFD-DEM coupling</a></li>
-          <li>McGreivy and Hakim (2024): <a href="https://arxiv.org/abs/2407.07218" target="_blank" rel="noopener">Weak baselines and reporting biases lead to overoptimism in machine learning for fluid-related PDEs</a>, and the <a href="https://www.pppl.gov/news/2024/replacing-hype-about-artificial-intelligence-accurate-measurements-success" target="_blank" rel="noopener">PPPL summary</a></li>
-        </ul>
+        <p>All standards, papers, books and web sources used for this description and the simulator are collected, with notes on what each one is used for, on the <a href="sources.html">sources and references page</a>.</p>
       </section>
 
       <footer class="foot">
-        <a href="./">← Back to the simulator</a>
+        <span class="navl"><a href="./">← Simulator</a><a href="sources.html">Sources and references</a></span>
         <span>Tangential Jet Flush Model · Peter Fintl</span>
       </footer>
     </main>
