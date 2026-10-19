@@ -116,7 +116,7 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
         <li><a href="#toiletcfd"><span class="n">5</span>Toilet flushing CFD</a></li>
         <li><a href="#methods"><span class="n">6</span>Free-surface methods and PreonLab</a></li>
         <li><a href="#ml"><span class="n">7</span>Machine learning for flow</a></li>
-        <li><a href="#calib"><span class="n">8</span>Calibration and fitting</a></li>
+        <li><a href="#calib"><span class="n">8</span>Calibration, fitting and search</a></li>
         <li><a href="#other"><span class="n">9</span>Other</a></li>
       </ol>
     </nav>
@@ -194,14 +194,17 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
           <li><span class="tag cited">Cited</span><cite>McGreivy, N., &amp; Hakim, A. (2024). Weak baselines and reporting biases lead to overoptimism in machine learning for fluid-related partial differential equations.</cite> arXiv:2407.07218. Finds that most of the reviewed papers compared against weak numerical baselines, and describes PINNs as much slower than standard numerical methods for forward problems. <span class="use">Used for: the assessment of PINNs for forward flush simulation.</span> <a href="https://arxiv.org/abs/2407.07218" target="_blank" rel="noopener">arXiv</a> · <a href="https://www.pppl.gov/news/2024/replacing-hype-about-artificial-intelligence-accurate-measurements-success" target="_blank" rel="noopener">PPPL summary</a></li>
           <li><span class="tag">Background</span><cite>Li, Z., Kovachki, N., Azizzadenesheli, K., Liu, B., Bhattacharya, K., Stuart, A., &amp; Anandkumar, A. (2021). Fourier neural operator for parametric partial differential equations.</cite> International Conference on Learning Representations. <span class="use">Used for: neural operators as data-driven surrogates.</span> <a href="https://arxiv.org/abs/2010.08895" target="_blank" rel="noopener">arXiv:2010.08895</a></li>
           <li><span class="tag">Background</span><cite>Pfaff, T., Fortunato, M., Sanchez-Gonzalez, A., &amp; Battaglia, P. W. (2021). Learning mesh-based simulation with graph networks.</cite> International Conference on Learning Representations. <span class="use">Used for: graph-network surrogates trained on solver results.</span> <a href="https://arxiv.org/abs/2010.03409" target="_blank" rel="noopener">arXiv:2010.03409</a></li>
+                  <li><span class="tag">Background</span><cite>Kingma, D. P., &amp; Ba, J. (2015). Adam: A method for stochastic optimization.</cite> International Conference on Learning Representations. <span class="use">Used for: training the neural surrogate in the AI lab.</span> <a href="https://arxiv.org/abs/1412.6980" target="_blank" rel="noopener">arXiv:1412.6980</a></li>
         </ol>
       </section>
 
       <section id="calib">
-        <h2>8 · Calibration and fitting</h2>
+        <h2>8 · Calibration, fitting and search</h2>
         <ol class="refs">
-          <li><span class="tag">Background</span><cite>Nelder, J. A., &amp; Mead, R. (1965). A simplex method for function minimization.</cite> The Computer Journal, 7(4), 308–313. <span class="use">Used for: the suggested optimiser for fitting coefficients.</span> <a href="https://doi.org/10.1093/comjnl/7.4.308" target="_blank" rel="noopener">doi:10.1093/comjnl/7.4.308</a></li>
-          <li><span class="tag">Background</span><cite>Rasmussen, C. E., &amp; Williams, C. K. I. (2006). Gaussian Processes for Machine Learning.</cite> MIT Press. <span class="use">Used for: the hybrid option, a Gaussian process correction on top of the physics model.</span> <a href="http://gaussianprocess.org/gpml/" target="_blank" rel="noopener">Book site</a></li>
+          <li><span class="tag">Background</span><cite>Nelder, J. A., &amp; Mead, R. (1965). A simplex method for function minimization.</cite> The Computer Journal, 7(4), 308–313. <span class="use">Used for: fitting coefficients, in the calibration procedure and in the AI lab.</span> <a href="https://doi.org/10.1093/comjnl/7.4.308" target="_blank" rel="noopener">doi:10.1093/comjnl/7.4.308</a></li>
+          <li><span class="tag">Background</span><cite>Rasmussen, C. E., &amp; Williams, C. K. I. (2006). Gaussian Processes for Machine Learning.</cite> MIT Press. <span class="use">Used for: the hybrid option and the AI lab, a Gaussian-process correction on top of the physics model.</span> <a href="http://gaussianprocess.org/gpml/" target="_blank" rel="noopener">Book site</a></li>
+                  <li><span class="tag">Background</span><cite>Deb, K., Pratap, A., Agarwal, S., &amp; Meyarivan, T. (2002). A fast and elitist multiobjective genetic algorithm: NSGA-II.</cite> IEEE Transactions on Evolutionary Computation, 6(2), 182–197. <span class="use">Used for: the design optimiser in the AI lab.</span> <a href="https://doi.org/10.1109/4235.996017" target="_blank" rel="noopener">doi:10.1109/4235.996017</a></li>
+          <li><span class="tag">Background</span><cite>McKay, M. D., Beckman, R. J., &amp; Conover, W. J. (1979). A comparison of three methods for selecting values of input variables in the analysis of output from a computer code.</cite> Technometrics, 21(2), 239–245. <span class="use">Used for: Latin hypercube sampling of designs in the AI lab.</span> <a href="https://doi.org/10.2307/1268522" target="_blank" rel="noopener">doi:10.2307/1268522</a></li>
         </ol>
       </section>
 

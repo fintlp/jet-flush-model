@@ -150,6 +150,26 @@ canvas{display:block;width:100%;max-width:100%}
 .foot a{color:var(--accent);font-family:var(--f-display);font-weight:600;letter-spacing:.02em;text-decoration:none}
 .foot a:hover{text-decoration:underline}
 .footlinks{display:inline-flex;gap:18px;flex-wrap:wrap}
+/* AI lab */
+.ai-tabs{margin-bottom:14px;flex-wrap:wrap}
+.ai-tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
+.ai-pane{display:grid;gap:12px}
+.ai-lede{max-width:78ch}
+.ai-ctl{display:flex;flex-wrap:wrap;gap:12px 18px;align-items:end}
+.ai-ctl .f{display:grid;gap:4px;font-size:12.5px;color:var(--muted);min-width:150px}
+.ai-note,.ai-status{font-size:12.5px;color:var(--muted);font-family:var(--f-mono)}
+.ai-grid{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:18px;align-items:start}
+@media (max-width:820px){ .ai-grid{grid-template-columns:minmax(0,1fr)} }
+.ai-side{display:grid;gap:8px;font-size:13px}
+.ai-side .hov{font-family:var(--f-mono);font-size:12.5px;min-height:3.2em}
+.ai-cv-wide{aspect-ratio:1.6/1}
+.ai-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+@media (max-width:760px){ .ai-two{grid-template-columns:minmax(0,1fr)} }
+.ai-two canvas{aspect-ratio:1.25/1}
+.ai-results{display:grid;gap:10px;font-size:13.5px;max-width:90ch}
+.ai-log{margin:0;padding-left:20px;font-size:13px;color:var(--muted);display:grid;gap:2px}
+table.compact{min-width:420px}
+.btn.mini{padding:3px 8px;font-size:12px}
 /* method */
 .method{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px 24px}
 .method p{max-width:65ch;color:var(--ink)}
@@ -290,6 +310,68 @@ td code{font-family:var(--f-mono);font-size:12.5px}
         </div>
       </section>
 
+      <section class="panel" aria-label="AI lab" id="ai-lab">
+        <div class="panel-head"><h2>AI lab</h2><span class="muted" style="font-size:12.5px">Three ways AI works with the physics model. Everything runs in your browser.</span></div>
+        <div class="seg ai-tabs" role="tablist" aria-label="AI tools">
+          <button type="button" role="tab" data-aitab="aiOpt" aria-selected="true" aria-pressed="true">Design optimiser</button>
+          <button type="button" role="tab" data-aitab="aiSur" aria-selected="false" aria-pressed="false">Neural surrogate</button>
+          <button type="button" role="tab" data-aitab="aiHyb" aria-selected="false" aria-pressed="false">Hybrid calibration</button>
+        </div>
+
+        <div id="aiOpt" role="tabpanel" class="ai-pane">
+          <p class="ai-lede">An evolutionary search breeds about 500 designs over 15 generations and keeps the ones with the best trade-off between flush performance and water. It varies nozzle area, jet angle, jet position, nozzle height, valve height and full flush volume. The bowl and all other settings stay as they are now.</p>
+          <div class="ai-ctl">
+            <label class="f" for="wClean">Weight on cleaning<input type="range" id="wClean" min="0" max="100" step="5" value="50"></label>
+            <label class="f" for="wSolids">Weight on solids<input type="range" id="wSolids" min="0" max="100" step="5" value="30"></label>
+            <label class="f" for="wPaper">Weight on paper<input type="range" id="wPaper" min="0" max="100" step="5" value="20"></label>
+            <button class="btn primary" type="button" id="optRun">Start search</button>
+          </div>
+          <p class="ai-note" id="wOut">cleaning 50 % · solids 30 % · paper 20 %</p>
+          <p class="ai-status" id="optStatus">Score = weighted sum of cleaned, solids removed and paper removed, in %. Designs that do not restore the water seal are marked and excluded from the best trade-off.</p>
+          <div class="ai-grid">
+            <canvas id="cvOpt" class="ai-cv-wide" aria-label="Scatter of evaluated designs: water per flush against weighted score, with the best trade-off curve"></canvas>
+            <div class="ai-side"><p class="hov" id="optHover">Hover a point to read it, click to load that design.</p><div id="optBest"></div></div>
+          </div>
+          <div class="tablewrap"><table id="optTable"></table></div>
+        </div>
+
+        <div id="aiSur" role="tabpanel" class="ai-pane" hidden>
+          <p class="ai-lede">A small neural network (6 inputs, two hidden layers of 32, 3 outputs) learns the physics model from a few hundred example flushes, then answers in microseconds. This stands in for the real use case: training the same kind of network on PreonLab runs.</p>
+          <div class="ai-ctl">
+            <label class="f" for="surN">Training flushes<select id="surN"><option value="100">100</option><option value="300" selected>300</option><option value="800">800</option></select></label>
+            <button class="btn primary" type="button" id="surRun">Generate data and train</button>
+          </div>
+          <p class="ai-status" id="surStatus">Inputs are the same six design variables as the optimiser. Outputs are cleaned, solids removed and paper removed.</p>
+          <div class="ai-two">
+            <canvas id="cvSurLoss" aria-label="Training curve of the neural network"></canvas>
+            <canvas id="cvSurPar" aria-label="Network prediction against physics model on unseen designs"></canvas>
+          </div>
+          <div class="ai-results">
+            <div class="tablewrap"><table id="surTable" class="compact"></table></div>
+            <div id="surSpeed"></div>
+            <div id="surCur" class="muted"></div>
+          </div>
+        </div>
+
+        <div id="aiHyb" role="tabpanel" class="ai-pane" hidden>
+          <p class="ai-lede">The calibration workflow from the model description, end to end. A hidden reference model plays the role of PreonLab: it uses different coefficients and adds effects the physics model cannot represent. The tool fits six coefficients to a few reference runs with Nelder-Mead, adds a Gaussian-process correction for what is left, and checks all three versions on designs it never saw.</p>
+          <div class="ai-ctl">
+            <label class="f" for="hybN">Reference runs<select id="hybN"><option value="4">4</option><option value="6" selected>6</option><option value="10">10</option></select></label>
+            <button class="btn primary" type="button" id="hybRun">Run calibration</button>
+          </div>
+          <p class="ai-status" id="hybStatus">The reference data is synthetic. With real PreonLab runs the steps are the same.</p>
+          <div class="ai-two">
+            <canvas id="cvHybBars" aria-label="Mean error of uncalibrated, calibrated and hybrid model on hold-out designs"></canvas>
+            <canvas id="cvHybPar" aria-label="Model prediction against reference on hold-out designs"></canvas>
+          </div>
+          <div class="ai-results">
+            <div id="hybSum"></div>
+            <ol class="ai-log" id="hybLog"></ol>
+            <div class="tablewrap"><table id="hybTable" class="compact"></table></div>
+          </div>
+        </div>
+      </section>
+
       <section class="panel" aria-label="How the model works">
         <div class="panel-head"><h2>How the model works</h2></div>
         <div class="method">
@@ -330,7 +412,8 @@ td code{font-family:var(--f-mono);font-size:12.5px}
     </div>
   </div>
 </div>
-<script src="model.js?v=3"></script>
-<script src="app.js?v=3"></script>
+<script src="model.js?v=4"></script>
+<script src="app.js?v=4"></script>
+<script src="ai.js?v=4"></script>
 </body>
 </html>

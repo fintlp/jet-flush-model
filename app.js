@@ -105,8 +105,10 @@
     syncControls(); changed();
   });
 
+  const changeHooks = [];
   let pend = false;
   function changed() {
+    changeHooks.forEach((f) => { try { f(); } catch (e) { } });
     if (pend) return; pend = true;
     requestAnimationFrame(() => { pend = false; if (!playing) T = TVIEW; run(); markSweepStale(); });
   }
@@ -682,6 +684,13 @@
     syncControls(); T = TVIEW; playing = false; setPlay(); run(); drawSweep();
   });
 
+  /* ---------------- API for the AI lab (ai.js) ---------------- */
+  window.FlushApp = {
+    getP: () => Object.assign({}, P),
+    apply: (vals) => { for (const k in vals) if (k in P) P[k] = vals[k]; syncControls(); T = TVIEW; playing = false; setPlay(); run(); markSweepStale(); },
+    onChange: (fn) => changeHooks.push(fn),
+    SPECK, readColors, rgba, mix, sizeCanvas, dpr, font
+  };
   /* ---------------- boot ---------------- */
   const ro = new ResizeObserver(() => requestAnimationFrame(() => { draw(); drawSweep(); }));
   [cvTop, cvSec, cvChart, cvWall, cvSweep].forEach((c) => ro.observe(c));

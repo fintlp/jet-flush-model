@@ -112,11 +112,12 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
         <li><a href="#numerics"><span class="n">9</span>Numerics and speed</a></li>
         <li><a href="#coefficients"><span class="n">10</span>Parameters and coefficients</a></li>
         <li><a href="#calibration"><span class="n">11</span>Calibration with PreonLab</a></li>
-        <li><a href="#approaches"><span class="n">12</span>Comparison with other approaches</a></li>
-        <li><a href="#limits"><span class="n">13</span>Assumptions and limits</a></li>
-        <li><a href="#code"><span class="n">14</span>Code map</a></li>
-        <li><a href="#glossary"><span class="n">15</span>Glossary</a></li>
-        <li><a href="sources.html"><span class="n">16</span>Sources and references ↗</a></li>
+        <li><a href="#ailab"><span class="n">12</span>AI lab</a></li>
+        <li><a href="#approaches"><span class="n">13</span>Comparison with other approaches</a></li>
+        <li><a href="#limits"><span class="n">14</span>Assumptions and limits</a></li>
+        <li><a href="#code"><span class="n">15</span>Code map</a></li>
+        <li><a href="#glossary"><span class="n">16</span>Glossary</a></li>
+        <li><a href="sources.html"><span class="n">17</span>Sources and references ↗</a></li>
       </ol>
     </nav>
 
@@ -376,8 +377,42 @@ dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
         <p>Where the physics-based model stays off after calibration, a small machine-learning correction can be trained on the remaining differences between model and PreonLab, for example a Gaussian process per output. This needs far fewer reference runs than a full neural surrogate, keeps the physical explanation, and gives an uncertainty estimate that grows away from the reference designs.</p>
       </section>
 
+      <section id="ailab">
+        <h2>12 · AI lab</h2>
+        <p>The simulator has an AI lab with three tools. All of them use the physics model described above as their engine, and all run in the browser. They show three different roles AI can play next to a physics model: searching designs, replacing the model with a faster learned copy, and correcting the model with data.</p>
+
+        <h3>Design optimiser</h3>
+        <p>An evolutionary multi-objective search in the style of NSGA-II. It varies six design variables: nozzle area, downward jet angle, jet position, nozzle height, valve height and full flush volume. Everything else, including the bowl shape, stays at the current simulator settings, and the full flush is used.</p>
+        <ul>
+          <li><strong>Objectives:</strong> maximise a weighted score and minimise water per flush. The score is the weighted sum of cleaned area, solids removed and paper removed, with weights set by the user (default 50, 30 and 20 %).</li>
+          <li><strong>Constraint:</strong> designs that do not restore the water seal lose 40 points and are excluded from the best trade-off curve.</li>
+          <li><strong>Search:</strong> 36 designs per generation, a Latin hypercube start and 14 further generations, about 540 flushes in 3 to 5 seconds. Parents are picked by tournament on Pareto rank and crowding distance. Children come from blend crossover and occasional Gaussian mutation.</li>
+          <li><strong>Result:</strong> the set of designs no other design beats on both score and water, plus a comparison with the current design at the same water or the same score.</li>
+        </ul>
+        <p>The optimiser finds the best designs <em>of the model</em>. Its suggestions are only as good as the model's calibration, so they are candidates for a CFD or rig check, not final answers.</p>
+
+        <h3>Neural surrogate</h3>
+        <p>A fully connected network with 6 inputs (the same design variables, scaled to 0 to 1), two hidden layers of 32 tanh units and 3 linear outputs (cleaned, solids removed and paper removed, scaled to 0 to 1).</p>
+        <ul>
+          <li><strong>Data:</strong> 100, 300 or 800 training flushes from a Latin hypercube, plus 150 separate test flushes, all computed with the physics model.</li>
+          <li><strong>Training:</strong> mean squared error, full batch, Adam with a learning rate of 0.01 that decays tenfold over 1,500 epochs.</li>
+          <li><strong>Checks:</strong> mean absolute error and R² on the unseen test designs, and the measured time per prediction against the physics model.</li>
+        </ul>
+        <p>With 300 training flushes the network typically reaches an R² around 0.9 to 0.96 on unseen designs and answers in about 5 µs, roughly 1,000 to 2,000 times faster than the physics model. The physics model plays the part that PreonLab runs would play in practice. Trained on PreonLab, the same network would be about 10⁶ to 10⁸ times faster than a new PreonLab run, but each of its training runs would cost minutes to hours.</p>
+
+        <h3>Hybrid calibration</h3>
+        <p>An end-to-end run of the calibration workflow in <a href="#calibration">section 11</a>, against synthetic reference data.</p>
+        <ul>
+          <li><strong>Reference data:</strong> a hidden reference model stands in for PreonLab. It is the physics model with different coefficients, plus two effects the physics model cannot represent (a penalty away from an optimal nozzle size and a dependence on jet position for cleaning, a low-flow penalty for solids), plus measurement noise of 0.7 points.</li>
+          <li><strong>Calibration:</strong> Nelder-Mead fits six coefficients (film friction, spreading, critical shear, shear dose, solids transport threshold, maximum solids concentration) to 4, 6 or 10 reference runs. Coefficients are searched in a bounded log space, for up to 60 iterations.</li>
+          <li><strong>Correction:</strong> a Gaussian process with a squared-exponential kernel learns what the calibrated model still gets wrong. The length scale is chosen by leave-one-out error, and the correction is dropped when it would not beat no correction.</li>
+          <li><strong>Test:</strong> all three versions, uncalibrated, calibrated and hybrid, are scored on 24 hold-out designs the fit never saw.</li>
+        </ul>
+        <p>In typical runs calibration cuts the hold-out error by a factor of about two to eight. The correction adds a smaller gain and only when there are enough reference runs to see a pattern in what is left. That matches what to expect with real data: get the physics right first, then let a small data model handle the rest.</p>
+      </section>
+
       <section id="approaches">
-        <h2>12 · Comparison with other approaches</h2>
+        <h2>13 · Comparison with other approaches</h2>
         <div class="tablewrap">
           <table>
             <thead><tr><th>Approach</th><th>Time per flush case</th><th>One-off cost</th><th>Fidelity</th></tr></thead>
@@ -394,7 +429,7 @@ dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
       </section>
 
       <section id="limits">
-        <h2>13 · Assumptions and limits</h2>
+        <h2>14 · Assumptions and limits</h2>
         <ul>
           <li>The oval shape has the same axis ratio at every depth. Real bowls change shape with depth, have an off-centre trap inlet and often an asymmetric back wall.</li>
           <li>The film is quasi-steady, always attached to the wall, and does not splash, break up or interact with the other jet. Overlaps simply take the higher shear.</li>
@@ -407,7 +442,7 @@ dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
       </section>
 
       <section id="code">
-        <h2>14 · Code map</h2>
+        <h2>15 · Code map</h2>
         <p>The model is plain JavaScript with no dependencies and runs the same way in a browser and in Node.js.</p>
         <div class="tablewrap">
           <table>
@@ -421,7 +456,7 @@ dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
             </tbody>
           </table>
         </div>
-        <p><code>simulate</code> takes the parameter object shown in the simulator and the options <code>light</code> (skip traces), <code>coarse</code> (200 ms film updates) and <code>Tend</code> (simulated seconds). The page code in <a href="https://github.com/fintlp/jet-flush-model/blob/main/app.js">app.js</a> only draws results and runs the sweep; it contains no physics.</p>
+        <p><code>simulate</code> takes the parameter object shown in the simulator and the options <code>light</code> (skip traces), <code>coarse</code> (200 ms film updates) and <code>Tend</code> (simulated seconds). The page code in <a href="https://github.com/fintlp/jet-flush-model/blob/main/app.js">app.js</a> only draws results and runs the sweep; it contains no physics. The AI lab lives in <a href="https://github.com/fintlp/jet-flush-model/blob/main/ai.js">ai.js</a>: the optimiser, the neural network with its training loop, Nelder-Mead and the Gaussian process are all written out in plain JavaScript there, with no libraries.</p>
         <p>A minimal run in Node.js:</p>
         <div class="eq">require('./model.js');
 const M = globalThis.FlushModel;
@@ -432,7 +467,7 @@ console.log(r.cleanPct, r.solidsPct, r.water);</div>
       </section>
 
       <section id="glossary">
-        <h2>15 · Glossary</h2>
+        <h2>16 · Glossary</h2>
         <ul>
           <li><strong>Equivalent radius:</strong> radius of a circle with the same area as the oval section.</li>
           <li><strong>Ovality:</strong> long axis divided by short axis of the bowl opening.</li>
@@ -448,7 +483,7 @@ console.log(r.cleanPct, r.solidsPct, r.water);</div>
       </section>
 
       <section id="sources">
-        <h2>16 · Sources</h2>
+        <h2>17 · Sources</h2>
         <p>All standards, papers, books and web sources used for this description and the simulator are collected, with notes on what each one is used for, on the <a href="sources.html">sources and references page</a>.</p>
       </section>
 
