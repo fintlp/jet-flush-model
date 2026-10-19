@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="Reduced-order model of a rimless WC flushed by tangential rim jets: wall cleaning, waste removal and water use.">
+<meta name="description" content="A fast model of how a rimless toilet flushes: cleaning, waste removal and water use in milliseconds, with an AI lab for design search and calibration.">
 <title>Tangential Jet Flush Model</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -62,6 +62,9 @@ button,select,input{font:inherit;color:inherit}
 .top{display:flex;flex-wrap:wrap;gap:16px 28px;align-items:flex-end;justify-content:space-between;padding-bottom:18px;border-bottom:1px solid var(--line);margin-bottom:20px}
 .top .title{display:grid;gap:6px;min-width:0;max-width:68ch}
 .top .lede{color:var(--muted);font-size:14px}
+.top .lede{color:var(--ink);font-size:15px}
+.top .lede-detail{color:var(--muted);font-size:13px;margin-top:2px}
+.top .lede-detail a{color:var(--accent)}
 .top .actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:8px;overflow:hidden;background:var(--surface)}
 .seg button{border:0;background:transparent;padding:7px 12px;cursor:pointer;font-size:13px;font-weight:500}
@@ -190,9 +193,10 @@ td code{font-family:var(--f-mono);font-size:12.5px}
   </nav>
   <header class="top">
     <div class="title">
-      <span class="eyebrow">Reduced-order hydraulics · rimless WC</span>
+      <span class="eyebrow">Flush simulator · physics model + AI</span>
       <h1>Tangential Jet Flush Model</h1>
-      <p class="lede">An idealised rimless bowl with two tangential rim jets, modelled from cistern to trap. One flush evaluates in milliseconds, so you can sweep designs that would each take hours as a free-surface CFD case. The coefficients are uncalibrated estimates until you fit them to CFD or rig data.</p>
+      <p class="lede">A fast model of how a rimless toilet flushes. Rim jets wash the bowl, swirl the pool and carry waste through the trap. Each flush computes in milliseconds, so you can change the design and see the effect on cleaning, waste removal and water use right away. An AI lab searches for better designs and shows how the model would be trained and calibrated with PreonLab. The coefficients are not calibrated yet, so read the results as trends.</p>
+      <p class="lede-detail">Under the hood: a reduced-order model from cistern to trap, covering jet films on an oval bowl wall, pool swirl, washdown or siphonic outflow and waste transport. One flush takes 5 to 20 ms in the browser, thousands of times faster than a free-surface CFD case. <a href="https://fintlp.github.io/jet-flush-model/method.html" target="_blank" rel="noopener">How the model works</a></p>
     </div>
     <div class="actions">
       <select id="preset" aria-label="Design preset">
