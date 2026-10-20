@@ -132,23 +132,24 @@
   })();
   const chosenVars = () => CAND.filter((c) => $('ov_' + c.k).checked).map((c) => varSpec(c.k));
   const snapV = (d, v) => d.int ? Math.round(v) : +(Math.round(v / d.st) * d.st).toFixed(4);
+  // The pool must stay at least 25 mm smaller than the rim. Each searched setting is mapped onto the part of its
+  // slider range that keeps this gap, given the other settings, so no design needs correcting afterwards and a
+  // setting that is not ticked is never altered. The rim is placed first, then the pool.
+  const GAP = 25;
+  const searched = (vars, k) => vars.some((d) => d.k === k);
+  function feasible(d, vars, o) {
+    let lo = d.min, hi = d.max;
+    if (d.k === 'Rrim' && !searched(vars, 'Rpool')) lo = Math.max(lo, O.base.Rpool + GAP);
+    if (d.k === 'Rpool') hi = Math.min(hi, (o.Rrim != null ? o.Rrim : O.base.Rrim) - GAP);
+    return [lo, Math.max(lo, hi)];
+  }
+  const order = (vars) => vars.map((d, i) => [d, i]).sort((a, b) => (a[0].k === 'Rpool') - (b[0].k === 'Rpool'));
   const desOf = (vars, x) => {
-    const o = {}; vars.forEach((d, i) => { o[d.k] = snapV(d, d.min + Math.min(1, Math.max(0, x[i])) * (d.max - d.min)); });
-    // keep the geometry consistent (pool at least 25 mm smaller than the rim) by moving only a setting the
-    // search may change: a fixed setting is never altered
-    if (o.Rpool != null || o.Rrim != null) {
-      const rr = o.Rrim != null ? o.Rrim : O.base.Rrim, rp = o.Rpool != null ? o.Rpool : O.base.Rpool;
-      if (rp > rr - 25) {
-        if (o.Rpool != null) o.Rpool = Math.max(40, rr - 25);          // the pool may change: shrink it
-        if (o.Rpool == null || o.Rpool > rr - 25) {                    // the pool is fixed, or cannot shrink enough: widen the rim
-          const dR = vars.find((d) => d.k === 'Rrim');
-          if (dR) o.Rrim = Math.min(dR.max, snapV(dR, Math.ceil(((o.Rpool != null ? o.Rpool : rp) + 25) / dR.st) * dR.st));
-        }
-      }
-    }
+    const o = {};
+    order(vars).forEach(([d, i]) => { const [lo, hi] = feasible(d, vars, o); o[d.k] = snapV(d, lo + Math.min(1, Math.max(0, x[i])) * (hi - lo)); });
     return o;
   };
-  const xOf = (vars, o) => vars.map((d) => (o[d.k] - d.min) / ((d.max - d.min) || 1));
+  const xOf = (vars, o) => { const x = new Array(vars.length); order(vars).forEach(([d, i]) => { const [lo, hi] = feasible(d, vars, o); x[i] = (o[d.k] - lo) / ((hi - lo) || 1); }); return x; };
 
   const O = { searchId: 0, pending: false, all: [], front: [], running: false, cur: null, hover: null, stop: null, vars: [], base: null, goal: 'weights', best: null, token: 0, final: false, incomplete: false };
   // once a search is finished, results are only ever taken from designs checked at full resolution
@@ -235,7 +236,14 @@
     $('optHover').textContent = 'Hover a point to read it, click to load that design.';
     setPending(false);
     const ND2 = vars.length;
-    const ev = (x) => { const des = desOf(vars, x), e = rate(Object.assign({ x: xOf(vars, des), des, ctx }, evalPhysicsMode(base, des, mode))); O.all.push(e); return e; };
+    // identical designs (after snapping to the slider steps) are simulated once and listed once
+    const seenDes = new Map();
+    const ev = (x) => {
+      const des = desOf(vars, x), key = JSON.stringify(vars.map((d) => des[d.k])), hit = seenDes.get(key);
+      if (hit) return Object.assign({}, hit);   // a copy for the population; the results list keeps one entry
+      const e = rate(Object.assign({ x: xOf(vars, des), des, ctx }, evalPhysicsMode(base, des, mode)));
+      seenDes.set(key, e); O.all.push(e); return e;
+    };
     O.cur = null;
     O.cur = (() => { const des = {}; vars.forEach((d) => { des[d.k] = base[d.k]; }); return rate(Object.assign({ des, ctx, full: true }, evalPhysicsMode(base, des, mode, SIM_FULL))); })();
     let pop = [], children = [], gen = 0, queue = lhsN(POP, ND2, r); const t0 = now();
@@ -264,7 +272,7 @@
       $('optRun').disabled = false;   // a new search may start while the check runs; it cancels the check
       confirmReported(() => {
         O.running = false;
-        $('optStatus').textContent = `Done: ${nSearch} designs in ${(tSearch / 1000).toFixed(1)} s, ${(tSearch / nSearch).toFixed(1)} ms each. ${checkedLine()}`;
+        $('optStatus').textContent = `Done: ${nSearch} different designs simulated in ${(tSearch / 1000).toFixed(1)} s, ${(tSearch / nSearch).toFixed(1)} ms each. ${checkedLine()}`;
       });
     });
     return sid;
@@ -277,7 +285,7 @@
   }
   function checkedLine() {
     const nOk = pool().filter((e) => e.viol === 0).length;
-    const head = O.incomplete ? `The full-resolution check stopped after ${O.nChecked || 0} designs, so only checked designs are shown and better ones may exist; search again or tighten the targets.` : 'Every recommendation and table row is checked at full resolution; the other points in the chart are quick estimates.';
+    const head = O.incomplete ? `The full-resolution check stopped after ${O.nChecked || 0} designs. The recommendations and table rows use only checked designs, so better ones may exist; the other points in the chart are quick estimates. Search again or tighten the targets.` : 'Every recommendation and table row is checked at full resolution; the other points in the chart are quick estimates.';
     return `${head} ${O.goal === 'targets' ? nOk + ' checked designs meet all targets.' : O.front.length + ' designs on the best trade-off curve.'}`;
   }
   // The search runs at coarse wall-film resolution for speed, which can be off by several points of cleaning in

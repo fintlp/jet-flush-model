@@ -26,7 +26,7 @@
   document.body.appendChild(ov);
   const spot = ov.querySelector('.tour-spot'), card = ov.querySelector('.tour-card');
 
-  let idx = 0, active = false, startSnap = null, startPin = null, busy = false, target = null, raf = 0, mem = {};
+  let idx = 0, active = false, session = 0, startSnap = null, startPin = null, busy = false, target = null, raf = 0, mem = {};
 
   async function runOptimiser() {
     document.querySelector('[data-aitab="aiOpt"]').click();
@@ -38,8 +38,10 @@
     $('tWater').value = '4.0'; $('tClean').value = String(mem.tClean); $('tSolids').value = '95'; $('tPaper').value = '80'; $('tPick').value = 'score'; if ($('tNoise')) $('tNoise').value = '0';
     $('tPaper').dispatchEvent(new Event('input'));
     // start the demo's own search, cancelling any other, and wait for it and its full-resolution check
-    const res = await window.FlushAI.run();
+    const ses = session, res = await window.FlushAI.run();
+    if (ses !== session || !active) return false;   // the demo was closed or restarted meanwhile: change nothing
     mem.sid = res.ok ? res.sid : null;
+    return true;
   }
 
   const STEPS = [
@@ -84,12 +86,15 @@
     {
       t: 'Load the winner', el: () => $('results'), block: 'center',
       x: async () => {
+        const ses = session;
         mem.before3 = A.kpis(); mem.rerun = false; mem.why = '';
         mem.loaded = window.FlushAI.loadResult(mem.sid);
         if (!mem.loaded) {
           // settings changed after the search, or another search replaced it: search again with the current settings
           mem.why = $('optHover').textContent; mem.rerun = true;
-          await runOptimiser(); mem.before3 = A.kpis();
+          if (!(await runOptimiser())) return;
+          if (ses !== session || !active) return;   // closed during the search: never load into the restored design
+          mem.before3 = A.kpis();
           mem.loaded = window.FlushAI.loadResult(mem.sid);
         }
         await wait(50);
@@ -149,7 +154,7 @@
 
   function start() {
     if (active) return;
-    startSnap = A.snapshot(); mem = {}; active = true; ov.hidden = false; document.body.classList.add('touring');
+    session++; startSnap = A.snapshot(); mem = {}; active = true; ov.hidden = false; document.body.classList.add('touring');
     startPin = A.pin(); if (startPin) A.setPin(null);   // the demo compares with the preset; a pinned reference comes back at the end
     if (A.isPhone()) A.drawer(false);
     cancelAnimationFrame(raf); raf = requestAnimationFrame(place);
@@ -157,7 +162,7 @@
   }
   function end(restore) {
     if (!active) return;
-    active = false; ov.hidden = true; document.body.classList.remove('touring'); cancelAnimationFrame(raf);
+    session++; active = false; ov.hidden = true; document.body.classList.remove('touring'); cancelAnimationFrame(raf);
     A.stop();
     if (restore && startSnap) A.apply(startSnap);
     if (startPin) { A.setPin(startPin); startPin = null; }
