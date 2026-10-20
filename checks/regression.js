@@ -1,5 +1,6 @@
 // Compares every result except noise with another version of model.js, for example the released one:
-//   git show main:model.js > /tmp/model-main.js && node checks/regression.js /tmp/model-main.js
+//   git fetch origin main && git show origin/main:model.js > /tmp/model-main.js && node checks/regression.js /tmp/model-main.js
+// Exits with code 1 if any result differs or any noise value is not finite.
 const { loadModel, rng, fullDesign } = require('./lib');
 const other = process.argv[2]; if (!other) { console.log('usage: node checks/regression.js <other model.js>'); process.exit(1); }
 const A = loadModel(other), B = loadModel();
@@ -12,3 +13,5 @@ for (let i = 0; i < 400; i++) {
   if (b.noise && ![b.noise.peak, b.noise.energy, ...b.noise.peakV, ...b.noise.energyV].every(Number.isFinite)) nonFinite++;
 }
 console.log(`400 random designs (seed 12345), ${KEYS.length} results each: ${diffs} differences, ${nonFinite} designs with non-finite noise values`);
+process.exitCode = diffs || nonFinite ? 1 : 0;
+console.log(process.exitCode ? 'FAILED' : 'passed');

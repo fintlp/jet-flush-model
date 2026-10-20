@@ -40,7 +40,8 @@
     $('optRun').click();
     await wait(400);
     const t0 = Date.now();
-    while ($('optRun').disabled && Date.now() - t0 < 60000) await wait(250);
+    // wait for the search and its full-resolution check to finish
+    while (window.FlushAI && window.FlushAI.busy() && Date.now() - t0 < 90000) await wait(250);
   }
 
   const STEPS = [

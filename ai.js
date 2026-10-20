@@ -199,13 +199,13 @@
     const ok = list.filter((a) => a.viol === 0);
     return ok.filter((a) => !ok.some((b) => b !== a && b.score >= a.score && b.water <= a.water && (b.score > a.score || b.water < a.water))).sort((a, b) => a.water - b.water);
   }
-  function pickBest() {
+  function pickBest(list) {
     if (O.goal !== 'targets') return null;
-    const ok = pool().filter((e) => e.viol === 0), t = targets();
+    const ok = (list || pool()).filter((e) => e.viol === 0), t = targets();
     if (ok.length) return ok.slice().sort(pickCmp(t))[0];
     return null;
   }
-  function closest() { const L = pool(); return L.length ? L.slice().sort((a, b) => a.viol - b.viol || b.score - a.score)[0] : null; }
+  function closest(list) { const L = list || pool(); return L.length ? L.slice().sort((a, b) => a.viol - b.viol || b.score - a.score)[0] : null; }
 
   function runOpt() {
     if (O.running && !O.checking) return;   // a search is running; a re-check may be interrupted
@@ -254,7 +254,7 @@
   }
   function checkedLine() {
     const nOk = pool().filter((e) => e.viol === 0).length;
-    const head = O.incomplete ? 'The full-resolution check stopped after ${O.cap || 150} designs, so only checked designs are shown and better ones may exist; search again or tighten the targets.' : 'Every design shown is checked at full resolution.';
+    const head = O.incomplete ? `The full-resolution check stopped after ${O.nChecked || 0} designs, so only checked designs are shown and better ones may exist; search again or tighten the targets.` : 'Every design shown is checked at full resolution.';
     return `${head} ${O.goal === 'targets' ? nOk + ' checked designs meet all targets.' : O.front.length + ' designs on the best trade-off curve.'}`;
   }
   // The search runs at coarse wall-film resolution for speed, which can be off by several points of cleaning in
@@ -265,13 +265,14 @@
     if (O.stop) O.stop();
     const tok = ++O.token, base = O.base, mode = O.mode, seen = new Set(), check = [];
     let nChecked = 0;
-    O.final = false; O.incomplete = false;
+    O.incomplete = false;
+    // The published results (O.front, O.best, summary, table) stay as they are until the check is finished;
+    // candidates are collected from all designs into local lists.
     const add = (e) => { if (e && !e.full && !seen.has(e)) { seen.add(e); check.push(e); } };
     const collect = () => {
       // always rate against the targets and weights as they are now, so edits during the check count
       O.goal = goal(); O.all.forEach(rate); if (O.cur) rate(O.cur);
-      O.front = paretoOf(O.all); O.best = pickBest();
-      O.front.forEach(add); add(O.best);
+      paretoOf(O.all).forEach(add); add(pickBest(O.all));
       if (O.goal === 'targets') {
         const t = targets(), ok = O.all.filter((e) => e.viol === 0);
         ok.sort(pickCmp(t)).slice(0, 12).forEach(add);
@@ -289,13 +290,14 @@
         e = check.shift(); if (!e) return false;
       }
       if (nChecked >= (O.cap || 150)) { O.incomplete = true; return false; }   // stop; only checked designs are reported
-      Object.assign(e, evalPhysicsMode(base, e.des, mode, SIM_FULL), { full: true }); rate(e); nChecked++;
+      Object.assign(e, evalPhysicsMode(base, e.des, mode, SIM_FULL), { full: true }); rate(e); nChecked++; O.nChecked = nChecked;
       return true;
     }, () => {
       if (tok !== O.token) return;
       O.final = true; O.goal = goal(); O.all.forEach(rate); if (O.cur) rate(O.cur);
       O.front = paretoOf(pool()); O.best = pickBest(); O.checking = false;
       drawOpt(); fillOptTable(); optSummary(); if (done) done();
+      optStaleCheck();   // settings may have changed while the search ran
     });
   }
   function evalPhysicsMode(base, des, mode, opts) {
@@ -311,11 +313,12 @@
   const metricsLine = (e) => { const g = nRng(e); return `cleaned ${fmt(e.clean, 0)} %, solids ${fmt(e.solids, 0)} %, paper ${fmt(e.paper, 0)} %, ${fmt(e.water, 1)} L` + (O.cur && e !== O.cur ? `, noise ${sdb(nRel(e))} dB vs now (range ${sdb(g.lo)} to ${sdb(g.hi)})` : ''); };
   function optSummary() {
     const c = O.cur; if (!c) return;
+    let shown = null;   // the Load button always loads exactly the design described here
     const box = $('optBest'); let html = `<p><b>Current design:</b> ${metricsLine(c)}, score ${fmt(c.score, 1)}${c.viol > 0 ? ` (${c.miss.join(', ')})` : ''}.</p>`;
     if (O.goal === 'targets') {
       const b = O.best, t = targets();
-      if (b) html += `<p><b>Best design meeting all targets</b> (${pickName(t)}): ${metricsLine(b)}, score ${fmt(b.score, 1)}.</p><p><button class="btn primary mini" type="button" id="optLoadBest">Load this design</button></p>`;
-      else { const cl = closest(); html += `<p><b>No design met all targets.</b>${cl ? ` Closest: ${metricsLine(cl)}; ${cl.miss.join(', ')}.` : ''} Try loosening a target, allowing more settings to change, or the thorough search.</p>` + (cl ? `<p><button class="btn mini" type="button" id="optLoadBest">Load the closest design</button></p>` : ''); }
+      if (b) { shown = b; html += `<p><b>Best design meeting all targets</b> (${pickName(t)}): ${metricsLine(b)}, score ${fmt(b.score, 1)}.</p><p><button class="btn primary mini" type="button" id="optLoadBest">Load this design</button></p>`; }
+      else { const cl = closest(); shown = cl; html += `<p><b>No design met all targets.</b>${cl ? ` Closest: ${metricsLine(cl)}; ${cl.miss.join(', ')}.` : ''} Try loosening a target, allowing more settings to change, or the thorough search.</p>` + (cl ? `<p><button class="btn mini" type="button" id="optLoadBest">Load the closest design</button></p>` : ''); }
     } else if (O.front.length) {
       const same = O.front.filter((e) => e.water <= c.water + 1e-9).sort((a, b) => b.score - a.score)[0];
       const lean = O.front.filter((e) => e.score >= c.score).sort((a, b) => a.water - b.water)[0];
@@ -323,7 +326,7 @@
       if (lean && lean.water < c.water - 0.05) html += `<p>Same score with less water: ${fmt(lean.water, 1)} L, saving ${fmt(c.water - lean.water, 1)} L per flush.</p>`;
     }
     box.innerHTML = html;
-    const btn = $('optLoadBest'); if (btn) btn.addEventListener('click', () => loadOpt(O.best || closest()));
+    const btn = $('optLoadBest'); if (btn && shown) btn.addEventListener('click', () => loadOpt(shown));
   }
   let optGeom = null;
   function drawOpt() {
@@ -364,6 +367,7 @@
       rows = ok.sort(pickCmp(t)).slice(0, 10);
       title = rows.length ? `Designs meeting all targets, sorted by ${t.pick === 'water' ? 'water' : t.pick === 'noise' ? 'noise' : 'score'}` : 'No design meets all targets yet';
     } else { rows = O.front.slice(0, 12); title = rows.length ? 'Best trade-off designs, sorted by water' : ''; }
+    if (!O.final && rows.length) title = 'Search running, quick estimates: ' + title.charAt(0).toLowerCase() + title.slice(1);
     $('optTableTitle').textContent = title;
     $('optTable').innerHTML = rows.length ? `<thead><tr><th></th><th>Water, L</th><th>Score</th><th>Cleaned, %</th><th>Solids, %</th><th>Paper, %</th><th>Noise, dB vs now</th>${vars.map((d) => `<th>${d.l}${d.u ? ', ' + d.u : ''}</th>`).join('')}</tr></thead><tbody>` +
       rows.map((e, i) => `<tr${e === O.best ? ' class="best"' : ''}><td><button class="btn mini" type="button" data-opt="${i}">Load</button></td><td class="num">${fmt(e.water, 1)}</td><td class="num">${fmt(e.score, 1)}</td><td class="num">${fmt(e.clean, 0)}</td><td class="num">${fmt(e.solids, 0)}</td><td class="num">${fmt(e.paper, 0)}</td><td class="num">${sdb(nRel(e))} <span class="rng">(${sdb(nRng(e).lo)} to ${sdb(nRng(e).hi)})</span></td>${vars.map((d) => `<td class="num">${fmt(e.des[d.k], d.int ? 0 : d.dp)}</td>`).join('')}</tr>`).join('') + '</tbody>' : '';
@@ -680,11 +684,12 @@
   new MutationObserver(redraw).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   A.onChange(() => requestAnimationFrame(() => {
     const p = A.getP();
-    if (O.fp && O.all.length && !O.running) staleNote('optStale', fingerprint(p, O.vars.map((d) => d.k).concat(['flushMode'])) !== O.fp, 'search');
+    optStaleCheck();
     if (S.fp && S.metrics) { staleNote('surStale', fingerprint(p, DV.map((d) => d.k).concat(['flushMode'])) !== S.fp, 'training'); surCurrent(); }
     if (H.fp && H.res) staleNote('hybStale', fingerprint(p, DV.map((d) => d.k).concat(CAL.map((c) => c.k), ['flushMode'])) !== H.fp, 'calibration');
   }));
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(redraw);
   redraw();
-  window.FlushAI = { _test: { opt: () => O } };   // read-only hook for automated checks
+  function optStaleCheck() { if (O.fp && O.all.length && !O.running) staleNote('optStale', fingerprint(A.getP(), O.vars.map((d) => d.k).concat(['flushMode'])) !== O.fp, 'search'); }
+  window.FlushAI = { busy: () => O.running || !!O.checking, _test: { opt: () => O } };
 })();

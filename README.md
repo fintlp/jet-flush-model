@@ -111,7 +111,7 @@ The coefficients that describe physics the model does not resolve (film friction
 - Four sources, each written as a flow of air into the water: jet films entering the swirling pool, water falling into the outlet, an air core at the trap (Rankine vortex with the pool's angular momentum) and the siphon break.
 - Noise trace with uncertainty band and air core shading, noise in the design sweep, and a noise limit (upper end of the range) and "quietest" pick in the optimiser. The Demo me walkthrough reports noise and asks for "no louder than now".
 - Fixes from two external reviews, including two in 1.2.0: the optimiser reports only designs checked at full resolution, also after targets or weights change or while a check is running, and a new search cancels an old check; a sweep is marked out of date when settings change while it runs. Pinning updates the noise trace too, and the demo sets a pinned reference aside.
-- `checks/` folder with deterministic scripts behind the quoted check figures.
+- `checks/` folder with deterministic scripts behind the quoted check figures: regression against another model version, film update resolution, time step, preset figures, noise range and run time.
 - Model description: section 10 on noise, and a note on the resolution of the film updates. New sources on bubble acoustics, air entrainment and intake vortices.
 
 ### 1.2.0 · 20 October 2026

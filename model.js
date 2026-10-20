@@ -141,7 +141,7 @@
     opts = opts || {};
     const t0 = (typeof performance !== 'undefined' ? performance.now() : Date.now());
     const g = buildGeom(p);
-    const dt = 0.01, Tend = opts.Tend || 14, Tmax = Math.max(Tend, opts.Tmax || 60);   // run at least Tend, until settled, at most Tmax
+    const dt = opts.dt || 0.01, Tend = opts.Tend || 14, Tmax = Math.max(Tend, opts.Tmax || 60);   // run at least Tend, until settled, at most Tmax
     const uEvery = opts.uEvery || (opts.coarse ? 20 : 10), dtu = uEvery * dt;   // film update every uEvery steps of 10 ms
     const light = !!opts.light;
     const Vfl = (p.flushMode === 'partial' ? p.Vpart : p.Vfull) / 1000;
