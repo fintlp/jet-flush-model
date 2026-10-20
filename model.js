@@ -143,6 +143,8 @@
     const g = buildGeom(p);
     const dt = opts.dt || 0.01, Tend = opts.Tend || 14, Tmax = Math.max(Tend, opts.Tmax || 60);   // run at least Tend, until settled, at most Tmax
     const light = !!opts.light;
+    // optional probes for the checks: called every time step and every film step; unused in the page
+    const probe = typeof opts.probe === 'function' ? opts.probe : null, probeFilm = typeof opts.probeFilm === 'function' ? opts.probeFilm : null;
     const Vfl = (p.flushMode === 'partial' ? p.Vpart : p.Vfull) / 1000;
     const An = p.Anoz * 1e-4, nJ = Math.max(1, Math.round(p.nJets));
     const hN = p.hNoz / 1000, w0 = An / hN;
@@ -163,8 +165,10 @@
     const cellA = new Float32Array(NC);
     const E = Math.max(1, p.ovality || 1), sE = Math.sqrt(E);
     const Rr = g.Rr, Rp = g.Rp, Dw = g.D, kz = Math.PI / (2 * Dw);
-    const Rz = (z) => Rp + (Rr - Rp) * Math.cos(kz * z);          // equivalent radius at depth z
-    const dRz = (z) => -(Rr - Rp) * kz * Math.sin(kz * z);        // dR/dz
+    // equivalent radius at depth z below the rim; below the static waterline the pool basin narrows as in the
+    // level table (rAtLevel). The film centreline stays above the waterline, but a step can end slightly below it.
+    const Rz = (z) => z <= Dw ? Rp + (Rr - Rp) * Math.cos(kz * z) : Rp * Math.max(0.35, 1 - 0.5 * (z - Dw) / g.ds);
+    const dRz = (z) => z <= Dw ? -(Rr - Rp) * kz * Math.sin(kz * z) : (1 - 0.5 * (z - Dw) / g.ds > 0.35 ? -0.5 * Rp / g.ds : 0);   // dR/dz
     for (let is = 0; is < NS; is++) {
       const z0 = geomAt(g, is * dsb).z, z1 = geomAt(g, (is + 1) * dsb).z, zc = 0.5 * (z0 + z1);
       const R = Rz(zc), dR = dRz(zc);
@@ -199,8 +203,8 @@
        at every time step. */
     const fixedEvery = opts.uEvery || 0;                              // fixed retrace interval in steps (checks only)
     // tolerance: jet speed change in %, pool level change in mm (filmTol 0 retraces every step, the reference)
-    const tolS = opts.filmTol == null ? (opts.coarse ? 8 : 3) : opts.filmTol;
-    const tolV = 0.01 * tolS, tolZ = 0.001 * tolS, tMaxR = opts.tMaxR || (opts.coarse ? 0.5 : 0.25);
+    const tolS = opts.filmTol == null ? (opts.coarse ? 10 : 3) : opts.filmTol;
+    const tolV = 0.01 * tolS, tolZ = 0.001 * tolS, tMaxR = opts.tMaxR || (opts.coarse ? 0.6 : 0.25);
     const film = { active: false, Lq: 0, reach: 0, end: [], vjR: 0, zR: 0, tR: -1, nR: 0, lostQ: 0, allQ: 0 };
     // end: [share of the total jet flow, vx, vy, vz, x, y] where parts of the films enter the pool
     const lines = [];
@@ -256,7 +260,7 @@
         const top = Math.max(-0.5 * w0, (0.001 - z0) / dz0), wOn = 0.5 * w0 - top;
         zp = z0 + (top + 0.5 * wOn) * dz0;                    // centre of the band on the wall
         { const R1 = Rz(zp); x = R1 * sE * Math.cos(th0); y = R1 / sE * Math.sin(th0); }
-        let w = wOn, f = 1;                                   // band width; share of the jet flow still on the wall
+        let w = wOn, f = 1;                                   // width of the band still on the wall; its share of the jet flow
         const pts = rec ? [] : null;
         const pushPt = () => { let a = Math.atan2(y * sE, x / sE); if (a < 0) a += TAU2; pts.push(x, y, a, sAtDepth(g, Math.max(0, zp))); };
         if (pts) pushPt();
@@ -268,52 +272,73 @@
           const U = Math.hypot(vx, vy, vz);
           if (U < 0.05) break;
           wallNormal(x, y, zp, nrm);
-          const nx = nrm[0], ny = nrm[1], nz = nrm[2];
-          const h = Math.min(hN, Qj / (U * w));
+          let nx = nrm[0], ny = nrm[1], nz = nrm[2];
+          const h = Math.min(hN, Qj * f / (U * w));
           const tau = 0.5 * RHO * p.cf * U * U;
           // across the flow: d = n x u_hat, pointing down the wall
           let dx = ny * vz - nz * vy, dy = nz * vx - nx * vz, dz = nx * vy - ny * vx;
           const dm = Math.hypot(dx, dy, dz) || 1; dx /= dm; dy /= dm; dz /= dm;
           if (dz < 0) { dx = -dx; dy = -dy; dz = -dz; }
-          // share of the band's width below the waterline: that part enters the pool here
+          // share of the band's width below the waterline: that part enters the pool here, at the waterline radius,
+          // and the band left on the wall is re-centred on what remains, so its centreline stays above the water
           const ez = Math.max(0.05, dz) * w, below = Math.min(1, Math.max(0, (zp + 0.5 * ez - zStop) / ez));
-          if (1 - below < f) {
-            const d = f - (1 - below); f = 1 - below;
-            const Lz = Math.max(0, x * vy - y * vx);
+          if (below > 0) {
+            const d = f * below, sc = Rz(zStop) / Rz(Math.min(zp, zStop)), Lz = Math.max(0, x * vy - y * vx) * sc;
             film.Lq += qj * d * Lz; film.reach += qj * d;
-            eQ += d; eVx += d * vx; eVy += d * vy; eVz += d * vz; eX += d * x; eY += d * y;
+            eQ += d; eVx += d * vx; eVy += d * vy; eVz += d * vz; eX += d * x * sc; eY += d * y * sc;
             if (eQ >= 0.25) flush();
+            f -= d;
+            if (f < 0.02) {   // the last sliver enters with the rest
+              film.Lq += qj * f * Lz; film.reach += qj * f;
+              eQ += f; eVx += f * vx; eVy += f * vy; eVz += f * vz; eX += f * x * sc; eY += f * y * sc; f = 0; break;
+            }
+            const off = 0.5 * w * below;   // move the centreline up across the band to the middle of the part left
+            x -= off * dx; y -= off * dy; zp = Math.max(0.001, zp - off * dz); w *= 1 - below;
+            for (let it2 = 0; it2 < 2; it2++) { wallNormal(x, y, zp, nrm); const F = nrm[3], gm = nrm[4]; x -= F * nrm[0] / gm; y -= F * nrm[1] / gm; zp -= F * nrm[2] / gm; }
+            wallNormal(x, y, zp, nrm);
+            const vn = vx * nrm[0] + vy * nrm[1] + vz * nrm[2]; vx -= vn * nrm[0]; vy -= vn * nrm[1]; vz -= vn * nrm[2];
+            const Vm2 = Math.hypot(vx, vy, vz) || 1; vx *= U / Vm2; vy *= U / Vm2; vz *= U / Vm2;
+            nx = nrm[0]; ny = nrm[1]; nz = nrm[2];
           }
-          if (f < 0.02) {   // the last sliver enters with the rest
-            const Lz = Math.max(0, x * vy - y * vx);
-            film.Lq += qj * f * Lz; film.reach += qj * f;
-            eQ += f; eVx += f * vx; eVy += f * vy; eVz += f * vz; eX += f * x; eY += f * y; f = 0; break;
-          }
-          // the part still on the wall is the upper share f of the band
-          mark(x, y, zp, dx, dy, dz, -0.5 * w * (1 - f), f * w, tau, zStop);
-          // under water the band only needs its remaining entry: longer steps, nothing to mark there
-          const dtp = (zp >= zStop ? 4 * dl : dl) / U, af = p.cf * U / (2 * h);
-          // forces: gravity (+z is down) and wall friction against the velocity
-          const ax = -af * vx, ay = -af * vy, az = G - af * vz;
-          // tangential part of the force sets the speed change; the wall reaction does no work
-          const an = ax * nx + ay * ny + az * nz;
-          const atx = ax - an * nx, aty = ay - an * ny, atz = az - an * nz;
-          const Ut = Math.max(0, U + (atx * vx + aty * vy + atz * vz) / U * dtp);
+          mark(x, y, zp, dx, dy, dz, 0, w, tau, zStop);
+          const dtp = dl / U, af = p.cf * U / (2 * h);
+          // forces along the wall: gravity (+z is down) and wall friction against the velocity; the wall reaction
+          // keeps the film on the wall and is taken into account by moving the velocity into the new tangent plane
+          const ax0 = -af * vx, ay0 = -af * vy, az0 = G - af * vz, an = ax0 * nx + ay0 * ny + az0 * nz;
+          const ax = ax0 - an * nx, ay = ay0 - an * ny, az = az0 - an * nz;
+          const zOld = zp, dsStep = U * dtp, vx0 = vx, vy0 = vy, vz0 = vz;
           vx += ax * dtp; vy += ay * dtp; vz += az * dtp;
-          x += vx * dtp; y += vy * dtp; zp += vz * dtp;
-          if (zp < 0.001) { zp = 0.001; if (vz < 0) vz = 0; }
+          // position with the mean of the old and new velocity (second order in the step)
+          x += 0.5 * (vx0 + vx) * dtp; y += 0.5 * (vy0 + vy) * dtp; zp += 0.5 * (vz0 + vz) * dtp;
+          // a film that climbs back to the rim meets the rim lip: its upward speed is lost there (inelastic)
+          let hitRim = false;
+          if (zp < 0.001) { zp = 0.001; if (vz < 0) { vz = 0; hitRim = true; } }
           // project back onto the wall (two Newton steps on F)
           for (let it2 = 0; it2 < 2; it2++) {
             wallNormal(x, y, zp, nrm);
             const F = nrm[3], gm = nrm[4];
             x -= F * nrm[0] / gm; y -= F * nrm[1] / gm; zp -= F * nrm[2] / gm;
           }
+          // new speed from the energy balance over the step: work of gravity minus work of wall friction (the
+          // wall reaction does no work)
+          const Ut = Math.sqrt(Math.max(0, U * U + 2 * G * (zp - zOld) - 2 * af * U * dsStep));
           wallNormal(x, y, zp, nrm);
-          const vn = vx * nrm[0] + vy * nrm[1] + vz * nrm[2];
+          // carry the velocity into the new tangent plane by the rotation that turns the old wall normal into the new one
+          {
+            let kx = ny * nrm[2] - nz * nrm[1], ky = nz * nrm[0] - nx * nrm[2], kz2 = nx * nrm[1] - ny * nrm[0];
+            const sn = Math.hypot(kx, ky, kz2), cs = nx * nrm[0] + ny * nrm[1] + nz * nrm[2];
+            if (sn > 1e-12) {
+              kx /= sn; ky /= sn; kz2 /= sn;
+              const kv = kx * vx + ky * vy + kz2 * vz, cx = ky * vz - kz2 * vy, cy = kz2 * vx - kx * vz, cz = kx * vy - ky * vx;
+              vx = vx * cs + cx * sn + kx * kv * (1 - cs); vy = vy * cs + cy * sn + ky * kv * (1 - cs); vz = vz * cs + cz * sn + kz2 * kv * (1 - cs);
+            }
+          }
+          const vn = vx * nrm[0] + vy * nrm[1] + vz * nrm[2];   // round-off only, and the rim lip
           vx -= vn * nrm[0]; vy -= vn * nrm[1]; vz -= vn * nrm[2];
-          const Vm = Math.hypot(vx, vy, vz) || 1;
-          vx *= Ut / Vm; vy *= Ut / Vm; vz *= Ut / Vm;
-          w += p.ksp * Ut * dtp;
+          const Vm = Math.hypot(vx, vy, vz) || 1, Un = hitRim ? Math.min(Ut, Vm) : Ut;
+          vx *= Un / Vm; vy *= Un / Vm; vz *= Un / Vm;
+          if (probeFilm) probeFilm({ t, jet: j, k, x, y, z: zp, vx, vy, vz, f, w, zStop, cf: p.cf, h, hitRim });
+          w += p.ksp * Un * dtp;
           // the drawn path is the centreline above water; it ends where the centreline meets the waterline
           if (pts && !drawnEnd) { if (zp >= zStop) { pushPt(); drawnEnd = true; wDrawn = w; } else if (k % 3 === 0) pushPt(); }
         }
@@ -418,7 +443,7 @@
       const Rc = g.rAtLevel(z);
       const I = 0.25 * RHO * Vpool * Rc * Rc * (E + 1 / E);   // elliptic pool, same area as circle of radius Rc
       let om = L / I;
-      const Tin = film.active ? p.eta * RHO * Qin * film.Lq : 0;   // only streamlines that reach the pool bring swirl
+      const Tin = film.active ? p.eta * RHO * Qin * film.Lq : 0;   // only film that reaches the pool brings swirl
       const Tout = (Qout / Vpool) * L;
       const Awet = Math.PI * Rc * Rc + perimF * TAU2 * Rc * (ds + 0.03 + Math.max(z, 0));
       const Tf = 0.5 * RHO * p.cfp * ovPen * Awet * (om * Rc) ** 2 * Rc;
@@ -467,6 +492,7 @@
       Ms = Math.max(0, Ms - rS * dt); capS += fS * capRate * dt;
       const fP = Math.min(1, Math.max(0, (ut / p.ucP - 1) / 0.5));
       Np = Math.max(0, Np - fP * p.kP * Np * (p.phi0 + (1 - p.phi0) * Cs) * dt);
+      if (probe) probe({ n, t, dt, Vc, vj, Qin, z, Vrel, Qw, Qout, Qtrans, primed, Vt, Vpool, Rc, I, L, Tin, Tout, Tf, om, Ms, Np, ut, fS, fP, Cs, Vspill });
 
       if (rec && n % 2 === 0) {
         rec.t.push(t); rec.Qin.push(Qin * 1000); rec.Qout.push(Qout * 1000); rec.z.push(z * 1000);
@@ -517,5 +543,5 @@
     return out;
   }
 
-  root.FlushModel = { simulate, defaults, PRESETS, COEFFS, buildGeom, geomAt, sAtDepth, coreFactor, rankineF, noiseCorners, NTH, NS };
+  root.FlushModel = { simulate, defaults, PRESETS, COEFFS, buildGeom, geomAt, sAtDepth, levelFromVol, coreFactor, rankineF, noiseCorners, NTH, NS };
 })(typeof window !== 'undefined' ? window : globalThis);
