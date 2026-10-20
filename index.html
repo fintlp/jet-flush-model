@@ -181,6 +181,10 @@ section[id],.panel[id]{scroll-margin-top:64px}
 .seg button:disabled{opacity:.45;cursor:default}
 .validity{margin:0 0 10px;padding:10px 14px;border:1px solid var(--bad);border-radius:10px;color:var(--ink);background:color-mix(in srgb, var(--bad) 10%, var(--surface));font-size:13.5px}
 .validity b{color:var(--bad)}
+.restored{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 14px;padding:8px 8px 8px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--muted);font-size:13.5px}
+.restored .linkbtn{background:none;border:0;padding:0;font:inherit;color:var(--accent);text-decoration:underline;cursor:pointer}
+.restored .restored-x{margin-left:auto;background:none;border:0;font-size:18px;line-height:1;color:var(--muted);cursor:pointer;padding:2px 8px;border-radius:6px}
+.restored .restored-x:hover,.restored .linkbtn:hover{color:var(--ink)}
 .est{font-weight:500;letter-spacing:.04em;color:var(--muted);text-transform:none;font-family:var(--f-body);font-size:11.5px}
 .estline{font-size:12.5px;color:var(--muted);margin:6px 2px 0}
 .cmpbar{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:10px}
@@ -303,6 +307,8 @@ td code{font-family:var(--f-mono);font-size:12.5px}
       </div>
     </div>
   </header>
+
+  <p class="restored" id="restoredNote" role="status" hidden>Showing your last design from this browser. <button type="button" class="linkbtn" id="restoredReset">Reset to preset</button><button type="button" class="restored-x" id="restoredHide" aria-label="Hide this note">×</button></p>
 
   <section class="starthere" aria-label="Start here">
     <span class="eyebrow">Start here</span>
@@ -557,7 +563,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
       </section>
       <footer class="foot">
         <span class="footlinks"><a href="https://fintlp.github.io/jet-flush-model/why.html" target="_blank" rel="noopener">Why we built this</a><a href="https://fintlp.github.io/jet-flush-model/method.html" target="_blank" rel="noopener">Model details</a><a href="https://fintlp.github.io/jet-flush-model/sources.html" target="_blank" rel="noopener">Sources and references</a><a href="https://fintlp.github.io/jet-flush-model/slides/jet-flush-model.pptx" target="_blank" rel="noopener">Slides, PowerPoint</a><a href="https://fintlp.github.io/jet-flush-model/slides/jet-flush-model.pdf" target="_blank" rel="noopener">Slides, PDF</a></span>
-        <span class="muted">Tangential Jet Flush Model · v1.1.0 · Peter Fintl</span>
+        <span class="muted">Tangential Jet Flush Model · v1.2.0 · Peter Fintl</span>
       </footer>
     </div>
   </div>
@@ -566,9 +572,9 @@ td code{font-family:var(--f-mono);font-size:12.5px}
     <button type="button" class="btn primary" id="mobarBtn" aria-expanded="false" aria-controls="rail">Adjust design</button>
   </div>
 </div>
-<script src="model.js?v=9"></script>
-<script src="app.js?v=9"></script>
-<script src="ai.js?v=9"></script>
-<script src="tour.js?v=9"></script>
+<script src="model.js?v=10"></script>
+<script src="app.js?v=10"></script>
+<script src="ai.js?v=10"></script>
+<script src="tour.js?v=10"></script>
 </body>
 </html>

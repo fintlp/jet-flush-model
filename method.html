@@ -94,7 +94,7 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
     <span class="eyebrow">Model description · Tangential Jet Flush Model</span>
     <h1>How the jet flush model works</h1>
     <p class="lede">A reduced-order model of a rimless WC flushed by tangential rim jets. It traces each jet as a film on the bowl wall, follows the pool level, swirl and trap flow, and estimates cleaning, waste removal and water use. One flush takes about 5 to 20 milliseconds to compute in a web browser.</p>
-    <p class="meta">Version 1.1.0 · 19 October 2026 · <a href="https://github.com/fintlp/jet-flush-model#change-log">change log</a> · model code: <a href="https://github.com/fintlp/jet-flush-model/blob/main/model.js">model.js</a></p>
+    <p class="meta">Version 1.2.0 · 20 October 2026 · <a href="https://github.com/fintlp/jet-flush-model#change-log">change log</a> · model code: <a href="https://github.com/fintlp/jet-flush-model/blob/main/model.js">model.js</a></p>
   </header>
 
   <div class="layout">
@@ -181,7 +181,7 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
         <ul>
           <li><strong>Undo</strong> steps back one edit at a time, up to 60 steps. Ctrl+Z or Cmd+Z does the same when you are not typing in a field. Loading a design from the sweep or the AI lab also counts as one step.</li>
           <li><strong>Reset</strong> returns every setting, including the model coefficients, to the selected preset.</li>
-          <li>Settings are remembered in your browser for your next visit. Nothing is sent anywhere.</li>
+          <li>Settings are remembered in your browser for your next visit. Nothing is sent anywhere. If the page opens with a design that differs from its preset, a note above the Start here strip says so and offers <strong>Reset to preset</strong>. Changes the Demo me walkthrough makes are not remembered unless you choose to keep its design.</li>
         </ul>
 
         <h3>The Demo me walkthrough</h3>
@@ -195,9 +195,9 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
           <li><strong>Where it cleans.</strong> Explains the wall cleaning map.</li>
           <li><strong>Let the AI find a better design.</strong> Runs the AI lab with targets: at most 4.0 L, cleaning at least 3 points better than now, 95 % solids and 80 % paper. Takes a few seconds.</li>
           <li><strong>Load the winner.</strong> Loads the best design that meets the targets, or the closest one if none does, and shows the changes.</li>
-          <li><strong>Your turn.</strong> Explains Undo, Reset and Pin as reference, and offers to bring your own design back or keep the demo result.</li>
+          <li><strong>Your turn.</strong> Explains Undo, Reset and Pin as reference, and offers to bring your own design back or keep the demo result. <strong>Finish</strong> brings your own design back; only <strong>Keep this design</strong> keeps the demo result.</li>
         </ol>
-        <p>Next and Back, or the arrow keys, move through the steps. Esc or the × ends the demo and restores your design. The numbers in the walkthrough are computed live, so they follow any change to the model. For a talk, open the page with <code>#demo</code> at the end of the address, for example <a href="./#demo">fintlp.github.io/jet-flush-model/#demo</a>, and the walkthrough starts by itself.</p>
+        <p>Next and Back, or the arrow keys, move through the steps. Esc, the × or Finish end the demo and restore your design. The numbers in the walkthrough are computed live, so they follow any change to the model. For a talk, open the page with <code>#demo</code> at the end of the address, for example <a href="./#demo">fintlp.github.io/jet-flush-model/#demo</a>, and the walkthrough starts by itself.</p>
       </section>
 
       <section id="overview">
@@ -561,7 +561,7 @@ console.log(r.cleanPct, r.solidsPct, r.water);</div>
 
       <footer class="foot">
         <span class="navl"><a href="./">← Simulator</a><a href="why.html">Why</a><a href="sources.html">Sources and references</a></span>
-        <span>Tangential Jet Flush Model · v1.1.0 · Peter Fintl</span>
+        <span>Tangential Jet Flush Model · v1.2.0 · Peter Fintl</span>
       </footer>
     </main>
   </div>

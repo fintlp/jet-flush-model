@@ -92,6 +92,10 @@
   let P = M.defaults('washdown');
   const STORE = 'tfs-params-v1';
   try { const s = localStorage.getItem(STORE); if (s) { const o = JSON.parse(s); if (o && typeof o === 'object') for (const k in o) if (k in P) P[k] = o[k]; } } catch (e) { }
+  // a returning visitor gets their last design back; say so when it differs from its preset
+  const restoredDiffers = (() => { const d = M.defaults(P.type === 'siphonic' ? 'siphonic' : 'washdown'); return Object.keys(d).some((k) => typeof d[k] === 'number' ? Math.abs((+P[k]) - d[k]) > 1e-9 : P[k] !== d[k]); })();
+  // settings are remembered in this browser, except while the Demo me walkthrough drives the page
+  function save() { if (document.body.classList.contains('touring')) return; try { localStorage.setItem(STORE, JSON.stringify(P)); } catch (e) { } }
 
   let R = null, T = 1.6, playing = false, speed = 0.5, lastTs = 0, firstRun = true;
   const dpr = () => Math.min(2, window.devicePixelRatio || 1);
@@ -174,7 +178,15 @@
     T = TVIEW; playing = false; setPlay(); run(); markSweepStale();
     committed = snapP(); committedK = kpis(); updateHistUI(); changeHooks.forEach((f) => { try { f(); } catch (e) { } });
   }
-  function resetPreset() { const d = M.defaults($('preset').value); applyNow(d); }
+  function resetPreset() { const d = M.defaults($('preset').value); applyNow(d); hideRestored(); }
+  function hideRestored() { const n = $('restoredNote'); if (n) n.hidden = true; }
+  (function () {
+    const n = $('restoredNote'); if (!n) return;
+    if (restoredDiffers && location.hash !== '#demo') n.hidden = false;
+    $('restoredReset').addEventListener('click', resetPreset);
+    $('restoredHide').addEventListener('click', hideRestored);
+    $('preset').addEventListener('change', hideRestored);
+  })();
   function updateHistUI() { const u = $('undoBtn'); if (u) { u.disabled = !hist.length; u.title = hist.length ? `Undo (${hist.length} step${hist.length > 1 ? 's' : ''})` : 'Nothing to undo yet'; } }
   let pend = false;
   function changed() {
@@ -636,7 +648,7 @@
     const rec = R.rec;
     rec.MsP = rec.Ms.map((v) => P.Ms > 0 ? 100 * v / P.Ms : 0);
     rec.NpP = rec.Np.map((v) => P.Np > 0 ? 100 * v / P.Np : 0);
-    try { localStorage.setItem(STORE, JSON.stringify(P)); } catch (e) { }
+    save();
     updateKPIs();
     if (firstRun) { firstRun = false; }
     draw();
@@ -809,6 +821,7 @@
     stop: () => { playing = false; setPlay(); },
     setTime: (t) => { T = t; playing = false; setPlay(); draw(); },
     snapshot: () => snapP(),
+    save,
     drawer: (open) => toggleDrawer(open),
     isPhone: () => window.matchMedia('(max-width: 940px)').matches,
     SPECK, readColors, rgba, mix, sizeCanvas, dpr, font

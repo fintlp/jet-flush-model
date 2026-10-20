@@ -83,7 +83,7 @@
     },
     {
       t: 'Your turn', el: () => document.querySelector('.top .actions'), block: 'center', last: true,
-      h: () => `<p><b>Undo</b> steps back one change at a time, <b>Reset</b> returns to the preset, and <b>Pin as reference</b> above the results compares every change with one fixed design.</p><p>Each slider has an <b>i</b> button that explains it.</p><p>Do you want your own design back, or keep this one?</p>`
+      h: () => `<p><b>Undo</b> steps back one change at a time, <b>Reset</b> returns to the preset, and <b>Pin as reference</b> above the results compares every change with one fixed design.</p><p>Each slider has an <b>i</b> button that explains it.</p><p>Do you want your own design back, or keep this one? <b>Finish</b> brings your own design back.</p>`
     }
   ];
 
@@ -123,9 +123,9 @@
     if (idx !== i || !active) return;
     $('tourText').innerHTML = s.h();
     if (s.last) {
-      $('tourText').insertAdjacentHTML('beforeend', `<div class="tour-end"><button class="btn" type="button" id="tourRestore">Bring my design back</button><button class="btn primary" type="button" id="tourKeep">Keep this design</button></div>`);
+      $('tourText').insertAdjacentHTML('beforeend', `<div class="tour-end"><button class="btn" type="button" id="tourRestore">Bring my design back</button><button class="btn" type="button" id="tourKeep">Keep this design</button></div>`);
       $('tourRestore').addEventListener('click', () => end(true));
-      $('tourKeep').addEventListener('click', () => end(false));
+      $('tourKeep').addEventListener('click', () => { end(false); A.save(); });
       next.textContent = 'Finish';
     } else next.textContent = i === 0 ? 'Start' : 'Next';
     next.disabled = false; busy = false;
@@ -146,7 +146,7 @@
     if (restore && startSnap) A.apply(startSnap);
     const b = $('demoBtn'); if (b) b.focus({ preventScroll: true });
   }
-  $('tourNext').addEventListener('click', () => { if (busy) return; if (idx >= STEPS.length - 1) end(false); else show(idx + 1); });
+  $('tourNext').addEventListener('click', () => { if (busy) return; if (idx >= STEPS.length - 1) end(true); else show(idx + 1); });
   $('tourBack').addEventListener('click', () => { if (busy || idx === 0) return; show(idx - 1, true); });
   $('tourX').addEventListener('click', () => end(true));
   document.addEventListener('keydown', (e) => {

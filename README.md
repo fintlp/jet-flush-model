@@ -102,9 +102,16 @@ The coefficients that describe physics the model does not resolve (film friction
 
 ## Change log
 
+### 1.2.0 · 20 October 2026
+
+Includes all of 1.1.0, which was not published as a separate release.
+
+- The Demo me walkthrough no longer leaves its oval demo bowl behind. **Finish** now brings your own design back; only **Keep this design** keeps the demo result. Nothing is remembered while the walkthrough runs, so closing the tab mid-demo is safe too.
+- When the page opens with a remembered design that differs from its preset, a note says so and offers **Reset to preset**.
+
 ### 1.1.0 · 19 October 2026
 
-Fixes from an external review, and clearer scope.
+Fixes from an external review, and clearer scope. Not published as a separate release; included in 1.2.0.
 
 - Slow flushes now run to completion, up to 60 s, and the playback follows; a flush that does not finish is marked incomplete. Water use counts the water actually released.
 - A pool that reaches the rim is detected as an overflow; spilled water is counted and the results are marked not valid.
