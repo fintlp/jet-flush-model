@@ -11,8 +11,8 @@ git show origin/main:model.js > /tmp/model-main.js
 
 | Script | What it checks |
 |---|---|
-| `node checks/regression.js /tmp/model-main.js` | All results except noise are identical to the other model version. Exits with code 1 on any difference. |
-| `node checks/resolution.js` | How much cleaning depends on how often the jet films are re-traced, including a short, strong flush with a large difference (section 11) |
+| `node checks/regression.js /tmp/model-main.js` | All results except noise are identical to the other model version. Exits with code 1 on any difference. The wall film changed in 2.0, so against a 1.x model this check fails by design; it is for comparing versions that should agree. |
+| `node checks/resolution.js` | How much cleaning, rim line and noise depend on how often the jet films are retraced: simulator and coarse settings against retracing at every step, including the short, strong flush that was the worst case in 1.3 (section 11). Takes about two minutes. |
 | `node checks/timestep.js` | How much results change when the time step is halved (section 11) |
 | `node checks/presets.js` | Preset figures quoted in section 10: vortex dips, margins, air core and siphon break times, source shares, Gordon cross-check, siphonic against washdown |
 | `node checks/noise-range.js` | Width of the sampled noise range, and interior coefficient values outside the corner range (section 10) |

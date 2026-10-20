@@ -81,7 +81,7 @@ const r = M.simulate(p, { light: true });
 console.log(r.cleanPct, r.solidsPct, r.paperPct, r.water);
 ```
 
-`simulate(p, opts)` takes the same parameters as the sliders. Options: `light` skips the time traces, `coarse` updates the wall film every 200 ms instead of 100 ms, `Tend` sets the simulated time in seconds.
+`simulate(p, opts)` takes the same parameters as the sliders. Options: `light` skips the time traces, `coarse` uses the looser wall film retrace tolerance of the sweep and the optimiser search, `filmTol` sets that tolerance (0 retraces at every time step, the reference for the checks), `Tend` sets the simulated time in seconds.
 
 ## Files
 
@@ -104,6 +104,16 @@ console.log(r.cleanPct, r.solidsPct, r.paperPct, r.water);
 The coefficients that describe physics the model does not resolve (film friction, spreading, soil shear threshold, swirl transfer, transport thresholds and others) are fitted to a few reference runs. The procedure, the order of fitting and which measurement or CFD output to use for each coefficient are in [section 13 of the model description](https://fintlp.github.io/jet-flush-model/method.html#calibration). PreonLab is a good candidate for the reference runs; its fit for paper and other flexible media should be checked in a benchmark first.
 
 ## Change log
+
+### 2.0.0 · in preparation
+
+Version 2.0 changes model results. Work in progress on branch `dev-2.0`; this entry grows with each phase.
+
+- **Wall film enters the pool where its lower edge meets the waterline.** Each jet is still one spreading band, but the part of its width below the waterline now enters the pool there, with its flow, swirl and splash, and only the rest goes on round the wall. Before, the whole film entered where its centreline reached the waterline, so a tiny change in jet speed or pool level could switch the film between entering on its first dip and circling once more, and the pool swirl jumped (in the washdown preset by about 15 % at 2.7 s). Flow that stalls on the wall or is still there after 3 m of path counts as lost and brings no swirl or splash (`filmLostPct`).
+- **Film traced when the flow changes, not on a fixed clock.** The films are retraced when jet speed or pool level has changed by more than a tolerance, and at least every 0.25 s (0.5 s in the sweep and the optimiser search). In between, the swirl input and the splash follow the actual flow at every 10 ms step, and the shear dose of each interval is the mean of the footprints at its start and end. The films now start with the valve opening instead of after 100 ms, and the jet splash stops when the cistern is empty. Against retracing at every step, cleaning differs by 0.65 points at the 95th percentile (1.3: 1.8 points at 100 ms), and the worst known case, a short strong flush, gives 65.2 % instead of 43 % against 65.4 % (`checks/resolution.js`). A flush takes about 1.3 times as long as in 1.3.
+- **Nozzle width above the rim folded onto the wall,** so a wide nozzle loses no flow above the rim; its film starts narrower and thicker.
+- Effect on results, 300 random designs: cleaning changes by +0.2 points in the median (5 % of designs lose more than 5 points, 5 % gain more than 17 points, mostly short, strong flushes that 1.3 resolved poorly); peak pool swirl is about 7 % lower; solids and paper hardly change. Washdown preset: cleaning 87.6 to 85.4 %; siphonic preset: 96.1 to 95.1 %.
+- Model description: the statement that the film keeps its angular momentum is corrected (wall friction removes much of it); new subsection on where the film enters the pool; numerics and resolution note updated.
 
 ### 1.3.1 · 20 October 2026
 

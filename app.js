@@ -311,7 +311,13 @@
   const PP = (() => { const r = rng(23), a = []; for (let i = 0; i < 20; i++) a.push({ rf: 0.3 + 0.55 * r(), a: r() * TAU2, rot: r() * 3 }); return a; })();
 
   const recIdx = (t) => Math.max(0, Math.min(R.rec.t.length - 1, Math.round(t / 0.02)));
-  const lineAt = (t) => R.lines[Math.max(0, Math.min(R.lines.length - 1, Math.floor(t / R.dtu + 1e-6)))];
+  // film paths are traced at irregular times: use the latest trace at or before t
+  const lineAt = (t) => {
+    const L = R.lines; if (!L.length) return null;
+    let lo = 0, hi = L.length - 1; if (t < L[0].t) return L[0];
+    while (hi > lo) { const m = (lo + hi + 1) >> 1; if (L[m].t <= t + 1e-9) lo = m; else hi = m - 1; }
+    return L[lo];
+  };
 
   /* ---------------- top view ---------------- */
   let topMap = null;

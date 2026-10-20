@@ -142,7 +142,6 @@
     const t0 = (typeof performance !== 'undefined' ? performance.now() : Date.now());
     const g = buildGeom(p);
     const dt = opts.dt || 0.01, Tend = opts.Tend || 14, Tmax = Math.max(Tend, opts.Tmax || 60);   // run at least Tend, until settled, at most Tmax
-    const uEvery = opts.uEvery || (opts.coarse ? 20 : 10), dtu = uEvery * dt;   // film update every uEvery steps of 10 ms
     const light = !!opts.light;
     const Vfl = (p.flushMode === 'partial' ? p.Vpart : p.Vfull) / 1000;
     const An = p.Anoz * 1e-4, nJ = Math.max(1, Math.round(p.nJets));
@@ -177,26 +176,46 @@
         cellA[is * NTH + it] = Math.hypot(cx, cy, cz) * dth * (z1 - z0);
       }
     }
-    // map a point on (or near) the wall to its cell
+    // map a point on (or near) the wall to its cell; the wall row at a depth comes from a table
+    const NZR = 4096, rowZ = new Uint8Array(NZR + 1), zScale = NZR / g.D;
+    for (let i = 0; i <= NZR; i++) rowZ[i] = Math.min(NS - 1, (sAtDepth(g, i / zScale) / dsb) | 0);
     const cellOf = (x, y, z) => {
       if (z < 0) return -1;
-      const s = sAtDepth(g, z);
+      const iz = z * zScale; const is = rowZ[iz >= NZR ? NZR : iz | 0];
       let a = Math.atan2(y * sE, x / sE); if (a < 0) a += TAU2;
-      const it = Math.min(NTH - 1, (a / dth) | 0), is = Math.min(NS - 1, (s / dsb) | 0);
+      const it = Math.min(NTH - 1, (a / dth) | 0);
       return is * NTH + it;
     };
     const touched = [];
     let cur = 0;
 
-    const film = { uthArr: 0, rArr: g.Rp, active: false, end: [] };   // end: per jet [Q, vx, vy, vz, x, y] where the film meets the pool
+    /* Wall film. Each jet is traced as a band along its centreline. The band's width lies across the flow in
+       the wall's tangent plane and grows with the spreading rate ksp. Where the lower edge of the band meets
+       the waterline, the submerged part of its width enters the pool there, with its flow, angular momentum
+       and splash; only the part still above water goes on round the wall. Flow still on the wall when the
+       film stalls or after 3 m of path counts as lost: it brings no swirl and no splash.
+       The paths are retraced whenever jet speed or pool level has changed by more than a tolerance, and at
+       least every tMaxR; in between, the shear dose, the swirl input and the splash follow the actual flow
+       at every time step. */
+    const fixedEvery = opts.uEvery || 0;                              // fixed retrace interval in steps (checks only)
+    // tolerance: jet speed change in %, pool level change in mm (filmTol 0 retraces every step, the reference)
+    const tolS = opts.filmTol == null ? (opts.coarse ? 8 : 3) : opts.filmTol;
+    const tolV = 0.01 * tolS, tolZ = 0.001 * tolS, tMaxR = opts.tMaxR || (opts.coarse ? 0.5 : 0.25);
+    const film = { active: false, Lq: 0, reach: 0, end: [], vjR: 0, zR: 0, tR: -1, nR: 0, lostQ: 0, allQ: 0 };
+    // end: [share of the total jet flow, vx, vy, vz, x, y] where parts of the films enter the pool
     const lines = [];
     const dl = 0.006, samp = 0.005;
 
-    // stamp the film footprint: a segment of width w across the flow, in the tangent plane
-    function mark(x, y, z, dx, dy, dz, w, tau, zStop) {
-      const n = Math.max(1, Math.ceil(w / samp));
+    // stamp the film footprint: a segment of width w across the flow, centred at offset c from the point
+    function mark(x, y, z, dx, dy, dz, c, w, tau, zStop) {
+      // only the part of the segment between the rim and the waterline is sampled
+      let a0 = c - 0.5 * w, a1 = c + 0.5 * w;
+      if (dz > 1e-9) { a0 = Math.max(a0, -z / dz); a1 = Math.min(a1, (zStop - 1e-9 - z) / dz); }
+      else if (z < 0 || z >= zStop) return;
+      if (a1 < a0) return;
+      const n = Math.max(1, Math.ceil((a1 - a0) / samp));
       for (let i = 0; i <= n; i++) {
-        const off = (i / n - 0.5) * w;
+        const off = a0 + (a1 - a0) * i / n;
         const zz = z + off * dz;
         if (zz < 0 || zz >= zStop) continue;
         const idx = cellOf(x + off * dx, y + off * dy, zz);
@@ -212,26 +231,39 @@
       const m = Math.hypot(nx, ny, nz); nx /= m; ny /= m; nz /= m;
       out[0] = nx; out[1] = ny; out[2] = nz; out[3] = rho - Rz(z); out[4] = m;
     }
+    const nrm = new Float64Array(5);
 
-    function computeFilm(vj, Qj, z, t) {
-      cur++; touched.length = 0;
+    function traceFilm(vj, Qj, z, t) {
+      cur++; touched.length = 0; film.nR++;
       const rec = light ? null : { t, jets: [] };
-      film.end.length = 0;
+      film.end.length = 0; film.Lq = 0; film.reach = 0;
+      film.vjR = vj; film.zR = z; film.tR = t;
       if (Qj < 2e-5 || vj < 0.05) { film.active = false; if (rec) lines.push(rec); return; }
       film.active = true;
       const zStop = Math.max(0.002, Math.min(g.D, g.D - z));   // waterline depth below the rim
-      const nrm = new Float64Array(5), phase = (p.jetPhase || 0) * Math.PI / 180;
-      let sumL = 0;
+      const phase = (p.jetPhase || 0) * Math.PI / 180, qj = 1 / nJ;
       for (let j = 0; j < nJ; j++) {
         // nozzle on the rim ellipse, jet tangent to the rim and tilted down by alpha
         const th0 = phase + j * TAU2 / nJ, z0 = 0.004, R0 = Rz(z0);
         let x = R0 * sE * Math.cos(th0), y = R0 / sE * Math.sin(th0), zp = z0;
         let tx = -sE * Math.sin(th0), ty = Math.cos(th0) / sE; const tm = Math.hypot(tx, ty); tx /= tm; ty /= tm;
         let vx = vj * Math.cos(alpha) * tx, vy = vj * Math.cos(alpha) * ty, vz = vj * Math.sin(alpha);
-        let w = w0;
+        // the band starts on the wall only: a part of the nozzle width that would lie above the rim is folded
+        // onto the wall, so the band is narrower and the film thicker, and no flow is lost
+        wallNormal(x, y, zp, nrm);
+        let dz0 = Math.abs(nrm[0] * vy - nrm[1] * vx) / vj;   // vertical part of the across-flow direction
+        dz0 = Math.max(0.05, dz0);
+        const top = Math.max(-0.5 * w0, (0.001 - z0) / dz0), wOn = 0.5 * w0 - top;
+        zp = z0 + (top + 0.5 * wOn) * dz0;                    // centre of the band on the wall
+        { const R1 = Rz(zp); x = R1 * sE * Math.cos(th0); y = R1 / sE * Math.sin(th0); }
+        let w = wOn, f = 1;                                   // band width; share of the jet flow still on the wall
         const pts = rec ? [] : null;
         const pushPt = () => { let a = Math.atan2(y * sE, x / sE); if (a < 0) a += TAU2; pts.push(x, y, a, sAtDepth(g, Math.max(0, zp))); };
         if (pts) pushPt();
+        let drawnEnd = false, wDrawn = 0;
+        // entering flow is gathered into a few parcels per jet for the splash term
+        let eQ = 0, eVx = 0, eVy = 0, eVz = 0, eX = 0, eY = 0;
+        const flush = () => { if (eQ > 0) { film.end.push([eQ * qj, eVx / eQ, eVy / eQ, eVz / eQ, eX / eQ, eY / eQ]); eQ = eVx = eVy = eVz = eX = eY = 0; } };
         for (let k = 0; k < 500; k++) {
           const U = Math.hypot(vx, vy, vz);
           if (U < 0.05) break;
@@ -239,11 +271,28 @@
           const nx = nrm[0], ny = nrm[1], nz = nrm[2];
           const h = Math.min(hN, Qj / (U * w));
           const tau = 0.5 * RHO * p.cf * U * U;
-          // footprint across the flow: d = n x u_hat
+          // across the flow: d = n x u_hat, pointing down the wall
           let dx = ny * vz - nz * vy, dy = nz * vx - nx * vz, dz = nx * vy - ny * vx;
           const dm = Math.hypot(dx, dy, dz) || 1; dx /= dm; dy /= dm; dz /= dm;
-          mark(x, y, zp, dx, dy, dz, w, tau, zStop);
-          const dtp = dl / U, af = p.cf * U / (2 * h);
+          if (dz < 0) { dx = -dx; dy = -dy; dz = -dz; }
+          // share of the band's width below the waterline: that part enters the pool here
+          const ez = Math.max(0.05, dz) * w, below = Math.min(1, Math.max(0, (zp + 0.5 * ez - zStop) / ez));
+          if (1 - below < f) {
+            const d = f - (1 - below); f = 1 - below;
+            const Lz = Math.max(0, x * vy - y * vx);
+            film.Lq += qj * d * Lz; film.reach += qj * d;
+            eQ += d; eVx += d * vx; eVy += d * vy; eVz += d * vz; eX += d * x; eY += d * y;
+            if (eQ >= 0.25) flush();
+          }
+          if (f < 0.02) {   // the last sliver enters with the rest
+            const Lz = Math.max(0, x * vy - y * vx);
+            film.Lq += qj * f * Lz; film.reach += qj * f;
+            eQ += f; eVx += f * vx; eVy += f * vy; eVz += f * vz; eX += f * x; eY += f * y; f = 0; break;
+          }
+          // the part still on the wall is the upper share f of the band
+          mark(x, y, zp, dx, dy, dz, -0.5 * w * (1 - f), f * w, tau, zStop);
+          // under water the band only needs its remaining entry: longer steps, nothing to mark there
+          const dtp = (zp >= zStop ? 4 * dl : dl) / U, af = p.cf * U / (2 * h);
           // forces: gravity (+z is down) and wall friction against the velocity
           const ax = -af * vx, ay = -af * vy, az = G - af * vz;
           // tangential part of the force sets the speed change; the wall reaction does no work
@@ -264,23 +313,45 @@
           vx -= vn * nrm[0]; vy -= vn * nrm[1]; vz -= vn * nrm[2];
           const Vm = Math.hypot(vx, vy, vz) || 1;
           vx *= Ut / Vm; vy *= Ut / Vm; vz *= Ut / Vm;
-          w += p.ksp * dl;
-          if (pts && (k % 3 === 0)) pushPt();
-          if (zp >= zStop) break;
+          w += p.ksp * Ut * dtp;
+          // the drawn path is the centreline above water; it ends where the centreline meets the waterline
+          if (pts && !drawnEnd) { if (zp >= zStop) { pushPt(); drawnEnd = true; wDrawn = w; } else if (k % 3 === 0) pushPt(); }
         }
-        if (pts) { pushPt(); rec.jets.push({ pts, w }); }
-        sumL += Math.max(0, x * vy - y * vx);   // angular momentum per unit mass about the bowl axis
-        film.end.push([Qj, vx, vy, vz, x, y]);   // where and how fast the film meets the pool
-      }
-      film.uthArr = sumL / nJ; film.rArr = 1;
-      // apply shear impulse for this update interval
-      for (let q = 0; q < touched.length; q++) {
-        const idx = touched[q];
-        if (t < tWet[idx]) tWet[idx] = t;
-        J[idx] += Math.max(0, tauStep[idx] - p.tauC) * dtu;
-        if (J[idx] >= p.Jcrit && tClean[idx] === Infinity) tClean[idx] = t + dtu;
+        flush();
+        if (pts) { if (!drawnEnd) { pushPt(); wDrawn = w; } rec.jets.push({ pts, w: wDrawn }); }
       }
       if (rec) lines.push(rec);
+    }
+    /* Shear dose. Each interval between two traces gets the mean of the footprints at its start and end
+       (trapezoidal rule in time), so the dose follows a moving film closely without tracing every step.
+       When the film starts, the interval from the start counts the new footprint only from then on; when it
+       stops (cistern empty), the last footprint counts for the whole last interval. */
+    const pIdx = new Int32Array(NC), pTau = new Float32Array(NC); let pN = 0, pT = 0, pOn = false;
+    function addDose(idx, tau, d, tA, tB) {
+      if (tA < tWet[idx]) tWet[idx] = tA;
+      const before = J[idx], add = Math.max(0, tau - p.tauC) * d;
+      if (add <= 0) return;
+      J[idx] = before + add;
+      if (J[idx] >= p.Jcrit && tClean[idx] === Infinity) tClean[idx] = tA + (tB - tA) * Math.min(1, Math.max(0, (p.Jcrit - before) / add));
+    }
+    function doseInterval(t) {
+      const D = t - pT;
+      if (pOn && D > 0) {
+        const wPrev = film.active ? 0.5 * D : D;
+        for (let q = 0; q < pN; q++) addDose(pIdx[q], pTau[q], wPrev, pT, t);
+        if (film.active) for (let q = 0; q < touched.length; q++) { const idx = touched[q]; addDose(idx, tauStep[idx], 0.5 * D, pT + 0.5 * D, t); }
+      }
+      // the new footprint becomes the start of the next interval
+      pN = 0; pOn = film.active; pT = t;
+      if (film.active) for (let q = 0; q < touched.length; q++) { const idx = touched[q]; pIdx[pN] = idx; pTau[pN] = tauStep[idx]; pN++; }
+    }
+    function needRetrace(n, t, vj, Qj, z) {
+      if (film.tR < 0) return true;
+      if (fixedEvery) return n % fixedEvery === 0;
+      const on = !(Qj < 2e-5 || vj < 0.05);
+      if (on !== film.active) return true;
+      if (!on) return false;
+      return Math.abs(vj / film.vjR - 1) > tolV || Math.abs(z - film.zR) > tolZ || t - film.tR >= tMaxR - 1e-9;
     }
 
     let Vc = Vfl, Vrel = 0, L = 0, phi = 0;
@@ -321,7 +392,8 @@
       if (Qin > Qpeak) Qpeak = Qin;
 
       const z = levelFromVol(g, Vrel);
-      if (n % uEvery === 0) computeFilm(vj, Qin / nJ, z, t);
+      if (needRetrace(n, t, vj, Qin / nJ, z)) { traceFilm(vj, Qin / nJ, z, t); doseInterval(t); }
+      if (film.active) { film.allQ += Qin * dt; film.lostQ += Qin * Math.max(0, 1 - film.reach) * dt; }
 
       // outflow
       const Qw = z > 0 ? p.Cweir * Lw * Math.pow(z, 1.5) : 0;
@@ -346,7 +418,7 @@
       const Rc = g.rAtLevel(z);
       const I = 0.25 * RHO * Vpool * Rc * Rc * (E + 1 / E);   // elliptic pool, same area as circle of radius Rc
       let om = L / I;
-      const Tin = film.active ? p.eta * RHO * Qin * film.uthArr : 0;
+      const Tin = film.active ? p.eta * RHO * Qin * film.Lq : 0;   // only streamlines that reach the pool bring swirl
       const Tout = (Qout / Vpool) * L;
       const Awet = Math.PI * Rc * Rc + perimF * TAU2 * Rc * (ds + 0.03 + Math.max(z, 0));
       const Tf = 0.5 * RHO * p.cfp * ovPen * Awet * (om * Rc) ** 2 * Rc;
@@ -362,7 +434,8 @@
       s1L[0] = s1L[1] = s1L[2] = 0;
       if (film.active) for (const e of film.end) {
         const ur = Math.hypot(e[1] + om * e[5], e[2] - om * e[4], e[3]);   // pool surface moves at om x r
-        for (let k = 0; k < 3; k++) s1L[k] += ent(e[0], ur, UeL[k]);
+        const Qe = e[0] * Qin;                                             // this parcel's share of the current jet flow
+        for (let k = 0; k < 3; k++) s1L[k] += ent(Qe, ur, UeL[k]);
       }
       // 2 water falling from the trap weir into the outlet (free surface flow only)
       const Qfree = siph && primed ? 0 : Qout;
@@ -404,6 +477,7 @@
       }
     }
 
+    if (pOn) { film.active = false; doseInterval(tEnd + dt); }   // a film still running at the end (unfinished flush)
     // seal after flush, including bowl refill
     const zEnd = levelFromVol(g, Vrel);
     const zFinal = Math.min(0, levelFromVol(g, Vrel + p.refill / 1000 * (siph ? 1 : 0)));
@@ -426,6 +500,7 @@
       primeT, breakT, everPrimed, sealEnd, sealOK: sealEnd >= p.sealMin - 0.5, zEnd: zEnd * 1000,
       tEnd, incomplete, cisternLeft: Vc * 1000, overflow: overflowT !== null, overflowT, spill: Vspill * 1000, valid: overflowT === null && !incomplete,
       cleanPerL: 100 * Aclean / Atot / water,
+      filmLostPct: film.allQ > 0 ? 100 * film.lostQ / film.allQ : 0, filmRetraces: film.nR,
       noise: (() => {
         const dB = (x) => 10 * Math.log10(x + 1e-12), Es = Esrc[0] + Esrc[1] + Esrc[2] + Esrc[3];
         const nCore = VAR.reduce((s, v, i) => s + (i > 0 && coreV[vCv[i]] ? 1 : 0), 0);
@@ -437,7 +512,7 @@
       })(),
       runMs: 0
     };
-    if (!light) Object.assign(out, { J, tWet, tClean, lines, rec, nrec, dtu });
+    if (!light) Object.assign(out, { J, tWet, tClean, lines, rec, nrec });
     out.runMs = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0;
     return out;
   }

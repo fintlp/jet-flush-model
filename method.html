@@ -94,7 +94,7 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
     <span class="eyebrow">Model description · Tangential Jet Flush Model</span>
     <h1>How the jet flush model works</h1>
     <p class="lede">A reduced-order model of a rimless WC flushed by tangential rim jets. It traces each jet as a film on the bowl wall, follows the pool level, swirl and trap flow, and estimates cleaning, waste removal, water use and relative noise. One flush takes about 5 to 20 milliseconds to compute in a web browser.</p>
-    <p class="meta">Version 1.3.1 · 20 October 2026 · <a href="https://github.com/fintlp/jet-flush-model#change-log">change log</a> · model code: <a href="https://github.com/fintlp/jet-flush-model/blob/main/model.js">model.js</a></p>
+    <p class="meta">Version 2.0.0 preview · 20 October 2026 · <a href="https://github.com/fintlp/jet-flush-model#change-log">change log</a> · model code: <a href="https://github.com/fintlp/jet-flush-model/blob/main/model.js">model.js</a></p>
   </header>
 
   <div class="layout">
@@ -206,7 +206,7 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
 
       <section id="overview">
         <h2>3 · Model at a glance</h2>
-        <p>Every 10 ms of simulated time, the model updates the cistern, the jets, the pool level, the trap flow, the swirl and the waste load. Every 100 ms it re-traces the jet films on the wall, because they change slowly compared with the pool.</p>
+        <p>Every 10 ms of simulated time, the model updates the cistern, the jets, the pool level, the trap flow, the swirl and the waste load. It re-traces the jet films on the wall whenever the jet speed or the pool level has changed noticeably, and at least every 0.25 s; in between, the films' shear, swirl and splash follow the actual flow at every step.</p>
         <figure>
           <div class="diagram">
             <svg viewBox="0 0 900 300" role="img" aria-label="Flow of information between the sub-models">
@@ -266,14 +266,15 @@ dV_c/dt = −Q_in</div>
       <section id="film">
         <h2>6 · Wall film and cleaning</h2>
         <h3>What is traced</h3>
-        <p>Each jet is followed as a parcel of water sliding along the wall. The film is treated as quasi-steady: its path depends on the current jet speed and pool level, and it is re-traced every 100 ms. Between traces the same footprint applies.</p>
+        <p>Each jet is followed as a band of water sliding along the wall: a centreline, and a width across the flow that grows as the film spreads. The film is treated as quasi-steady: its path depends on the current jet speed and pool level. It is traced again whenever the jet speed has changed by more than 3 % or the pool level by more than 3 mm since the last trace, when the film starts or stops, and at least every 0.25 s. The design sweep and the optimiser search use 8 %, 8 mm and 0.5 s.</p>
+        <p>The nozzle sits 4 mm below the rim, and the band starts across the nozzle's width. For a wide nozzle part of that width would lie above the rim; that part is folded onto the wall instead, so the band starts narrower and thicker and the whole jet flow stays on the wall.</p>
         <h3>Forces on the film</h3>
         <p>Two forces act along the wall. Gravity pulls the film down, and turbulent wall friction slows it. Friction is expressed through a friction factor <span class="sym">c<sub>f</sub></span> and the local film thickness <span class="sym">h</span>:</p>
         <div class="eq">a = g·ẑ − a_f · u            <span class="c">ẑ points down</span>
 a_f = c_f · |u| / (2h)
 h = min( h_noz , Q_j / (|u| · w) )   <span class="c">continuity, w = film width</span>
-w = w₀ + k_sp · ℓ                <span class="c">spreads with distance ℓ travelled</span></div>
-        <p>The wall itself keeps the film on its curved path. In the round bowl this produces the familiar effects: centrifugal force presses the film against the wall, and the film spins faster as it moves to smaller radius, because angular momentum is conserved. In an oval bowl the curvature changes around the rim, so the film is pressed harder at the narrow ends than along the flat sides.</p>
+w = w₀ + k_sp · ℓ                <span class="c">spreads with distance ℓ travelled; w₀ is the part of the nozzle width on the wall</span></div>
+        <p>The wall itself keeps the film on its curved path. In the round bowl, centrifugal force presses the film against the wall, and on an inward-sloping wall it can carry a fast film back up towards the rim after a first dip, so a film may circle the bowl more than once before it reaches the pool. Moving to a smaller radius would raise the film's angular speed if its angular momentum were kept, but wall friction removes angular momentum all along the path: in the washdown preset the film enters the pool with between a quarter and a half of the angular momentum it left the nozzle with. In an oval bowl the curvature changes around the rim, so the film is pressed harder at the narrow ends than along the flat sides.</p>
         <h3>Integration on the curved wall</h3>
         <p>The tracer moves the parcel in three dimensions and keeps it on the wall with a projection step. This handles round and oval bowls with the same code. Per step of 6 mm arc length:</p>
         <ol class="steps">
@@ -281,9 +282,11 @@ w = w₀ + k_sp · ℓ                <span class="c">spreads with distance ℓ 
           <li>Advance velocity and position over the step time Δt = 6 mm / |u|.</li>
           <li>Pull the position back onto the wall with two Newton steps on <span class="sym">F(x, y, z) = 0</span>.</li>
           <li>Remove the velocity component normal to the wall and rescale the remainder to the speed from step 1.</li>
-          <li>Widen the film and stamp its footprint onto the wall grid.</li>
+          <li>Widen the film and stamp the part of its footprint that lies between the rim and the waterline onto the wall grid.</li>
         </ol>
-        <p>The trace stops at the current waterline, when the film has slowed below 0.05 m/s, or after 500 steps. For a round bowl this scheme reproduces the earlier analytical surface-of-revolution equations to within one to four percentage points of cleaned area, depending on the jet angle.</p>
+        <h3>Where the film enters the pool</h3>
+        <p>The band does not enter the pool all at once. At every step, the share of its width that lies below the current waterline enters the pool there, with the flow, angular momentum and velocity it has at that point; only the part still above the waterline goes on round the wall. A film whose centreline just misses the pool on its first dip therefore already hands over its lower part there, and a small change in jet speed or pool level changes the hand-over by a small amount. In 1.3 the whole film entered where its centreline reached the waterline, so the same small change could switch the film between entering on the first dip and circling once more, which made the pool swirl jump.</p>
+        <p>The trace ends when the whole band has entered the pool, when the film has slowed below 0.05 m/s, or after 500 steps (3 m of path). Flow still on the wall in the last two cases counts as lost: it reaches the pool eventually, but brings no swirl and no splash. Under water, the centreline is followed with four-times longer steps, since there is nothing left to stamp there.</p> For a round bowl this scheme reproduces the earlier analytical surface-of-revolution equations to within one to four percentage points of cleaned area, depending on the jet angle.</p>
         <h3>Wall shear and shear dose</h3>
         <p>The wall above the static waterline is divided into 90 cells around the rim and 40 cells down the wall. Each cell has its true surface area on the oval wall. The film stamps a footprint of width <span class="sym">w</span>, set across the flow direction, and every cell it touches receives the wall shear stress of the film:</p>
         <div class="eq">τ = ½ · ρ · c_f · |u|²
@@ -321,7 +324,7 @@ siphon breaks when z_p ≤ −d_s            <span class="c">air reaches the tra
 
       <section id="swirl">
         <h2>8 · Pool swirl</h2>
-        <p>Film arriving at the waterline brings angular momentum about the bowl axis, <span class="sym">ℓ = x·v<sub>y</sub> − y·v<sub>x</sub></span> per unit mass. The pool is treated as a body rotating at angular speed ω with angular momentum <span class="sym">L = I·ω</span>:</p>
+        <p>Film entering the pool brings angular momentum about the bowl axis, <span class="sym">ℓ = x·v<sub>y</sub> − y·v<sub>x</sub></span> per unit mass, taken where each part of the band enters; <span class="sym">ℓ<sub>arr</sub></span> is the flow-weighted mean over the jets, with lost flow counted as zero. The pool is treated as a body rotating at angular speed ω with angular momentum <span class="sym">L = I·ω</span>:</p>
         <div class="eq">dL/dt = η · ρ · Q_in · ℓ_arr  −  (Q_out / V_p) · L  −  T_f
 I     = ¼ · ρ · V_p · R_c² · (e + 1/e)        <span class="c">elliptic pool, ½ ρ V R² when round</span>
 T_f   = ½ · ρ · c_fp · (1 + k_ov (e − 1)) · A_wet · (ω R_c)² · R_c</div>
@@ -366,7 +369,7 @@ dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
         <h3>The four sources</h3>
         <p><strong>1 · Jet films entering the pool.</strong> Where a film meets the pool, the model knows the film velocity from the film trace and the velocity of the pool surface at that point, which rotates as a solid body with angular speed ω. What counts is the speed relative to the surface: a film that slides into a pool turning the same way pulls in much less air than one that hits still water. Plunging water starts to entrain air above an onset speed <span class="sym">U<sub>e</sub></span> of about 0.8 to 1 m/s for turbulent jets, and the air flow then grows with about the 1.8th power of the excess speed up to about 4 m/s (Brattberg and Chanson, reviewed by Kiger and Duncan). Applying this plunging-jet law to a wall film that enters at a shallow angle is an assumption.</p>
         <div class="eq">U_rel = | u_film − ω ẑ × r |
-Q_a1  = k_e · Σ_jets Q_j · (U_rel − U_e)^n     <span class="c">U_rel &gt; U_e</span></div>
+Q_a1  = k_e · Σ_parts Q_k · (U_rel − U_e)^n    <span class="c">U_rel &gt; U_e, over the parts of each film entering the pool</span></div>
         <p><strong>2 · Water falling into the outlet.</strong> Water that passes the trap weir drops by <span class="sym">h<sub>fall</sub></span> before it lands in the outlet. Its landing speed combines critical flow over the crest with the free fall, and the same entrainment law applies. This source runs only while the trap flows with a free surface: always in a washdown bowl, and before priming and after the break in a siphonic bowl. While a siphon runs full, it is silent in the model.</p>
         <div class="eq">U_fall = √( 2 g z_p / 3  +  2 g h_fall )
 Q_a2   = k_e · Q_out · (U_fall − U_e)^n</div>
@@ -460,21 +463,21 @@ F(a) = (2/a² − 1)(1 − a²) + ½ + 2 ln a + 1 − a²
           <table>
             <thead><tr><th>Item</th><th>Setting</th><th>Why</th></tr></thead>
             <tbody>
-              <tr><td>Time integration</td><td>Explicit Euler, Δt = 10 ms</td><td>Stable for all slider settings. Halving Δt (with film updates held at 100 ms) changes cleaning, solids and paper by at most 0.7 points, water not at all and the noise peak by less than 0.1 dB in 150 random designs, but the peak vortex dip by up to 12 mm and the seal after the flush by up to about 1 mm (<code>checks/timestep.js</code>). This is numerical sensitivity only; it says nothing about how close the model is to a real bowl.</td></tr>
+              <tr><td>Time integration</td><td>Explicit Euler, Δt = 10 ms</td><td>Stable for all slider settings. Halving Δt (with the same film retrace tolerance) changes cleaning by at most 0.9 points and solids and paper by at most 0.6 points, water not at all and the noise peak by less than 0.25 dB in 150 random designs, but the peak vortex dip by up to 6 mm and the seal after the flush by up to about 1 mm (<code>checks/timestep.js</code>). This is numerical sensitivity only; it says nothing about how close the model is to a real bowl.</td></tr>
               <tr><td>Simulated time</td><td>Until the flush is over: at least 12 s, then until the cistern is empty plus 6 s of settling, at most 60 s</td><td>Slow flushes run to completion. If the cistern is still not empty at 60 s, the result is marked incomplete and not counted as a solution.</td></tr>
               <tr><td>Overflow</td><td>The level table reaches the rim; water above it is counted as spilled</td><td>A design whose pool reaches the rim is marked as overflowing and its results as not valid.</td></tr>
-              <tr><td>Film re-trace</td><td>Every 100 ms (200 ms in the design sweep and the optimiser search)</td><td>The film is treated as quasi-steady between updates. This is accurate for normal flushes but not for very short, strong ones; see the resolution note below.</td></tr>
+              <tr><td>Film re-trace</td><td>When the jet speed has changed by 3 % or the pool level by 3 mm, when the film starts or stops, and at least every 0.25 s (8 %, 8 mm and 0.5 s in the design sweep and the optimiser search)</td><td>The film is treated as quasi-steady between traces, but its flow, swirl input and splash follow the actual flow at every step, and the shear dose of each interval is the mean of the footprints at its start and end. See the resolution note below.</td></tr>
               <tr><td>Noise indicator</td><td>Every 10 ms step, from the film state and the pool and trap flow already computed, for the setting and its 32 coefficient combinations</td><td>Adds roughly 5 to 35 % to the run time, depending on the mode; most in the coarse search mode and when traces are recorded (<code>checks/timing.js</code>).</td></tr>
-              <tr><td>Film step</td><td>6 mm arc length, at most 500 steps per jet</td><td>Smaller than the wall cell size, so the footprint has no gaps.</td></tr>
+              <tr><td>Film step</td><td>6 mm arc length above the waterline, 24 mm below it, at most 500 steps per jet</td><td>Smaller than the wall cell size, so the footprint has no gaps. Below the waterline there is nothing to stamp, only the rest of the band's entry into the pool.</td></tr>
               <tr><td>Wall grid</td><td>90 × 40 cells, about 4 mm high and 10 mm wide</td><td>Resolves the gaps behind the nozzles while staying cheap.</td></tr>
               <tr><td>Level from volume</td><td>Pre-computed table of 800 levels</td><td>Turns the irregular basin into a single lookup per step.</td></tr>
             </tbody>
           </table>
         </div>
         <div class="box note">
-          <p><strong>Resolution of the film updates.</strong> For 300 random jet and flush designs (<code>checks/resolution.js</code>, seed 7, settings drawn uniformly over the slider ranges), cleaning computed with 100 ms film updates differs from 10 ms updates by about 0.3 points in the median, 1.8 points at the 95th percentile and up to 13 points. With 200 ms updates, as in the sweep and the optimiser search, the median and 95th percentile are about twice as large. The largest differences occur in short, strong flushes of about 1 to 2 s, where the pool rises fast; a targeted search over the demo's oval bowl finds a design at 69 % cleaned with 200 ms updates, 43 % with 100 ms and 35 % with 10 ms (<code>checks/resolution.js</code>), and an external review reported a case with about 41 points between 200 ms and 100 ms updates. These figures are numerical sensitivity, not physical accuracy. For the two presets, 100 ms updates agree with 10 ms updates within 0.4 points, and 200 ms updates come out about 1.5 to 2 points lower. This is why the optimiser re-checks its recommendations and table rows at the simulator's own resolution, why the other points in its chart are marked as quick estimates, and why sweep results for very short flushes should be confirmed in the simulator. Shorter updates when the flow changes fast are a possible later improvement.</p>
+          <p><strong>Resolution of the film updates.</strong> The reference retraces the films at every 10 ms step. Against it, for 300 random jet and flush designs (<code>checks/resolution.js</code>, seed 7, settings drawn uniformly over the slider ranges), cleaning in the simulator differs by about 0.15 points in the median, 0.65 points at the 95th percentile and at most 1.7 points, with about 48 traces per flush instead of about 450. The coarser setting of the sweep and the optimiser search gives about 0.35, 1.3 and 3.0 points with about 29 traces. With bowl geometry, both trap types and both flush buttons varied as well (seed 11), the figures are 0.2, 0.8 and 1.1 points for the simulator and 0.4, 1.5 and 4.8 points for the coarse setting. The noise peak differs by less than 0.4 dB in the simulator and 0.7 dB in the coarse setting. In 1.3, with fixed 100 ms and 200 ms updates, the short, strong flush used as the worst known case gave 43 % and 69 % against 35 % at 10 ms; in 2.0 it gives 65.2 %, 65.3 % and 65.4 % in the three settings. These figures are numerical sensitivity, not physical accuracy. The optimiser still re-checks its recommendations and table rows at the simulator's own resolution.</p>
         </div>
-        <p>A full flush with recorded traces takes about 5 to 20 ms in a current browser on a laptop. The sweep mode skips the traces and takes about 4 to 7 ms per flush, so a 12 × 12 sweep of 144 designs finishes in about one second. The model is deterministic: the same inputs always give the same result.</p>
+        <p>In 1.3, a full flush with recorded traces took about 5 to 20 ms in a current browser on a laptop, and the sweep mode about 4 to 7 ms. Version 2.0 takes about 1.3 times as long on average over random designs, and about 1.4 times as long in the sweep mode (between about the same and 1.4 times for the two presets), so a 12 × 12 sweep of 144 designs still finishes in one to two seconds. The model is deterministic: the same inputs always give the same result.</p>
       </section>
 
       <section id="coefficients">
@@ -614,7 +617,7 @@ F(a) = (2/a² − 1)(1 − a²) + ½ + 2 ln a + 1 − a²
         <h2>16 · Assumptions and limits</h2>
         <ul>
           <li>The oval shape has the same axis ratio at every depth. Real bowls change shape with depth, have an off-centre trap inlet and often an asymmetric back wall.</li>
-          <li>The film is quasi-steady, always attached to the wall, and does not splash, break up or interact with the other jet. Overlaps simply take the higher shear.</li>
+          <li>The film is quasi-steady, always attached to the wall, and does not splash, break up or interact with the other jet. Overlaps simply take the higher shear. Each film is one band along a centreline: the part of the band left after a partial entry into the pool is assumed to follow the same centreline, and a film that climbs back to the rim slides along it instead of spilling over.</li>
           <li>Wall shear comes from a friction-factor law, not from a resolved boundary layer. Its absolute level depends on the calibration of c<sub>f</sub>.</li>
           <li>The pool rotates as one body. The noise indicator adds an assumed vortex core over the trap to judge when air is drawn in, but this does not feed back into the flow. There is no wave motion.</li>
           <li>Noise is an experimental, relative indicator from four lumped air entrainment sources in the bowl and trap, not a sound level and not yet checked against recordings. Comparisons across trap types are not robust. Cistern, valve, pipe and building noise are not included. See <a href="#noise">section 10</a>.</li>
@@ -645,7 +648,7 @@ F(a) = (2/a² − 1)(1 − a²) + ½ + 2 ln a + 1 − a²
             </tbody>
           </table>
         </div>
-        <p><code>simulate</code> takes the parameter object shown in the simulator and the options <code>light</code> (skip traces), <code>coarse</code> (200 ms film updates), <code>uEvery</code> (film update every so many time steps) and <code>dt</code> (time step, 10 ms by default), both for the resolution checks, and <code>Tend</code> (simulated seconds). The page code in <a href="https://github.com/fintlp/jet-flush-model/blob/main/app.js">app.js</a> only draws results and runs the sweep; it contains no physics. The AI lab lives in <a href="https://github.com/fintlp/jet-flush-model/blob/main/ai.js">ai.js</a>: the optimiser, the neural network with its training loop, Nelder-Mead and the Gaussian process are all written out in plain JavaScript there, with no libraries. The Demo me walkthrough is <a href="https://github.com/fintlp/jet-flush-model/blob/main/tour.js">tour.js</a>; it only drives the page through the same controls a visitor uses.</p>
+        <p><code>simulate</code> takes the parameter object shown in the simulator and the options <code>light</code> (skip traces), <code>coarse</code> (the looser film retrace tolerance of the sweep and the search), <code>filmTol</code> (retrace tolerance in % of jet speed and mm of pool level; 0 retraces at every step) and <code>dt</code> (time step, 10 ms by default), both for the resolution checks, and <code>Tend</code> (simulated seconds). The result also reports <code>filmLostPct</code>, the share of the jet flow that stalled or stayed on the wall, and <code>filmRetraces</code>. The page code in <a href="https://github.com/fintlp/jet-flush-model/blob/main/app.js">app.js</a> only draws results and runs the sweep; it contains no physics. The AI lab lives in <a href="https://github.com/fintlp/jet-flush-model/blob/main/ai.js">ai.js</a>: the optimiser, the neural network with its training loop, Nelder-Mead and the Gaussian process are all written out in plain JavaScript there, with no libraries. The Demo me walkthrough is <a href="https://github.com/fintlp/jet-flush-model/blob/main/tour.js">tour.js</a>; it only drives the page through the same controls a visitor uses.</p>
         <p>A minimal run in Node.js:</p>
         <div class="eq">require('./model.js');
 const M = globalThis.FlushModel;
@@ -682,7 +685,7 @@ console.log(r.cleanPct, r.solidsPct, r.water, r.noise.peak);</div>
 
       <footer class="foot">
         <span class="navl"><a href="./">← Simulator</a><a href="why.html">Why</a><a href="sources.html">Sources and references</a></span>
-        <span>Tangential Jet Flush Model · v1.3.1 · Peter Fintl</span>
+        <span>Tangential Jet Flush Model · v2.0.0 preview · Peter Fintl</span>
       </footer>
     </main>
   </div>
