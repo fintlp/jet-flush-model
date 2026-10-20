@@ -134,8 +134,18 @@
   const snapV = (d, v) => d.int ? Math.round(v) : +(Math.round(v / d.st) * d.st).toFixed(4);
   const desOf = (vars, x) => {
     const o = {}; vars.forEach((d, i) => { o[d.k] = snapV(d, d.min + Math.min(1, Math.max(0, x[i])) * (d.max - d.min)); });
-    // keep the geometry consistent: pool clearly smaller than the rim
-    if (o.Rpool != null || o.Rrim != null) { const rr = o.Rrim != null ? o.Rrim : O.base.Rrim, rp = o.Rpool != null ? o.Rpool : O.base.Rpool; if (rp > rr - 25) o.Rpool = Math.max(40, rr - 25); }
+    // keep the geometry consistent (pool at least 25 mm smaller than the rim) by moving only a setting the
+    // search may change: a fixed setting is never altered
+    if (o.Rpool != null || o.Rrim != null) {
+      const rr = o.Rrim != null ? o.Rrim : O.base.Rrim, rp = o.Rpool != null ? o.Rpool : O.base.Rpool;
+      if (rp > rr - 25) {
+        if (o.Rpool != null) o.Rpool = Math.max(40, rr - 25);          // the pool may change: shrink it
+        if (o.Rpool == null || o.Rpool > rr - 25) {                    // the pool is fixed, or cannot shrink enough: widen the rim
+          const dR = vars.find((d) => d.k === 'Rrim');
+          if (dR) o.Rrim = Math.min(dR.max, snapV(dR, Math.ceil(((o.Rpool != null ? o.Rpool : rp) + 25) / dR.st) * dR.st));
+        }
+      }
+    }
     return o;
   };
   const xOf = (vars, o) => vars.map((d) => (o[d.k] - d.min) / ((d.max - d.min) || 1));
@@ -267,7 +277,7 @@
   }
   function checkedLine() {
     const nOk = pool().filter((e) => e.viol === 0).length;
-    const head = O.incomplete ? `The full-resolution check stopped after ${O.nChecked || 0} designs, so only checked designs are shown and better ones may exist; search again or tighten the targets.` : 'Every design shown is checked at full resolution.';
+    const head = O.incomplete ? `The full-resolution check stopped after ${O.nChecked || 0} designs, so only checked designs are shown and better ones may exist; search again or tighten the targets.` : 'Every recommendation and table row is checked at full resolution; the other points in the chart are quick estimates.';
     return `${head} ${O.goal === 'targets' ? nOk + ' checked designs meet all targets.' : O.front.length + ' designs on the best trade-off curve.'}`;
   }
   // The search runs at coarse wall-film resolution for speed, which can be off by several points of cleaning in

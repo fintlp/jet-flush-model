@@ -83,8 +83,18 @@
     },
     {
       t: 'Load the winner', el: () => $('results'), block: 'center',
-      x: async () => { mem.before3 = A.kpis(); mem.loaded = window.FlushAI.loadResult(mem.sid); await wait(50); },
-      h: () => { const k = A.kpis(), b = mem.before3 || k; if (!mem.loaded) return '<p>No design was loaded: the demo\'s search did not finish, or it was replaced by another search. Go back one step to run it again.</p>'; return `<p>The ${mem.loaded === 'best' ? 'suggested' : 'closest'} design is now loaded in the simulator:</p><ul><li>Cleaning <b>${pct(k.clean)} %</b> (${signed(k.clean - b.clean)})</li><li>Solids <b>${pct(k.solids)} %</b> (${signed(k.solids - b.solids)})</li><li>Water <b>${k.water.toFixed(1)} L</b> (${signed(k.water - b.water, 1)} L)</li><li>Noise <b>${signed(k.noise - b.noise, 1)} dB</b> against the design before${(() => { const g = A.nRange(k.noiseV, b.noiseV); return g ? `, range ${signed(g.lo, 1)} to ${signed(g.hi, 1)} dB` : ''; })()}</li></ul><p class="tour-hint">The model is not calibrated yet, so a suggestion like this is a candidate for a CFD or rig check, not a final answer.</p>`; }
+      x: async () => {
+        mem.before3 = A.kpis(); mem.rerun = false; mem.why = '';
+        mem.loaded = window.FlushAI.loadResult(mem.sid);
+        if (!mem.loaded) {
+          // settings changed after the search, or another search replaced it: search again with the current settings
+          mem.why = $('optHover').textContent; mem.rerun = true;
+          await runOptimiser(); mem.before3 = A.kpis();
+          mem.loaded = window.FlushAI.loadResult(mem.sid);
+        }
+        await wait(50);
+      },
+      h: () => { const k = A.kpis(), b = mem.before3 || k; if (!mem.loaded) return `<p>No design could be loaded, even after searching again with the current settings.</p><p class="tour-hint">${mem.why || 'The search did not finish.'}</p>`; return `${mem.rerun ? '<p class="tour-hint">Settings changed after the search, so the demo searched again with the current settings.</p>' : ''}<p>The ${mem.loaded === 'best' ? 'suggested' : 'closest'} design is now loaded in the simulator:</p><ul><li>Cleaning <b>${pct(k.clean)} %</b> (${signed(k.clean - b.clean)})</li><li>Solids <b>${pct(k.solids)} %</b> (${signed(k.solids - b.solids)})</li><li>Water <b>${k.water.toFixed(1)} L</b> (${signed(k.water - b.water, 1)} L)</li><li>Noise <b>${signed(k.noise - b.noise, 1)} dB</b> against the design before${(() => { const g = A.nRange(k.noiseV, b.noiseV); return g ? `, range ${signed(g.lo, 1)} to ${signed(g.hi, 1)} dB` : ''; })()}</li></ul><p class="tour-hint">The model is not calibrated yet, so a suggestion like this is a candidate for a CFD or rig check, not a final answer.</p>`; }
     },
     {
       t: 'Your turn', el: () => document.querySelector('.top .actions'), block: 'center', last: true,

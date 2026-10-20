@@ -51,7 +51,7 @@ On a phone, the sliders open from the **Adjust design** button at the bottom.
 
 ## AI lab
 
-- **Design optimiser:** an evolutionary multi-objective search (NSGA-II style). You choose which jet, flush and bowl geometry settings may change, then either trade a weighted score against water or set targets it must meet, including an optional noise limit such as "no louder than now". About 540 designs take about 4 to 7 seconds, and every design it reports is re-checked at the simulator's own resolution.
+- **Design optimiser:** an evolutionary multi-objective search (NSGA-II style). You choose which jet, flush and bowl geometry settings may change, then either trade a weighted score against water or set targets it must meet, including an optional noise limit such as "no louder than now". About 540 designs take about 4 to 7 seconds, and every recommendation and table row it reports is re-checked at the simulator's own resolution; the other points in its chart are quick estimates.
 - **Neural surrogate:** a small neural network trained in the browser on a few hundred flushes. It answers about 1,000 to 2,000 times faster than the physics model. This stands in for training a network on PreonLab runs.
 - **Hybrid calibration:** the calibration workflow end to end. Six coefficients are fitted with Nelder-Mead to a few reference runs, a Gaussian process corrects what is left, and all versions are checked on hold-out designs. The reference data is synthetic and labelled as such.
 
