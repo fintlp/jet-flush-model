@@ -23,7 +23,7 @@ The simulator answers three questions for a given bowl and flush design, in this
 2. **Waste removal:** how much of a solid test load and of floating paper leaves through the trap.
 3. **Water use:** how much water the flush takes, and whether the water seal is restored.
 
-A fourth result, **noise**, is an experimental, relative indicator in dB against a reference design: louder or quieter, and which part of the flush makes the noise (jet films entering the pool, water falling into the outlet, an air core reaching the trap, or the siphon break). Every noise result comes with a range over five assumed coefficients, and a direction is only shown when the whole range agrees. It is not a sound level, it is not yet checked against recordings, and it leaves out the cistern, valves, pipes and building. See [section 10 of the model description](https://fintlp.github.io/jet-flush-model/method.html#noise).
+A fourth result, **noise**, is an experimental, relative indicator in dB against a reference design: louder or quieter, and which part of the flush makes the noise (jet films entering the pool, water falling into the outlet, an air core reaching the trap, or the siphon break). Every noise result comes with a sampled range over five assumed coefficients, and a direction is only shown when the whole sampled range agrees. It is not a sound level, it is not yet checked against recordings, and it leaves out the cistern, valves, pipes and building. See [section 10 of the model description](https://fintlp.github.io/jet-flush-model/method.html#noise).
 
 It splits the flush into simple physical sub-models: cistern, rim jets, wall film on an oval bowl, pool level and swirl, washdown or siphonic trap, and waste transport. One flush takes about 5 to 20 ms in a browser; a free-surface CFD case of a flush typically runs for hours.
 
@@ -91,6 +91,7 @@ console.log(r.cleanPct, r.solidsPct, r.paperPct, r.water);
 | `model.js` | The physics model: geometry, cistern, wall film, pool, trap, waste |
 | `app.js` | Drawing, controls, sweep, undo and change tracking; no physics |
 | `ai.js` | AI lab: optimiser, neural network, Nelder-Mead, Gaussian process |
+| `checks/` | Deterministic scripts: regression against another model version, film update resolution, noise range |
 | `tour.js` | The Demo me walkthrough |
 | `method.html` | Full model description: equations, numerics, coefficients, calibration |
 | `sources.html` | Sources and references |
@@ -109,7 +110,8 @@ The coefficients that describe physics the model does not resolve (film friction
 - Noise indicator, experimental: a fourth result card with the peak noise in dB against the preset, or against the pinned reference when one is set, its range over five assumed coefficients, sound energy, which source makes the peak and which makes most of the energy, when an air core reaches the trap and the siphon break gurgle.
 - Four sources, each written as a flow of air into the water: jet films entering the swirling pool, water falling into the outlet, an air core at the trap (Rankine vortex with the pool's angular momentum) and the siphon break.
 - Noise trace with uncertainty band and air core shading, noise in the design sweep, and a noise limit (upper end of the range) and "quietest" pick in the optimiser. The Demo me walkthrough reports noise and asks for "no louder than now".
-- Fixes from an external review, including two in 1.2.0: the optimiser re-checks every design it reports at full resolution, also after targets or weights change; a sweep is marked out of date when settings change while it runs. Pinning updates the noise trace too, and the demo sets a pinned reference aside.
+- Fixes from two external reviews, including two in 1.2.0: the optimiser reports only designs checked at full resolution, also after targets or weights change or while a check is running, and a new search cancels an old check; a sweep is marked out of date when settings change while it runs. Pinning updates the noise trace too, and the demo sets a pinned reference aside.
+- `checks/` folder with deterministic scripts behind the quoted check figures.
 - Model description: section 10 on noise, and a note on the resolution of the film updates. New sources on bubble acoustics, air entrainment and intake vortices.
 
 ### 1.2.0 · 20 October 2026

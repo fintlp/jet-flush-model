@@ -140,7 +140,9 @@
   };
   const xOf = (vars, o) => vars.map((d) => (o[d.k] - d.min) / ((d.max - d.min) || 1));
 
-  const O = { all: [], front: [], running: false, cur: null, hover: null, stop: null, vars: [], base: null, goal: 'weights', best: null };
+  const O = { all: [], front: [], running: false, cur: null, hover: null, stop: null, vars: [], base: null, goal: 'weights', best: null, token: 0, final: false, incomplete: false };
+  // once a search is finished, results are only ever taken from designs checked at full resolution
+  const pool = () => (O.final ? O.all.filter((e) => e.full) : O.all);
   function weights() {
     const a = +$('wClean').value, b = +$('wSolids').value, c = +$('wPaper').value, s = a + b + c || 1;
     return [a / s, b / s, c / s];
@@ -151,8 +153,8 @@
   // range of the noise difference over the uncertain coefficients (each variant against the same variant of the current design)
   const nRng = (e) => (O.cur && e.noiseV && O.cur.noiseV ? A.nRange(e.noiseV, O.cur.noiseV) : { lo: nRel(e), hi: nRel(e) });
   const pickCmp = (t) => (a, b) => t.pick === 'water' ? (a.water - b.water || b.score - a.score)
-    : t.pick === 'noise' ? (nRel(a) - nRel(b) || b.score - a.score) : (b.score - a.score || a.water - b.water);
-  const pickName = (t) => (t.pick === 'water' ? 'lowest water' : t.pick === 'noise' ? 'quietest' : 'highest score');
+    : t.pick === 'noise' ? (nRng(a).hi - nRng(b).hi || nRel(a) - nRel(b) || b.score - a.score) : (b.score - a.score || a.water - b.water);
+  const pickName = (t) => (t.pick === 'water' ? 'lowest water' : t.pick === 'noise' ? 'quietest at the upper end of the sampled noise range' : 'highest score');
   const goal = () => ($('goalTargets').getAttribute('aria-pressed') === 'true' ? 'targets' : 'weights');
   // score, and how far a design misses the constraints (0 = meets all)
   function rate(e) {
@@ -166,7 +168,7 @@
       if (e.water > t.water + 1e-9) { v += (e.water - t.water) / 0.5; miss.push(`water ${fmt(e.water - t.water, 1)} L over`); }
       [['clean', 'cleaned'], ['solids', 'solids'], ['paper', 'paper']].forEach(([k, lab]) => { if (e[k] < t[k] - 1e-9) { v += (t[k] - e[k]) / 5; miss.push(`${lab} ${fmt(t[k] - e[k], t[k] - e[k] < 1 ? 1 : 0)} points short`); } });
       // a noise limit must hold over the whole uncertainty range, so the upper end counts
-      if (t.noise != null && O.cur && e !== O.cur) { const over = nRng(e).hi - t.noise; if (over > 1e-9) { v += over / 3; miss.push(`${fmt(over, 1)} dB too loud at the upper end of the noise range`); } }
+      if (t.noise != null && O.cur && e !== O.cur) { const over = nRng(e).hi - t.noise; if (over > 1e-9) { v += over / 3; miss.push(`${fmt(over, 1)} dB too loud at the upper end of the sampled noise range`); } }
     }
     e.viol = v; e.miss = miss; return e;
   }
@@ -199,19 +201,21 @@
   }
   function pickBest() {
     if (O.goal !== 'targets') return null;
-    const ok = O.all.filter((e) => e.viol === 0), t = targets();
+    const ok = pool().filter((e) => e.viol === 0), t = targets();
     if (ok.length) return ok.slice().sort(pickCmp(t))[0];
     return null;
   }
-  function closest() { return O.all.length ? O.all.slice().sort((a, b) => a.viol - b.viol || b.score - a.score)[0] : null; }
+  function closest() { const L = pool(); return L.length ? L.slice().sort((a, b) => a.viol - b.viol || b.score - a.score)[0] : null; }
 
   function runOpt() {
-    if (O.running) return;
+    if (O.running && !O.checking) return;   // a search is running; a re-check may be interrupted
     const vars = chosenVars();
     if (!vars.length) { $('optStatus').textContent = 'Tick at least one setting the search may change.'; return; }
     const base = A.getP(), r = rng(1234), mode = optMode();
     const [POP, GENS] = $('optEffort').value === 'thorough' ? [60, 24] : [36, 14];
-    O.all = []; O.front = []; O.running = true; O.hover = null; O.base = base; O.vars = vars; O.goal = goal(); O.mode = mode; O.best = null;
+    if (O.stop) O.stop();   // cancel a re-check still running from earlier results
+    const tok = ++O.token;
+    O.all = []; O.front = []; O.running = true; O.hover = null; O.base = base; O.vars = vars; O.goal = goal(); O.mode = mode; O.best = null; O.final = false; O.incomplete = false; O.checking = false;
     O.fp = fingerprint(base, vars.map((d) => d.k).concat(['flushMode'])); staleNote('optStale', false);
     $('optRun').disabled = true;
     const ND2 = vars.length;
@@ -229,6 +233,7 @@
       return kids;
     };
     O.stop = slices(() => {
+      if (tok !== O.token) return false;
       if (queue.length) { (gen === 0 ? pop : children).push(ev(queue.shift())); return true; }
       if (gen > 0) { const merged = pop.concat(children); ndSort(merged); merged.sort((a, b) => a.rank - b.rank || b.crowd - a.crowd); pop = merged.slice(0, POP); children = []; }
       else ndSort(pop);
@@ -238,22 +243,33 @@
       if (gen >= GENS) return false;
       gen++; queue = breed(); return true;
     }, () => {
+      if (tok !== O.token) return;
       const tSearch = now() - t0, nSearch = O.all.length;
+      $('optRun').disabled = false;   // a new search may start while the check runs; it cancels the check
       confirmReported(() => {
-        O.running = false; $('optRun').disabled = false;
-        const nOk = O.all.filter((e) => e.viol === 0).length;
-        $('optStatus').textContent = `Done: ${nSearch} designs in ${(tSearch / 1000).toFixed(1)} s, ${(tSearch / nSearch).toFixed(1)} ms each; every design shown is re-checked at full resolution. ${O.goal === 'targets' ? nOk + ' meet all targets.' : O.front.length + ' designs on the best trade-off curve.'}`;
+        O.running = false;
+        $('optStatus').textContent = `Done: ${nSearch} designs in ${(tSearch / 1000).toFixed(1)} s, ${(tSearch / nSearch).toFixed(1)} ms each. ${checkedLine()}`;
       });
     });
+  }
+  function checkedLine() {
+    const nOk = pool().filter((e) => e.viol === 0).length;
+    const head = O.incomplete ? 'The full-resolution check stopped after ${O.cap || 150} designs, so only checked designs are shown and better ones may exist; search again or tighten the targets.' : 'Every design shown is checked at full resolution.';
+    return `${head} ${O.goal === 'targets' ? nOk + ' checked designs meet all targets.' : O.front.length + ' designs on the best trade-off curve.'}`;
   }
   // The search runs at coarse wall-film resolution for speed, which can be off by several points of cleaning in
   // short, strong flushes. Every design that can be reported (trade-off curve, best and closest candidates, table
   // rows) is re-run at the simulator's own resolution and re-rated before it is shown as a result. Re-checking can
   // change the ranking, so it repeats until all reported designs are checked.
   function confirmReported(done) {
-    const base = O.base, mode = O.mode, seen = new Set(), check = [];
+    if (O.stop) O.stop();
+    const tok = ++O.token, base = O.base, mode = O.mode, seen = new Set(), check = [];
+    let nChecked = 0;
+    O.final = false; O.incomplete = false;
     const add = (e) => { if (e && !e.full && !seen.has(e)) { seen.add(e); check.push(e); } };
     const collect = () => {
+      // always rate against the targets and weights as they are now, so edits during the check count
+      O.goal = goal(); O.all.forEach(rate); if (O.cur) rate(O.cur);
       O.front = paretoOf(O.all); O.best = pickBest();
       O.front.forEach(add); add(O.best);
       if (O.goal === 'targets') {
@@ -263,16 +279,22 @@
       }
     };
     collect();
-    if (O.stop) O.stop();
     O.checking = true;
     $('optStatus').textContent = `Checking ${check.length} designs at full resolution…`;
     O.stop = slices(() => {
+      if (tok !== O.token) return false;
       let e = check.shift();
-      if (!e) { if (seen.size >= 150) return false; collect(); e = check.shift(); if (!e) return false; }   // the ranking moved: check the newcomers
-      Object.assign(e, evalPhysicsMode(base, e.des, mode, SIM_FULL), { full: true }); rate(e);
+      if (!e) {
+        collect();   // the ranking or the targets may have moved: check the newcomers
+        e = check.shift(); if (!e) return false;
+      }
+      if (nChecked >= (O.cap || 150)) { O.incomplete = true; return false; }   // stop; only checked designs are reported
+      Object.assign(e, evalPhysicsMode(base, e.des, mode, SIM_FULL), { full: true }); rate(e); nChecked++;
       return true;
     }, () => {
-      O.front = paretoOf(O.all); O.best = pickBest(); O.checking = false;
+      if (tok !== O.token) return;
+      O.final = true; O.goal = goal(); O.all.forEach(rate); if (O.cur) rate(O.cur);
+      O.front = paretoOf(pool()); O.best = pickBest(); O.checking = false;
       drawOpt(); fillOptTable(); optSummary(); if (done) done();
     });
   }
@@ -338,13 +360,13 @@
     const vars = O.vars;
     let rows, title;
     if (O.goal === 'targets') {
-      const t = targets(), ok = O.all.filter((e) => e.viol === 0);
+      const t = targets(), ok = pool().filter((e) => e.viol === 0);
       rows = ok.sort(pickCmp(t)).slice(0, 10);
       title = rows.length ? `Designs meeting all targets, sorted by ${t.pick === 'water' ? 'water' : t.pick === 'noise' ? 'noise' : 'score'}` : 'No design meets all targets yet';
     } else { rows = O.front.slice(0, 12); title = rows.length ? 'Best trade-off designs, sorted by water' : ''; }
     $('optTableTitle').textContent = title;
     $('optTable').innerHTML = rows.length ? `<thead><tr><th></th><th>Water, L</th><th>Score</th><th>Cleaned, %</th><th>Solids, %</th><th>Paper, %</th><th>Noise, dB vs now</th>${vars.map((d) => `<th>${d.l}${d.u ? ', ' + d.u : ''}</th>`).join('')}</tr></thead><tbody>` +
-      rows.map((e, i) => `<tr${e === O.best ? ' class="best"' : ''}><td><button class="btn mini" type="button" data-opt="${i}">Load</button></td><td class="num">${fmt(e.water, 1)}</td><td class="num">${fmt(e.score, 1)}</td><td class="num">${fmt(e.clean, 0)}</td><td class="num">${fmt(e.solids, 0)}</td><td class="num">${fmt(e.paper, 0)}</td><td class="num" title="Range ${sdb(nRng(e).lo)} to ${sdb(nRng(e).hi)} dB">${sdb(nRel(e))}</td>${vars.map((d) => `<td class="num">${fmt(e.des[d.k], d.int ? 0 : d.dp)}</td>`).join('')}</tr>`).join('') + '</tbody>' : '';
+      rows.map((e, i) => `<tr${e === O.best ? ' class="best"' : ''}><td><button class="btn mini" type="button" data-opt="${i}">Load</button></td><td class="num">${fmt(e.water, 1)}</td><td class="num">${fmt(e.score, 1)}</td><td class="num">${fmt(e.clean, 0)}</td><td class="num">${fmt(e.solids, 0)}</td><td class="num">${fmt(e.paper, 0)}</td><td class="num">${sdb(nRel(e))} <span class="rng">(${sdb(nRng(e).lo)} to ${sdb(nRng(e).hi)})</span></td>${vars.map((d) => `<td class="num">${fmt(e.des[d.k], d.int ? 0 : d.dp)}</td>`).join('')}</tr>`).join('') + '</tbody>' : '';
     $('optTable').querySelectorAll('[data-opt]').forEach((b) => b.addEventListener('click', () => loadOpt(rows[+b.dataset.opt])));
   }
   function loadOpt(e) {
@@ -367,14 +389,15 @@
   $('optRun').addEventListener('click', runOpt);
   // re-rate existing results when weights or targets change, without re-running
   function rerate() {
-    if (!O.all.length || O.running) return;
-    O.goal = goal(); O.all.forEach(rate); if (O.cur) rate(O.cur);
-    O.front = paretoOf(O.all); O.best = pickBest(); drawOpt();
+    // during the search itself the final check re-rates everything with the latest targets
+    if (!O.all.length || (O.running && !O.checking)) return;
+    const wasRunning = O.running;
     // new targets or weights can promote designs that were only rated coarsely: check them before reporting
     confirmReported(() => {
-      const nOk = O.all.filter((e) => e.viol === 0).length;
-      $('optStatus').textContent = `Re-rated for the new ${O.goal === 'targets' ? 'targets' : 'weights'}; every design shown is checked at full resolution. ${O.goal === 'targets' ? nOk + ' meet all targets.' : O.front.length + ' designs on the best trade-off curve.'}`;
+      O.running = false;
+      $('optStatus').textContent = `Re-rated for the new ${O.goal === 'targets' ? 'targets' : 'weights'}${wasRunning ? ' during the check' : ''}. ${checkedLine()}`;
     });
+    drawOpt();
   }
   ['wClean', 'wSolids', 'wPaper'].forEach((id) => $(id).addEventListener('input', () => {
     const w = weights(); $('wOut').textContent = `Score weights: cleaning ${Math.round(w[0] * 100)} % · solids ${Math.round(w[1] * 100)} % · paper ${Math.round(w[2] * 100)} %`; rerate();
@@ -663,4 +686,5 @@
   }));
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(redraw);
   redraw();
+  window.FlushAI = { _test: { opt: () => O } };   // read-only hook for automated checks
 })();

@@ -125,6 +125,7 @@ canvas{display:block;width:100%;max-width:100%}
 .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
 @media (max-width:1320px){ .kpis{grid-template-columns:repeat(2,minmax(0,1fr))} }
 @media (max-width:860px){ .kpis{grid-template-columns:minmax(0,1fr)} }
+.rng{color:var(--muted);font-size:11.5px;white-space:nowrap}
 .reftag{display:inline-block;padding:0 6px;border-radius:6px;background:color-mix(in srgb, var(--muted) 14%, transparent);color:var(--ink);font-weight:500;white-space:nowrap}
 .reftag.pin{background:color-mix(in srgb, var(--accent) 16%, transparent);color:var(--accent)}
 .kpi{background:var(--raised);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:grid;gap:10px;align-content:start}
@@ -396,7 +397,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
             </dl>
           </article>
           <article class="kpi" id="kpiNoise">
-            <div class="head"><span class="eyebrow">Noise <span class="est" title="Relative indicator from an uncalibrated model, not a sound level in dB(A)">· experimental</span></span><span class="chip" id="cNoise" title="Quieter or Louder only when the whole range agrees by at least 0.5 dB; Unclear when it does not. Display bands for this tool, not a standard."></span></div>
+            <div class="head"><span class="eyebrow">Noise <span class="est" title="Relative indicator from an uncalibrated model, not a sound level in dB(A)">· experimental</span></span><span class="chip" id="cNoise" title="Quieter or Louder only when the whole sampled range agrees by at least 0.5 dB; Unclear when it does not. Display bands for this tool, not a standard."></span></div>
             <div><div class="big" id="kNoise"></div><div class="cap" id="kNoiseCap">peak level vs the preset</div></div>
             <dl>
               <dt>Sound energy</dt><dd id="kNoiseE"></dd>
@@ -408,7 +409,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
           </article>
         </div>
         <div class="strip" id="strip"></div>
-        <p class="estline">All results are illustrative estimates from a model that is not yet calibrated against CFD or tests. Use them to compare designs, not as product values. Noise is an experimental, relative indicator in dB against the reference named on its card: the preset, or your pinned reference. It is not a sound level, it covers only the flush in the bowl and trap, and its range shows how much the result moves with the uncertain noise coefficients.</p>
+        <p class="estline">All results are illustrative estimates from a model that is not yet calibrated against CFD or tests. Use them to compare designs, not as product values. Noise is an experimental, relative indicator in dB against the reference named on its card: the preset, or your pinned reference. It is not a sound level, it covers only the flush in the bowl and trap, and its sampled range shows how much the result moves with the uncertain noise coefficients.</p>
       </section>
 
       <section class="panel" aria-label="Time traces" id="traces">
@@ -476,7 +477,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
                 <label class="f" for="tSolids">Solids at least, %<input type="number" id="tSolids" min="0" max="100" step="1" value="95"></label>
                 <label class="f" for="tPaper">Paper at least, %<input type="number" id="tPaper" min="0" max="100" step="1" value="80"></label>
                 <label class="f" for="tNoise">Noise at most, dB vs now<input type="number" id="tNoise" min="-20" max="20" step="0.5" value="" placeholder="no limit"></label>
-                <label class="f" for="tPick">Among those, pick<select id="tPick"><option value="score" selected>highest score</option><option value="water">lowest water</option><option value="noise">quietest</option></select></label>
+                <label class="f" for="tPick">Among those, pick<select id="tPick"><option value="score" selected>highest score</option><option value="water">lowest water</option><option value="noise">quietest (upper end of noise range)</option></select></label>
               </div>
               <div class="weights">
                 <label class="f" for="wClean">Weight on cleaning<input type="range" id="wClean" min="0" max="100" step="5" value="50"></label>

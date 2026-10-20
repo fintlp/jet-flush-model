@@ -665,7 +665,7 @@
     $('kNoise').innerHTML = `${sdb(nd)}<small>dB</small>${!pinned && baseline && baseline.noise != null ? deltaHTML(r.noise.peak, baseline.noise, 1, '', true) : ''}`;
     const rg = nRange(r.noise.peakV, nr.peakV) || { lo: nd, hi: nd }, rgE = nRange(r.noise.energyV, nr.energyV) || { lo: ne, hi: ne };
     const span = (q) => (Math.abs(q.hi - q.lo) < 0.05 ? '' : ` (${sdb(q.lo)} to ${sdb(q.hi)})`);
-    $('kNoiseCap').innerHTML = `peak level vs <span class="reftag${nr.pin ? ' pin' : ''}">${nr.pin ? '📌 ' : ''}${nr.label}</span><br>range over uncertain coefficients: <b>${sdb(rg.lo)} to ${sdb(rg.hi)} dB</b>`;
+    $('kNoiseCap').innerHTML = `peak level vs <span class="reftag${nr.pin ? ' pin' : ''}">${nr.pin ? '📌 ' : ''}${nr.label}</span><br>sampled range over uncertain coefficients: <b>${sdb(rg.lo)} to ${sdb(rg.hi)} dB</b>`;
     $('kNoiseE').textContent = `${sdb(ne)} dB${span(rgE)}`;
     const SRC = ['jet films hitting the pool', 'fall into the outlet', 'air core in the trap', 'siphon break'];
     const top = (sh) => { const im = sh.indexOf(Math.max(...sh)); return sh[im] > 0 ? `${SRC[im]}, ${Math.round(sh[im] * 100)} %` : '–'; };
