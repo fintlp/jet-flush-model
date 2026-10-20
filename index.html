@@ -125,6 +125,8 @@ canvas{display:block;width:100%;max-width:100%}
 .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
 @media (max-width:1320px){ .kpis{grid-template-columns:repeat(2,minmax(0,1fr))} }
 @media (max-width:860px){ .kpis{grid-template-columns:minmax(0,1fr)} }
+.pending{opacity:.45;transition:opacity .15s}
+.pending-note{color:var(--warn,var(--muted));font-weight:500}
 .rng{color:var(--muted);font-size:11.5px;white-space:nowrap}
 .reftag{display:inline-block;padding:0 6px;border-radius:6px;background:color-mix(in srgb, var(--muted) 14%, transparent);color:var(--ink);font-weight:500;white-space:nowrap}
 .reftag.pin{background:color-mix(in srgb, var(--accent) 16%, transparent);color:var(--accent)}
@@ -495,7 +497,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
           <p class="ai-status" id="optStatus">Score = weighted sum of cleaned, solids removed and paper removed, in %. Designs that do not restore the water seal never count as a solution.</p>
           <div class="ai-grid">
             <canvas id="cvOpt" class="ai-cv-wide" aria-label="Scatter of evaluated designs: water per flush against weighted score, with the best trade-off curve"></canvas>
-            <div class="ai-side"><p class="hov" id="optHover">Hover a point to read it, click to load that design.</p><div id="optBest"></div></div>
+            <div class="ai-side"><p class="hov" id="optHover">Hover a point to read it, click to load that design.</p><p class="ai-note pending-note" id="optPendingNote" hidden>Re-checking for the new targets or weights. The results below still belong to the previous ones.</p><div id="optBest"></div></div>
           </div>
           <h3 class="opt-table-title" id="optTableTitle"></h3>
           <div class="tablewrap"><table id="optTable"></table></div>

@@ -140,7 +140,7 @@
   };
   const xOf = (vars, o) => vars.map((d) => (o[d.k] - d.min) / ((d.max - d.min) || 1));
 
-  const O = { all: [], front: [], running: false, cur: null, hover: null, stop: null, vars: [], base: null, goal: 'weights', best: null, token: 0, final: false, incomplete: false };
+  const O = { searchId: 0, pending: false, all: [], front: [], running: false, cur: null, hover: null, stop: null, vars: [], base: null, goal: 'weights', best: null, token: 0, final: false, incomplete: false };
   // once a search is finished, results are only ever taken from designs checked at full resolution
   const pool = () => (O.final ? O.all.filter((e) => e.full) : O.all);
   function weights() {
@@ -207,21 +207,27 @@
   }
   function closest(list) { const L = list || pool(); return L.length ? L.slice().sort((a, b) => a.viol - b.viol || b.score - a.score)[0] : null; }
 
-  function runOpt() {
-    if (O.running && !O.checking) return;   // a search is running; a re-check may be interrupted
+  // force: cancel whatever search or check is running and start a new one (used by the walkthrough)
+  function runOpt(force) {
+    if (O.running && !O.checking && !force) return null;   // a search is running; a re-check may be interrupted
     const vars = chosenVars();
-    if (!vars.length) { $('optStatus').textContent = 'Tick at least one setting the search may change.'; return; }
+    if (!vars.length) { $('optStatus').textContent = 'Tick at least one setting the search may change.'; return null; }
     const base = A.getP(), r = rng(1234), mode = optMode();
     const [POP, GENS] = $('optEffort').value === 'thorough' ? [60, 24] : [36, 14];
-    if (O.stop) O.stop();   // cancel a re-check still running from earlier results
-    const tok = ++O.token;
-    O.all = []; O.front = []; O.running = true; O.hover = null; O.base = base; O.vars = vars; O.goal = goal(); O.mode = mode; O.best = null; O.final = false; O.incomplete = false; O.checking = false;
+    if (O.stop) O.stop();   // cancel a search or re-check still running
+    const tok = ++O.token, sid = ++O.searchId;
+    O.all = []; O.front = []; O.running = true; O.hover = null; O.base = base; O.vars = vars; O.goal = goal(); O.mode = mode; O.best = null; O.final = false; O.incomplete = false; O.checking = false; O.pending = false;
     O.fp = fingerprint(base, vars.map((d) => d.k).concat(['flushMode'])); staleNote('optStale', false);
+    // every design carries the context of its search, so it can only be loaded the way it was computed
+    const ctx = { sid, mode, fp: O.fp, keys: vars.map((d) => d.k) };
     $('optRun').disabled = true;
+    $('optBest').innerHTML = '<p class="ai-note">Searching. Results appear here when the search and its full-resolution check are finished.</p>';
+    $('optHover').textContent = 'Hover a point to read it, click to load that design.';
+    setPending(false);
     const ND2 = vars.length;
-    const ev = (x) => { const des = desOf(vars, x), e = rate(Object.assign({ x: xOf(vars, des), des }, evalPhysicsMode(base, des, mode))); O.all.push(e); return e; };
+    const ev = (x) => { const des = desOf(vars, x), e = rate(Object.assign({ x: xOf(vars, des), des, ctx }, evalPhysicsMode(base, des, mode))); O.all.push(e); return e; };
     O.cur = null;
-    O.cur = (() => { const des = {}; vars.forEach((d) => { des[d.k] = base[d.k]; }); return rate(Object.assign({ des, full: true }, evalPhysicsMode(base, des, mode, SIM_FULL))); })();
+    O.cur = (() => { const des = {}; vars.forEach((d) => { des[d.k] = base[d.k]; }); return rate(Object.assign({ des, ctx, full: true }, evalPhysicsMode(base, des, mode, SIM_FULL))); })();
     let pop = [], children = [], gen = 0, queue = lhsN(POP, ND2, r); const t0 = now();
     const tour = () => { const a = pop[Math.floor(r() * pop.length)], b = pop[Math.floor(r() * pop.length)]; return (a.rank < b.rank || (a.rank === b.rank && a.crowd > b.crowd)) ? a : b; };
     const breed = () => {
@@ -251,6 +257,13 @@
         $('optStatus').textContent = `Done: ${nSearch} designs in ${(tSearch / 1000).toFixed(1)} s, ${(tSearch / nSearch).toFixed(1)} ms each. ${checkedLine()}`;
       });
     });
+    return sid;
+  }
+  // while results are re-checked for new targets or weights, the published ones are marked as pending
+  function setPending(on) {
+    O.pending = !!on;
+    ['optBest', 'optTable'].forEach((id) => { const el = $(id); if (el) el.classList.toggle('pending', O.pending); });
+    const n = $('optPendingNote'); if (n) n.hidden = !O.pending;
   }
   function checkedLine() {
     const nOk = pool().filter((e) => e.viol === 0).length;
@@ -281,6 +294,7 @@
     };
     collect();
     O.checking = true;
+    if (O.final) setPending(true);   // results already shown belong to the old targets until this check is done
     $('optStatus').textContent = `Checking ${check.length} designs at full resolution…`;
     O.stop = slices(() => {
       if (tok !== O.token) return false;
@@ -295,7 +309,7 @@
     }, () => {
       if (tok !== O.token) return;
       O.final = true; O.goal = goal(); O.all.forEach(rate); if (O.cur) rate(O.cur);
-      O.front = paretoOf(pool()); O.best = pickBest(); O.checking = false;
+      O.front = paretoOf(pool()); O.best = pickBest(); O.checking = false; setPending(false);
       drawOpt(); fillOptTable(); optSummary(); if (done) done();
       optStaleCheck();   // settings may have changed while the search ran
     });
@@ -344,12 +358,12 @@
       if (e.viol === 0) { ctx.fillStyle = A.rgba(C.lineStrong, 0.6); ctx.beginPath(); ctx.arc(x, y, 2.6 * d, 0, TAU2); ctx.fill(); }
       else { ctx.strokeStyle = A.rgba(C.bad, 0.55); ctx.lineWidth = 1 * d; ctx.beginPath(); ctx.arc(x, y, 2.4 * d, 0, TAU2); ctx.stroke(); }
     });
-    if (O.front.length) {
+    if (O.front.length && !O.pending) {
       ctx.strokeStyle = A.rgba(C.accent); ctx.lineWidth = 2 * d; ctx.beginPath();
       O.front.forEach((e, i) => { const x = X(e.water), y = Y(e.score); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke();
       ctx.fillStyle = A.rgba(C.accent); O.front.forEach((e) => { ctx.beginPath(); ctx.arc(X(e.water), Y(e.score), 4 * d, 0, TAU2); ctx.fill(); });
     }
-    if (O.best) { const x = X(O.best.water), y = Y(O.best.score), s = 9 * d; ctx.fillStyle = A.rgba(C.clean); ctx.beginPath(); for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, rr = k % 2 ? s * 0.45 : s; ctx.lineTo(x + rr * Math.cos(a), y + rr * Math.sin(a)); } ctx.closePath(); ctx.fill(); }
+    if (O.best && !O.pending) { const x = X(O.best.water), y = Y(O.best.score), s = 9 * d; ctx.fillStyle = A.rgba(C.clean); ctx.beginPath(); for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, rr = k % 2 ? s * 0.45 : s; ctx.lineTo(x + rr * Math.cos(a), y + rr * Math.sin(a)); } ctx.closePath(); ctx.fill(); }
     if (O.cur) { const x = X(O.cur.water), y = Y(Math.max(lo, O.cur.score)); ctx.strokeStyle = A.rgba(C.ink); ctx.lineWidth = 2 * d; ctx.beginPath(); ctx.arc(x, y, 7 * d, 0, TAU2); ctx.stroke(); }
     if (O.hover) { const x = X(O.hover.water), y = Y(Math.max(lo, O.hover.score)); ctx.strokeStyle = A.rgba(C.accent); ctx.lineWidth = 2 * d; ctx.beginPath(); ctx.arc(x, y, 8 * d, 0, TAU2); ctx.stroke(); }
     const leg = [['meets constraints', C.lineStrong, true], ['misses a target or the seal', C.bad, true], ['best trade-off', C.accent, true]];
@@ -374,9 +388,14 @@
     $('optTable').querySelectorAll('[data-opt]').forEach((b) => b.addEventListener('click', () => loadOpt(rows[+b.dataset.opt])));
   }
   function loadOpt(e) {
-    if (!e) return; A.apply(Object.assign({ flushMode: O.mode || 'full' }, e.des));
+    if (!e) return false;
+    const c = e.ctx;
+    if (!c || c.sid !== O.searchId) { $('optHover').textContent = 'That result belongs to an earlier search, so it was not loaded. Load one from the current results.'; return false; }
+    if (fingerprint(A.getP(), c.keys.concat(['flushMode'])) !== c.fp) { $('optHover').textContent = 'Settings the search did not vary have changed since the search, so the result would not match. Run the search again.'; return false; }
+    A.apply(Object.assign({ flushMode: c.mode }, e.des));
     $('optHover').innerHTML = `Loaded: ${metricsLine(e)}. <button class="btn mini" type="button" id="watchBtn">Watch this flush</button>`;
     $('watchBtn').addEventListener('click', () => { const el = document.getElementById('sim'); if (el) el.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); A.play(0, 0.5); });
+    return true;
   }
   function nearestOpt(ev) {
     if (!optGeom || !O.all.length) return null;
@@ -691,5 +710,20 @@
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(redraw);
   redraw();
   function optStaleCheck() { if (O.fp && O.all.length && !O.running) staleNote('optStale', fingerprint(A.getP(), O.vars.map((d) => d.k).concat(['flushMode'])) !== O.fp, 'search'); }
-  window.FlushAI = { busy: () => O.running || !!O.checking, _test: { opt: () => O } };
+  window.FlushAI = {
+    busy: () => O.running || !!O.checking,
+    // start a fresh search (cancelling any other) and resolve when it and its check are finished
+    run: () => new Promise((resolve) => {
+      const sid = runOpt(true); if (sid == null) { resolve({ ok: false, sid: null }); return; }
+      const t0 = now();
+      (function poll() { if (O.searchId !== sid) { resolve({ ok: false, sid }); return; } if (!O.running && !O.checking) { resolve({ ok: true, sid }); return; } if (now() - t0 > 120000) { resolve({ ok: false, sid }); return; } setTimeout(poll, 200); })();
+    }),
+    // load the published recommendation of search sid; returns 'best', 'closest' or null
+    loadResult: (sid) => {
+      if (sid == null || O.searchId !== sid || !O.final || O.checking) return null;
+      const e = O.best || closest(); if (!e) return null;
+      return loadOpt(e) ? (O.best ? 'best' : 'closest') : null;
+    },
+    _test: { opt: () => O }
+  };
 })();

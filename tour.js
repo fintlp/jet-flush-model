@@ -37,11 +37,9 @@
     const k = A.kpis(); mem.tClean = Math.min(95, Math.round(k.clean) + 2);
     $('tWater').value = '4.0'; $('tClean').value = String(mem.tClean); $('tSolids').value = '95'; $('tPaper').value = '80'; $('tPick').value = 'score'; if ($('tNoise')) $('tNoise').value = '0';
     $('tPaper').dispatchEvent(new Event('input'));
-    $('optRun').click();
-    await wait(400);
-    const t0 = Date.now();
-    // wait for the search and its full-resolution check to finish
-    while (window.FlushAI && window.FlushAI.busy() && Date.now() - t0 < 90000) await wait(250);
+    // start the demo's own search, cancelling any other, and wait for it and its full-resolution check
+    const res = await window.FlushAI.run();
+    mem.sid = res.ok ? res.sid : null;
   }
 
   const STEPS = [
@@ -79,13 +77,14 @@
       x: runOptimiser,
       h: () => {
         const st = $('optStatus').textContent, best = $('optBest').querySelectorAll('p')[1];
+        if (!mem.sid) return '<p>The search did not finish, or another search replaced it. Go back one step and try again.</p>';
         return `<p>We asked the AI lab for a design that uses <b>at most 4.0 L</b>, less than now, and still cleans at least <b>${mem.tClean} %</b>, with 95 % solids and 80 % paper removed, and is <b>no louder</b> than now. It may change the nozzles, jet angle and position, valve height and flush volume, but not the bowl.</p><p class="tour-hint">${st}</p>${best ? `<p>${best.innerHTML}</p>` : '<p>No design met every target this time. The closest one is shown in the panel.</p>'}`;
       }
     },
     {
       t: 'Load the winner', el: () => $('results'), block: 'center',
-      x: async () => { mem.before3 = A.kpis(); mem.hadBest = !!$('optLoadBest') && /meeting all targets/.test($('optBest').textContent); const b = $('optLoadBest'); if (b) b.click(); await wait(50); },
-      h: () => { const k = A.kpis(), b = mem.before3 || k; return `<p>The ${mem.hadBest ? 'suggested' : 'closest'} design is now loaded in the simulator:</p><ul><li>Cleaning <b>${pct(k.clean)} %</b> (${signed(k.clean - b.clean)})</li><li>Solids <b>${pct(k.solids)} %</b> (${signed(k.solids - b.solids)})</li><li>Water <b>${k.water.toFixed(1)} L</b> (${signed(k.water - b.water, 1)} L)</li><li>Noise <b>${signed(k.noise - b.noise, 1)} dB</b> against the design before${(() => { const g = A.nRange(k.noiseV, b.noiseV); return g ? `, range ${signed(g.lo, 1)} to ${signed(g.hi, 1)} dB` : ''; })()}</li></ul><p class="tour-hint">The model is not calibrated yet, so a suggestion like this is a candidate for a CFD or rig check, not a final answer.</p>`; }
+      x: async () => { mem.before3 = A.kpis(); mem.loaded = window.FlushAI.loadResult(mem.sid); await wait(50); },
+      h: () => { const k = A.kpis(), b = mem.before3 || k; if (!mem.loaded) return '<p>No design was loaded: the demo\'s search did not finish, or it was replaced by another search. Go back one step to run it again.</p>'; return `<p>The ${mem.loaded === 'best' ? 'suggested' : 'closest'} design is now loaded in the simulator:</p><ul><li>Cleaning <b>${pct(k.clean)} %</b> (${signed(k.clean - b.clean)})</li><li>Solids <b>${pct(k.solids)} %</b> (${signed(k.solids - b.solids)})</li><li>Water <b>${k.water.toFixed(1)} L</b> (${signed(k.water - b.water, 1)} L)</li><li>Noise <b>${signed(k.noise - b.noise, 1)} dB</b> against the design before${(() => { const g = A.nRange(k.noiseV, b.noiseV); return g ? `, range ${signed(g.lo, 1)} to ${signed(g.hi, 1)} dB` : ''; })()}</li></ul><p class="tour-hint">The model is not calibrated yet, so a suggestion like this is a candidate for a CFD or rig check, not a final answer.</p>`; }
     },
     {
       t: 'Your turn', el: () => document.querySelector('.top .actions'), block: 'center', last: true,
