@@ -11,8 +11,9 @@
 //    fourth-order Runge-Kutta scheme at a twenty times finer step, from the model's own inputs.
 const { loadModel, rng, fullDesign, q } = require('./lib');
 const M = loadModel(), G = 9.81, RHO = 1000;
-const results = [], known = [];
-// known: a reference to a documented, open model issue; such a check is reported but does not fail the run
+const results = [], known = [], STRICT = process.argv.includes('--strict');
+// known: a reference to a documented, open model issue; such a check is reported but does not fail the run,
+// except with --strict (to be used before a release, so that an open issue cannot pass unnoticed)
 function check(name, value, limit, unit, detail, knownIssue) {
   const ok = Number.isFinite(value) && Math.abs(value) <= limit;
   if (!ok && knownIssue) known.push(name); else results.push(ok);
@@ -49,7 +50,7 @@ for (const alpha of [0, 10, 25]) {
   for (let i = 0; i < 60; i++) cases.push(fullDesign(M, r0));
   for (const p of cases) {
     let vin = 0, vout = 0, V0 = null, V1 = 0, spill = 0;
-    sim(p, { probe: (s) => { if (V0 === null) V0 = s.Vrel - (s.Qin - s.Qout) * s.dt; vin += s.Qin * s.dt; vout += s.Qout * s.dt; V1 = s.Vrel; spill = s.Vspill; } });
+    sim(p, { probe: (s) => { if (V0 === null) V0 = s.Vrel - (s.Qpin - s.Qout) * s.dt; vin += s.Qpin * s.dt; vout += s.Qout * s.dt; V1 = s.Vrel; spill = s.Vspill; } });
     worst = Math.max(worst, Math.abs(vin - vout - (V1 - V0) - spill) * 1e6); n++;
   }
   check('A2 water balance, worst of ' + n + ' designs (incl. an overflowing one)', worst, 1, 'mL');
@@ -68,21 +69,64 @@ for (const alpha of [0, 10, 25]) {
   }
   check(`A3 state variables out of range, ${n} time steps of 80 random designs`, bad, 0, 'steps', bad ? 'first problem: ' + what : 'cistern, flows, swirl, waste, finiteness');
 }
-// A4 smoothness: small design changes give small result changes, except at a siphon's prime / no-prime threshold
+// A4, A5 smoothness: small design changes give small result changes. A large step between neighbouring designs
+// is resampled 10 and then 100 times finer: if the change stays concentrated in one tiny interval it is a jump
+// (discontinuity); if it spreads out, the result is steep but continuous there and the step is not counted.
+// A jump that remains is run again with a 2 ms time step: if it then shrinks to less than half, it is time-step
+// jitter (two events, such as the valve closing and the siphon breaking, falling into the same 10 ms step) and
+// is checked against its own limit. Steps where a siphon switches between priming and not priming are left out,
+// since the bowl really behaves differently there.
+function smoothScan(kind, metric, lim, scans, extra) {
+  const run = (k, v, o) => sim(design(kind, Object.assign({ [k]: v }, extra ? extra(k) : {})), o);
+  const val = (k, v, o) => { const r = run(k, v, o); return [metric(r), r.everPrimed]; };
+  const refined = (k, a, b) => {
+    let lo = a, hi = b;
+    for (let lev = 0; lev < 2; lev++) {
+      let best = -1, ba = lo, bb = hi, prev = val(k, lo);
+      for (let i = 1; i <= 10; i++) { const x = lo + (hi - lo) * i / 10, fx = val(k, x); if (fx[1] === prev[1]) { const d = Math.abs(fx[0] - prev[0]); if (d > best) { best = d; ba = lo + (hi - lo) * (i - 1) / 10; bb = x; } } prev = fx; }
+      if (best < 0) return { jump: 0, jitter: 0 };   // the interval only holds a priming switch
+      lo = ba; hi = bb;
+    }
+    const a10 = val(k, lo), b10 = val(k, hi), j10 = Math.abs(b10[0] - a10[0]);
+    const j2 = Math.abs(val(k, hi, { dt: 0.002 })[0] - val(k, lo, { dt: 0.002 })[0]);
+    return j10 <= lim ? { jump: j10, jitter: 0 } : j2 < 0.5 * j10 ? { jump: 0, jitter: j10 } : { jump: j10, jitter: 0 };
+  };
+  let worst = 0, where = '', steep = 0, jit = 0, jitWhere = '';
+  for (const [k, a, b, st] of scans) {
+    let pv = null, px = null;
+    for (let v = a; v <= b + 1e-9; v += st) {
+      const x = +v.toFixed(4), r = val(k, x);
+      if (pv !== null && pv[1] === r[1]) {
+        const d = Math.abs(r[0] - pv[0]);
+        if (d > lim) {
+          const rf = refined(k, px, x);
+          if (rf.jump > worst) { worst = rf.jump; where = `${k} ${px} to ${x}`; }
+          if (rf.jitter > jit) { jit = rf.jitter; jitWhere = `${k} ${px} to ${x}`; }
+          if (rf.jump <= lim && rf.jitter === 0) steep++;
+        } else if (d > worst) { worst = d; where = `${k} ${x}`; }
+      }
+      pv = r; px = x;
+    }
+  }
+  return { worst, where, steep, jit, jitWhere };
+}
 {
   const scans = [['Hcr', 100, 600, 2], ['alpha', 0, 35, 0.2], ['Anoz', 1.5, 8, 0.05], ['jetPhase', 0, 180, 1]];
   for (const kind of ['washdown', 'siphonic']) {
-    let worst = 0, where = '';
-    for (const [k, a, b, st] of scans) {
-      let prev = null;
-      for (let v = a; v <= b + 1e-9; v += st) {
-        const r = sim(design(kind, { [k]: +v.toFixed(3), ovality: k === 'jetPhase' ? 1.3 : 1 }));
-        if (prev && prev.everPrimed === r.everPrimed) { const d = Math.abs(r.vsPeak - prev.vsPeak); if (d > worst) { worst = d; where = `${k} ${v.toFixed(2)}`; } }
-        prev = r;
-      }
-    }
-    check(`A4 ${kind}: largest step in peak pool swirl between neighbouring designs`, worst, 0.03, 'm/s', `at ${where}; steps where the siphon switches between priming and not priming are left out`,
-      kind === 'siphonic' ? 'when the siphon breaks while the jets still run, the nearly empty pool spins up as a solid body and the peak depends on the last time step before the break (plan 2.0, phase 2)' : null);
+    const r = smoothScan(kind, (x) => x.vsPeak, 0.03, scans, (k) => ({ ovality: k === 'jetPhase' ? 1.3 : 1 }));
+    const kn = kind === 'siphonic' ? 'in a siphonic bowl the pool spins up while the siphon draws it down to the trap inlet; when the level only just reaches the inlet, the moment of the break and with it the peak swirl shift with tiny design changes. Cleaning, waste, seal and noise are checked separately in A5. Documented in the model description, section 16' : null;
+    check(`A4 ${kind}: largest jump in peak pool swirl between neighbouring designs`, r.worst, 0.03, 'm/s', `at ${r.where}; ${r.steep} steep but continuous step${r.steep === 1 ? '' : 's'} resolved by refining`, kn);
+    check(`A4 ${kind}: largest time-step jitter in peak pool swirl`, r.jit, 0.05, 'm/s', r.jit > 0 ? `at ${r.jitWhere}; it shrinks to less than half with a 2 ms step` : 'none found', kn);
+  }
+}
+{
+  const scans = [['Anoz', 1.5, 8, 0.05], ['Hcr', 100, 600, 2], ['Vfull', 3, 7, 0.05], ['dTrap', 38, 65, 0.5]];
+  const M5 = [['cleaning', (x) => x.cleanPct, 3, 'points'], ['solids removed', (x) => x.solidsPct, 3, 'points'], ['paper removed', (x) => x.paperPct, 3, 'points'], ['seal after flush', (x) => x.sealEnd, 3, 'mm'], ['noise peak', (x) => x.noise.peak, 1, 'dB']];
+  for (const kind of ['washdown', 'siphonic']) for (const [lab, fn, lim, u] of M5) {
+    if (kind === 'washdown' && lab === 'seal after flush') continue;   // a washdown seal is always full
+    const r = smoothScan(kind, fn, lim, scans);
+    check(`A5 ${kind}: largest jump in ${lab} between neighbouring designs`, r.worst, lim, u, `at ${r.where}; ${r.steep} steep but continuous step${r.steep === 1 ? '' : 's'} resolved by refining`);
+    check(`A5 ${kind}: largest time-step jitter in ${lab}`, r.jit, 2 * lim, u, r.jit > 0 ? `at ${r.jitWhere}` : 'none found');
   }
 }
 
@@ -155,7 +199,7 @@ for (const kind of ['washdown', 'siphonic']) {
     for (const s of steps) {
       const h = s.dt / 20;
       for (let i = 0; i < 20; i++) {
-        const f = (v) => s.Qin - Qo(M.levelFromVol(g, v));
+        const f = (v) => s.Qpin - Qo(M.levelFromVol(g, v));
         const k1 = f(V), k2 = f(V + h / 2 * k1), k3 = f(V + h / 2 * k2), k4 = f(V + h * k3);
         V += h / 6 * (k1 + 2 * k2 + 2 * k3 + k4);
       }
@@ -179,5 +223,6 @@ for (const kind of ['washdown', 'siphonic']) {
 
 const failed = results.filter((x) => !x).length;
 console.log(`\n${results.length + known.length} checks: ${failed} failed${known.length ? `, ${known.length} known open issue${known.length > 1 ? 's' : ''}` : ''}`);
-console.log(failed ? 'FAILED' : 'passed');
-process.exitCode = failed ? 1 : 0;
+const bad = failed || (STRICT && known.length);
+console.log(bad ? 'FAILED' + (!failed ? ' (--strict: known open issues count as failures)' : '') : 'passed' + (known.length ? ' with known open issues (run with --strict before a release)' : ''));
+process.exitCode = bad ? 1 : 0;

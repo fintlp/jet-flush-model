@@ -26,7 +26,7 @@
     Acist: 0.035, tOpen: 0.15, Lweir: 70, Cweir: 1.7,
     cf: 0.008, ksp: 0.22, tauC: 3.0, Jcrit: 1.5, cfp: 0.02, eta: 0.5, kov: 2.0,
     ucS: 0.35, ucP: 0.45, cmax: 0.12, kS: 2.0, kP: 1.2, beta: 0.2, phi0: 0.2, Fr0: 0.1,
-    rhoS: 1100, sealMin: 50,
+    rhoS: 1100, sealMin: 50, qRefill: 0.1,
     // noise indicator (relative): sound from air bubbles, written as air flow into the water
     nUe: 0.8, nExp: 1.8, nK: 0.04, hFall: 120, rCore: 0.6, cCore: 0.05, wTrap: 0.1
   };
@@ -102,7 +102,11 @@
     for (let i = 0; i < NZ; i++) vt[i] -= v0;
     const Vstatic = -vt[0]; // pool water below weir crest
     const Vrim = vt[NZ - 1]; // volume above the crest when the bowl is full to the rim
-    return { Rr, Rp, D, ds, S, ur, udr, udz, uz, zt, vt, NZ, rAtLevel, Vstatic, Vrim, zMin, zMax };
+    // polar moment of the pool per unit density and ovality factor: q4(z) = integral of pi r(z')^4 dz' from the bottom,
+    // so a pool filled to level z rotating as a solid body has I = rho (e + 1/e) / 4 * q4(z) (elliptic sections)
+    const q4t = new Float64Array(NZ);
+    for (let i = 1; i < NZ; i++) { const a0 = Math.PI * rAtLevel(zt[i - 1]) ** 4, a1 = Math.PI * rAtLevel(zt[i]) ** 4; q4t[i] = q4t[i - 1] + 0.5 * (a0 + a1) * (zt[i] - zt[i - 1]); }
+    return { Rr, Rp, D, ds, S, ur, udr, udz, uz, zt, vt, q4t, NZ, rAtLevel, Vstatic, Vrim, zMin, zMax };
   }
 
   function geomAt(g, s) {
@@ -125,6 +129,14 @@
     const f = (depth - g.uz[lo]) / Math.max(1e-12, g.uz[hi] - g.uz[lo]);
     return g.S * (lo + f) / (NU - 1);
   }
+  // pool volume relative to the weir crest at level z, and the polar moment table at level z
+  function volAtLevel(g, z) { return tableAt(g, g.vt, z); }
+  function q4AtLevel(g, z) { return tableAt(g, g.q4t, z); }
+  function tableAt(g, tab, z) {
+    const zt = g.zt; if (z <= zt[0]) return tab[0]; if (z >= zt[g.NZ - 1]) return tab[g.NZ - 1];
+    const x = (z - zt[0]) / (zt[1] - zt[0]), i = Math.min(g.NZ - 2, x | 0), f = x - i;
+    return tab[i] + f * (tab[i + 1] - tab[i]);
+  }
   function levelFromVol(g, V) {
     const vt = g.vt, zt = g.zt;
     if (V <= vt[0]) return zt[0];
@@ -145,7 +157,8 @@
     const light = !!opts.light;
     // optional probes for the checks: called every time step and every film step; unused in the page
     const probe = typeof opts.probe === 'function' ? opts.probe : null, probeFilm = typeof opts.probeFilm === 'function' ? opts.probeFilm : null;
-    const Vfl = (p.flushMode === 'partial' ? p.Vpart : p.Vfull) / 1000;
+    // a dual-flush valve releases the partial volume from a full cistern: the head starts at the full level
+    const Vfl = (p.flushMode === 'partial' ? Math.min(p.Vpart, p.Vfull) : p.Vfull) / 1000, Vcist0 = p.Vfull / 1000;
     const An = p.Anoz * 1e-4, nJ = Math.max(1, Math.round(p.nJets));
     const hN = p.hNoz / 1000, w0 = An / hN;
     const At = Math.PI * (p.dTrap / 2000) ** 2;
@@ -205,8 +218,10 @@
     // tolerance: jet speed change in %, pool level change in mm (filmTol 0 retraces every step, the reference)
     const tolS = opts.filmTol == null ? (opts.coarse ? 10 : 3) : opts.filmTol;
     const tolV = 0.01 * tolS, tolZ = 0.001 * tolS, tMaxR = opts.tMaxR || (opts.coarse ? 0.6 : 0.25);
-    const film = { active: false, Lq: 0, reach: 0, end: [], vjR: 0, zR: 0, tR: -1, nR: 0, lostQ: 0, allQ: 0 };
-    // end: [share of the total jet flow, vx, vy, vz, x, y] where parts of the films enter the pool
+    const film = { active: false, reach: 0, parcels: [], vjR: 0, zR: 0, tR: -1, nR: 0, lostQ: 0, allQ: 0, tStart: 0, tauMax: 0 };
+    // parcels: where the flow leaving the nozzles now will reach the pool, and when. Each carries its share of the
+    // total jet flow (q), its transit time on the wall (tau), its angular momentum per unit mass (L), and for the
+    // splash term its entry velocity and position; flow lost on the wall has L = 0 and no splash.
     const lines = [];
     const dl = 0.006, samp = 0.005;
 
@@ -240,10 +255,12 @@
     function traceFilm(vj, Qj, z, t) {
       cur++; touched.length = 0; film.nR++;
       const rec = light ? null : { t, jets: [] };
-      film.end.length = 0; film.Lq = 0; film.reach = 0;
+      film.parcels.length = 0; film.reach = 0; film.tauMax = 0;
       film.vjR = vj; film.zR = z; film.tR = t;
       if (Qj < 2e-5 || vj < 0.05) { film.active = false; if (rec) lines.push(rec); return; }
+      if (!film.active) film.tStart = t;   // the film front starts at the nozzles
       film.active = true;
+      const front = t - film.tStart + 1e-9;   // how far (in travel time) the front has got since the film started
       const zStop = Math.max(0.002, Math.min(g.D, g.D - z));   // waterline depth below the rim
       const phase = (p.jetPhase || 0) * Math.PI / 180, qj = 1 / nJ;
       for (let j = 0; j < nJ; j++) {
@@ -266,8 +283,8 @@
         if (pts) pushPt();
         let drawnEnd = false, wDrawn = 0;
         // entering flow is gathered into a few parcels per jet for the splash term
-        let eQ = 0, eVx = 0, eVy = 0, eVz = 0, eX = 0, eY = 0;
-        const flush = () => { if (eQ > 0) { film.end.push([eQ * qj, eVx / eQ, eVy / eQ, eVz / eQ, eX / eQ, eY / eQ]); eQ = eVx = eVy = eVz = eX = eY = 0; } };
+        let eQ = 0, eL = 0, eT = 0, eVx = 0, eVy = 0, eVz = 0, eX = 0, eY = 0, tp = 0;   // tp: travel time from the nozzle
+        const flush = () => { if (eQ > 0) { film.parcels.push({ q: eQ * qj, L: eL / eQ, tau: eT / eQ, splash: true, vx: eVx / eQ, vy: eVy / eQ, vz: eVz / eQ, x: eX / eQ, y: eY / eQ }); eQ = eL = eT = eVx = eVy = eVz = eX = eY = 0; } };
         for (let k = 0; k < 500; k++) {
           const U = Math.hypot(vx, vy, vz);
           if (U < 0.05) break;
@@ -284,13 +301,13 @@
           const ez = Math.max(0.05, dz) * w, below = Math.min(1, Math.max(0, (zp + 0.5 * ez - zStop) / ez));
           if (below > 0) {
             const d = f * below, sc = Rz(zStop) / Rz(Math.min(zp, zStop)), Lz = Math.max(0, x * vy - y * vx) * sc;
-            film.Lq += qj * d * Lz; film.reach += qj * d;
-            eQ += d; eVx += d * vx; eVy += d * vy; eVz += d * vz; eX += d * x * sc; eY += d * y * sc;
+            film.reach += qj * d;
+            eQ += d; eL += d * Lz; eT += d * tp; eVx += d * vx; eVy += d * vy; eVz += d * vz; eX += d * x * sc; eY += d * y * sc;
             if (eQ >= 0.25) flush();
             f -= d;
             if (f < 0.02) {   // the last sliver enters with the rest
-              film.Lq += qj * f * Lz; film.reach += qj * f;
-              eQ += f; eVx += f * vx; eVy += f * vy; eVz += f * vz; eX += f * x * sc; eY += f * y * sc; f = 0; break;
+              film.reach += qj * f;
+              eQ += f; eL += f * Lz; eT += f * tp; eVx += f * vx; eVy += f * vy; eVz += f * vz; eX += f * x * sc; eY += f * y * sc; f = 0; break;
             }
             const off = 0.5 * w * below;   // move the centreline up across the band to the middle of the part left
             x -= off * dx; y -= off * dy; zp = Math.max(0.001, zp - off * dz); w *= 1 - below;
@@ -300,8 +317,9 @@
             const Vm2 = Math.hypot(vx, vy, vz) || 1; vx *= U / Vm2; vy *= U / Vm2; vz *= U / Vm2;
             nx = nrm[0]; ny = nrm[1]; nz = nrm[2];
           }
-          mark(x, y, zp, dx, dy, dz, 0, w, tau, zStop);
+          if (tp <= front) mark(x, y, zp, dx, dy, dz, 0, w, tau, zStop);   // only the wall the front has reached is wet
           const dtp = dl / U, af = p.cf * U / (2 * h);
+          tp += dtp;
           // forces along the wall: gravity (+z is down) and wall friction against the velocity; the wall reaction
           // keeps the film on the wall and is taken into account by moving the velocity into the new tangent plane
           const ax0 = -af * vx, ay0 = -af * vy, az0 = G - af * vz, an = ax0 * nx + ay0 * ny + az0 * nz;
@@ -340,9 +358,11 @@
           if (probeFilm) probeFilm({ t, jet: j, k, x, y, z: zp, vx, vy, vz, f, w, zStop, cf: p.cf, h, hitRim });
           w += p.ksp * Un * dtp;
           // the drawn path is the centreline above water; it ends where the centreline meets the waterline
-          if (pts && !drawnEnd) { if (zp >= zStop) { pushPt(); drawnEnd = true; wDrawn = w; } else if (k % 3 === 0) pushPt(); }
+          if (pts && !drawnEnd) { if (zp >= zStop || tp > front) { pushPt(); drawnEnd = true; wDrawn = w; } else if (k % 3 === 0) pushPt(); }
         }
         flush();
+        if (f > 0) film.parcels.push({ q: f * qj, L: 0, tau: tp, splash: false });   // lost on the wall: arrives without swirl or splash
+        film.tauMax = Math.max(film.tauMax, tp);
         if (pts) { if (!drawnEnd) { pushPt(); wDrawn = w; } rec.jets.push({ pts, w: wDrawn }); }
       }
       if (rec) lines.push(rec);
@@ -376,11 +396,23 @@
       const on = !(Qj < 2e-5 || vj < 0.05);
       if (on !== film.active) return true;
       if (!on) return false;
-      return Math.abs(vj / film.vjR - 1) > tolV || Math.abs(z - film.zR) > tolZ || t - film.tR >= tMaxR - 1e-9;
+      // while the film front is still growing along the path, trace more often so the wetted area follows it
+      const tMx = t - film.tStart < film.tauMax ? Math.min(tMaxR, opts.coarse ? 0.2 : 0.1) : tMaxR;
+      return Math.abs(vj / film.vjR - 1) > tolV || Math.abs(z - film.zR) > tolZ || t - film.tR >= tMx - 1e-9;
     }
 
-    let Vc = Vfl, Vrel = 0, L = 0, phi = 0;
-    let primed = false, Vt = 0, primeT = null, breakT = null, everPrimed = false;
+    let Vc = Vcist0, Vgo = Vfl, Vrel = 0, L = 0, phi = 0;   // cistern content; volume still to be released
+    let primed = false, Vt = 0, primeT = null, breakT = null, everPrimed = false, nPrimes = 0;
+    // bowl refill (siphonic): after the valve has closed, the fill valve's refill tube runs into the bowl
+    const Vref0 = siph ? Math.max(0, p.refill) / 1000 : 0, qRef = (p.qRefill || 0.1) / 1000;
+    let VrefLeft = Vref0, Vref = 0;
+    const Vbrk = volAtLevel(g, -ds);   // pool volume when the level reaches the trap inlet
+    /* Film transit. The water on the wall is a store: it tends to the steady amount for the current paths (nozzle
+       flow times travel time) with the flow-weighted mean travel time as time constant, and nothing reaches the
+       pool before the film front has got there. When the pool rises and the paths get shorter, the store drains
+       faster; when the cistern stops, it drains out. What arrives carries the current mean angular momentum and
+       entry velocity of the films. */
+    let Vtransit = 0, tauM = 0, tauMin = 0, Lm = 0, sShare = 0, mVx = 0, mVy = 0, mVz = 0, mX = 0, mY = 0;
     let Ms = p.Ms, Np = p.Np, capS = 0, Vin = 0;
     let tEmpty = null, Qpeak = 0, vsPeak = 0, zPeak = 0, dipPeak = 0;
     const rec = light ? null : { t: [], Qin: [], Qout: [], z: [], Vc: [], vs: [], phi: [], Ms: [], Np: [], primed: [], Vt: [] };
@@ -404,63 +436,107 @@
     for (let n = 0; ; n++) {
       const t = n * dt; tEnd = t;
       // stop once the flush is over: cistern empty and 6 s of settling, but never before Tend or after Tmax
-      if (t > Tend && tEmpty !== null && t > tEmpty + 6) break;
+      if (t > Tend && tEmpty !== null && t > tEmpty + 6 && VrefLeft <= 1e-9 && Vtransit <= 1e-9) break;
       if (t > Tmax) break;
       // cistern and jets
-      const open = Vc > 1e-7 ? Math.min(1, t / p.tOpen) : 0;
+      const open = Vgo > 1e-7 ? Math.min(1, t / p.tOpen) : 0;
       const H = Vc / p.Acist + Hcr;
       const vj = open * Math.sqrt(2 * G * H / (1 + p.Kpath));
       let Qin = nJ * An * vj;
-      if (Qin * dt > Vc) Qin = Vc / dt;
-      if (Vc > 1e-7 && Vc - Qin * dt <= 1e-7 && tEmpty === null) tEmpty = t + dt;
-      Vc = Math.max(0, Vc - Qin * dt); Vin += Qin * dt;
+      if (Qin * dt > Vgo) Qin = Vgo / dt;
+      if (Vgo > 1e-7 && Vgo - Qin * dt <= 1e-7 && tEmpty === null) tEmpty = t + dt;   // valve closes: flush released
+      Vgo = Math.max(0, Vgo - Qin * dt); Vc = Math.max(0, Vc - Qin * dt); Vin += Qin * dt;
+      // refill into the bowl once the valve has closed
+      let Qref = 0;
+      if (VrefLeft > 0 && tEmpty !== null && t >= tEmpty) { Qref = Math.min(qRef, VrefLeft / dt); VrefLeft -= Qref * dt; Vref += Qref * dt; }
+
       if (Qin > Qpeak) Qpeak = Qin;
 
       const z = levelFromVol(g, Vrel);
       if (needRetrace(n, t, vj, Qin / nJ, z)) { traceFilm(vj, Qin / nJ, z, t); doseInterval(t); }
       if (film.active) { film.allQ += Qin * dt; film.lostQ += Qin * Math.max(0, 1 - film.reach) * dt; }
-
-      // outflow
-      const Qw = z > 0 ? p.Cweir * Lw * Math.pow(z, 1.5) : 0;
-      let Qout, Qtrans;
-      if (!siph) {
-        const Qcap = 0.6 * At * Math.sqrt(2 * G * (Math.max(z, 0) + ds));
-        Qout = Math.min(Qw, Qcap); Qtrans = Qout;
-      } else if (!primed) {
-        Qout = Qw; Qtrans = Qw;
-        if (Qw > Qg) Vt += (Qw - Qg) * dt; else Vt = Math.max(0, Vt - (Qg - Qw) * dt);
-        if (Vt >= Vtrap) { primed = true; everPrimed = true; if (primeT === null) primeT = t; }
-      } else {
-        Qout = At * Math.sqrt(2 * G * Math.max(0, z + Hs) / p.Ks); Qtrans = Qout;
-        if (z <= -ds) { Qbrk = Qout; tBrk = t; primed = false; Vt = 0; Qout = 0; Qtrans = 0; breakT = t; }
+      // mean properties of the current films (kept from the last trace once the jets have stopped)
+      if (film.active && film.tR === t) {
+        let sq = 0, st = 0, sl = 0, ss = 0, vx_ = 0, vy_ = 0, vz_ = 0, x_ = 0, y_ = 0, tmin = Infinity;
+        for (const pc of film.parcels) {
+          sq += pc.q; st += pc.q * pc.tau; sl += pc.q * pc.L; if (pc.tau < tmin) tmin = pc.tau;
+          if (pc.splash) { ss += pc.q; vx_ += pc.q * pc.vx; vy_ += pc.q * pc.vy; vz_ += pc.q * pc.vz; x_ += pc.q * pc.x; y_ += pc.q * pc.y; }
+        }
+        if (sq > 0) { tauM = st / sq; tauMin = tmin; Lm = sl / sq; sShare = ss / sq; }
+        if (ss > 0) { mVx = vx_ / ss; mVy = vy_ / ss; mVz = vz_ / ss; mX = x_ / ss; mY = y_ / ss; }
       }
-      Vrel += (Qin - Qout) * dt;
-      if (Vrel < g.vt[0] + 1e-6) Vrel = g.vt[0] + 1e-6;
-      if (Vrel > g.Vrim) { Vspill += Vrel - g.Vrim; Vrel = g.Vrim; if (overflowT === null) overflowT = t; }   // water over the rim
+      let Qarr;
+      if (!film.active && film.tR < 0) Qarr = Qin;                     // no film traced yet
+      else if (film.active && t - film.tStart < tauMin) Qarr = 0;      // front not yet at the pool
+      else {
+        const Vtgt = film.active ? Qin * tauM : 0, T = Math.max(dt, tauM);
+        Qarr = Math.max(0, Math.min(Qin + Vtransit / dt, Qin + (Vtransit - Vtgt) / T));
+      }
+      if (!film.active && Qin > 0 && film.tR >= 0 && tauM === 0) Qarr = Qin;   // a film too weak to trace delivers directly
+      Vtransit = Math.max(0, Vtransit + (Qin - Qarr) * dt);
+      const Larr = Qarr * Lm, Qs = Qarr * sShare, aVx = mVx, aVy = mVy, aVz = mVz, aX = mX, aY = mY;
+      const Qpin = Qarr + Qref;   // flow reaching the pool this step
 
-      // swirl (angular momentum of pool, solid-body)
-      const Vpool = Math.max(1e-4, g.Vstatic + Vrel);
-      const Rc = g.rAtLevel(z);
-      const I = 0.25 * RHO * Vpool * Rc * Rc * (E + 1 / E);   // elliptic pool, same area as circle of radius Rc
-      let om = L / I;
-      const Tin = film.active ? p.eta * RHO * Qin * film.Lq : 0;   // only film that reaches the pool brings swirl
-      const Tout = (Qout / Vpool) * L;
-      const Awet = Math.PI * Rc * Rc + perimF * TAU2 * Rc * (ds + 0.03 + Math.max(z, 0));
-      const Tf = 0.5 * RHO * p.cfp * ovPen * Awet * (om * Rc) ** 2 * Rc;
-      L = Math.max(0, L + (Tin - Tout - Tf) * dt);
+      // outflow, pool level and swirl. When a large share of the pool would leave within one step (a primed siphon
+      // drawing a small pool down to the trap inlet), the step is split into sub-steps, so the level, the break
+      // and the spin-up of the shrinking pool do not depend on the time step.
+      const Tin = p.eta * RHO * Larr;   // swirl brought by the film arriving now (lost flow brings none)
+      const Vp0 = Math.max(1e-9, g.Vstatic + Vrel), Qest = siph && primed ? At * Math.sqrt(2 * G * Math.max(0, z + Hs) / p.Ks) : 0;
+      const nSub = Qest > 0 ? Math.min(40, Math.max(1, Math.ceil(Qest * dt / (0.02 * Vp0)))) : 1, hs = dt / nSub;
+      let Qw = 0, Qout = 0, Qtrans = 0, Tout = 0, Tf = 0, Vpool = Vp0, Rc = g.rAtLevel(z), I = 1e-12, om = 0;
+      for (let sb = 0; sb < nSub; sb++) {
+        const zS = sb === 0 ? z : levelFromVol(g, Vrel), tS = t + sb * hs;
+        const qw = zS > 0 ? p.Cweir * Lw * Math.pow(zS, 1.5) : 0;
+        let qo, qt;
+        if (!siph) {
+          const Qcap = 0.6 * At * Math.sqrt(2 * G * (Math.max(zS, 0) + ds));
+          qo = Math.min(qw, Qcap); qt = qo;
+        } else if (!primed) {
+          qo = qw; qt = qw;
+          if (qw > Qg) Vt += (qw - Qg) * hs; else Vt = Math.max(0, Vt - (Qg - qw) * hs);
+          if (Vt >= Vtrap) { primed = true; everPrimed = true; nPrimes++; if (primeT === null) primeT = tS; }
+        } else {
+          // primed siphon; a sub-step that would draw the pool below the trap inlet ends exactly at the inlet,
+          // and the siphon breaks there (air enters the leg)
+          const Qfull = At * Math.sqrt(2 * G * Math.max(0, zS + Hs) / p.Ks);
+          qo = Qfull;
+          if (Vrel + (Qpin - Qfull) * hs <= Vbrk) {
+            qo = Math.max(0, Qpin + (Vrel - Vbrk) / hs);
+            Qbrk = Qfull; tBrk = tS; breakT = tS; primed = false; Vt = 0;
+          }
+          qt = qo;
+        }
+        // the pool can never hold less than its basin: outflow is limited instead (no water is created)
+        if (Vrel + (Qpin - qo) * hs < g.vt[0]) { qo = Math.max(0, Qpin + (Vrel - g.vt[0]) / hs); qt = Math.min(qt, qo); }
+        Vrel += (Qpin - qo) * hs;
+        if (Vrel > g.Vrim) { Vspill += Vrel - g.Vrim; Vrel = g.Vrim; if (overflowT === null) overflowT = tS; }   // water over the rim
+        // swirl of the pool as a solid body, with the level after this sub-step's flows
+        const zN = levelFromVol(g, Vrel);
+        Vpool = Math.max(1e-9, g.Vstatic + Vrel); Rc = g.rAtLevel(zN);
+        I = Math.max(1e-12, 0.25 * RHO * (E + 1 / E) * q4AtLevel(g, zN));   // integrated over the narrowing basin
+        om = L / I;
+        const to = (qo / Vpool) * L;
+        const Awet = Math.PI * Rc * Rc + perimF * TAU2 * Rc * (ds + 0.03 + Math.max(zN, 0));
+        const tf = 0.5 * RHO * p.cfp * ovPen * Awet * (om * Rc) ** 2 * Rc;
+        L = Math.max(0, L + (Tin - to - tf) * hs);
+        Qw += qw / nSub; Qout += qo / nSub; Qtrans += qt / nSub; Tout += to / nSub; Tf += tf / nSub;
+      }
       om = L / I; phi += om * dt;
       const vs = om * Rc, dip = vs * vs / (2 * G);
-      if (vs > vsPeak) vsPeak = vs; if (z > zPeak) zPeak = z; if (dip > dipPeak) dipPeak = dip;
+      // peak swirl and vortex dip are taken while the trap carries flow: after a siphon break the sump left in the
+      // bowl can spin up strongly while nothing drains, a state the solid-body pool does not describe well and in
+      // which swirl affects neither waste transport nor the air core
+      if (Qout > 1e-6) { if (vs > vsPeak) vsPeak = vs; if (dip > dipPeak) dipPeak = dip; }
+      if (z > zPeak) zPeak = z;
 
       // noise indicator. Every source is written as a flow of air into the water (m3/s), weighted by the
       // sound it makes per unit of air: 1 for fine splash bubbles, wTrap for large air pockets in the trap.
       // The weighted sum stands for radiated sound power and is only used relative to a reference.
       // 1 jet films plunging into the pool, speed relative to the local surface velocity of the rotating pool
       s1L[0] = s1L[1] = s1L[2] = 0;
-      if (film.active) for (const e of film.end) {
-        const ur = Math.hypot(e[1] + om * e[5], e[2] - om * e[4], e[3]);   // pool surface moves at om x r
-        const Qe = e[0] * Qin;                                             // this parcel's share of the current jet flow
-        for (let k = 0; k < 3; k++) s1L[k] += ent(Qe, ur, UeL[k]);
+      if (Qs > 0) {   // film arriving now, with its flow-weighted mean entry velocity
+        const ur = Math.hypot(aVx + om * aY, aVy - om * aX, aVz);   // pool surface moves at om x r
+        for (let k = 0; k < 3; k++) s1L[k] += ent(Qs, ur, UeL[k]);
       }
       // 2 water falling from the trap weir into the outlet (free surface flow only)
       const Qfree = siph && primed ? 0 : Qout;
@@ -472,7 +548,7 @@
       if (core) { airDur += dt; if (airT === null) airT = t; }
       // 4 siphon break: air replaces the water in the trap leg at the rate the siphon was carrying it out,
       // decaying once the leg's volume has been replaced (time constant Vtrap / Qbrk)
-      const s4 = tBrk !== null && t >= tBrk ? Qbrk * Math.exp(-(t - tBrk) * Qbrk / Math.max(1e-9, Vtrap)) : 0;
+      const s4 = !primed && tBrk !== null && t >= tBrk ? Qbrk * Math.exp(-(t - tBrk) * Qbrk / Math.max(1e-9, Vtrap)) : 0;
       Wsrc[0] = s1L[0]; Wsrc[1] = s2L[0][0]; Wsrc[2] = p.wTrap * (core ? p.cCore * Qout : 0); Wsrc[3] = p.wTrap * s4;
       for (let k = 0; k < 4; k++) { Esrc[k] += Wsrc[k] * dt; WfS[k] += (Wsrc[k] - WfS[k]) * aF; }
       for (let v = 0; v < NV; v++) {
@@ -492,7 +568,7 @@
       Ms = Math.max(0, Ms - rS * dt); capS += fS * capRate * dt;
       const fP = Math.min(1, Math.max(0, (ut / p.ucP - 1) / 0.5));
       Np = Math.max(0, Np - fP * p.kP * Np * (p.phi0 + (1 - p.phi0) * Cs) * dt);
-      if (probe) probe({ n, t, dt, Vc, vj, Qin, z, Vrel, Qw, Qout, Qtrans, primed, Vt, Vpool, Rc, I, L, Tin, Tout, Tf, om, Ms, Np, ut, fS, fP, Cs, Vspill });
+      if (probe) probe({ n, t, dt, Vc, Vgo, vj, Qin, Qarr, Vtransit, tauM, Qref, Qpin, z, Vrel, Qw, Qout, Qtrans, primed, Vt, Vpool, Rc, I, L, Tin, Tout, Tf, om, Ms, Np, ut, fS, fP, Cs, Vspill });
 
       if (rec && n % 2 === 0) {
         rec.t.push(t); rec.Qin.push(Qin * 1000); rec.Qout.push(Qout * 1000); rec.z.push(z * 1000);
@@ -505,9 +581,9 @@
 
     if (pOn) { film.active = false; doseInterval(tEnd + dt); }   // a film still running at the end (unfinished flush)
     // seal after flush, including bowl refill
+    // seal after the flush: the simulated level at the end, refill included
     const zEnd = levelFromVol(g, Vrel);
-    const zFinal = Math.min(0, levelFromVol(g, Vrel + p.refill / 1000 * (siph ? 1 : 0)));
-    const sealEnd = siph ? Math.max(0, Math.min(ds, ds + zFinal)) * 1000 : ds * 1000;
+    const sealEnd = siph ? Math.max(0, Math.min(ds, ds + Math.min(0, zEnd))) * 1000 : ds * 1000;
 
     // cleaning metrics
     let Atot = 0, Aclean = 0, Awet = 0;
@@ -516,15 +592,15 @@
     let lineHit = 0;
     for (let it = 0; it < NTH; it++) if (J[lineRow * NTH + it] >= p.Jcrit) lineHit++;
 
-    const incomplete = Vc > 1e-6;   // cistern still not empty at Tmax
-    const water = Vin * 1000 + (siph ? p.refill : 0);   // water actually released, plus bowl refill
+    const incomplete = Vgo > 1e-6;   // flush still not released at Tmax
+    const water = (Vin + Vref) * 1000;   // water actually released, plus the bowl refill that ran in
     const out = {
       p, geom: g, NTH, NS, dsb,
       cleanPct: 100 * Aclean / Atot, wetPct: 100 * Awet / Atot, linePct: 100 * lineHit / NTH,
       solidsPct: p.Ms > 0 ? 100 * (1 - Ms / p.Ms) : 100, paperPct: p.Np > 0 ? 100 * (1 - Np / p.Np) : 100,
       capS, water, flushVol: Vfl * 1000, Qpeak: Qpeak * 1000, tEmpty, vsPeak, zPeak: zPeak * 1000, dipPeak: dipPeak * 1000,
       primeT, breakT, everPrimed, sealEnd, sealOK: sealEnd >= p.sealMin - 0.5, zEnd: zEnd * 1000,
-      tEnd, incomplete, cisternLeft: Vc * 1000, overflow: overflowT !== null, overflowT, spill: Vspill * 1000, valid: overflowT === null && !incomplete,
+      tEnd, incomplete, cisternLeft: Vgo * 1000, nPrimes, refillIn: Vref * 1000, overflow: overflowT !== null, overflowT, spill: Vspill * 1000, valid: overflowT === null && !incomplete,
       cleanPerL: 100 * Aclean / Atot / water,
       filmLostPct: film.allQ > 0 ? 100 * film.lostQ / film.allQ : 0, filmRetraces: film.nR,
       noise: (() => {
@@ -543,5 +619,5 @@
     return out;
   }
 
-  root.FlushModel = { simulate, defaults, PRESETS, COEFFS, buildGeom, geomAt, sAtDepth, levelFromVol, coreFactor, rankineF, noiseCorners, NTH, NS };
+  root.FlushModel = { simulate, defaults, PRESETS, COEFFS, buildGeom, geomAt, sAtDepth, levelFromVol, volAtLevel, q4AtLevel, coreFactor, rankineF, noiseCorners, NTH, NS };
 })(typeof window !== 'undefined' ? window : globalThis);
