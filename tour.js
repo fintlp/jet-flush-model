@@ -128,7 +128,7 @@
   }
 
   async function show(i, fromBack) {
-    const s = STEPS[i]; idx = i; busy = true;
+    const s = STEPS[i], ses = session; idx = i; busy = true;
     $('tourStep').textContent = `Step ${i + 1} of ${STEPS.length}`;
     $('tourTitle').textContent = s.t;
     $('tourDots').innerHTML = STEPS.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('');
@@ -140,7 +140,7 @@
     $('tourText').innerHTML = s.slow ? '<p class="tour-hint">Searching about 540 designs, this takes a few seconds…</p>' : '<p class="tour-hint">…</p>';
     if (s.x && !(fromBack && s.slow)) { try { await s.x(); } catch (e) { } }
     await wait(reduce() ? 0 : 350);
-    if (idx !== i || !active) return;
+    if (ses !== session || idx !== i || !active) return;   // closed, or closed and reopened, meanwhile
     $('tourText').innerHTML = s.h();
     if (s.last) {
       $('tourText').insertAdjacentHTML('beforeend', `<div class="tour-end"><button class="btn" type="button" id="tourRestore">Bring my design back</button><button class="btn" type="button" id="tourKeep">Keep this design</button></div>`);
@@ -154,7 +154,7 @@
 
   function start() {
     if (active) return;
-    session++; startSnap = A.snapshot(); mem = {}; active = true; ov.hidden = false; document.body.classList.add('touring');
+    session++; startSnap = A.histState(); mem = {}; active = true; ov.hidden = false; document.body.classList.add('touring');
     startPin = A.pin(); if (startPin) A.setPin(null);   // the demo compares with the preset; a pinned reference comes back at the end
     if (A.isPhone()) A.drawer(false);
     cancelAnimationFrame(raf); raf = requestAnimationFrame(place);
@@ -164,7 +164,8 @@
     if (!active) return;
     session++; active = false; ov.hidden = true; document.body.classList.remove('touring'); cancelAnimationFrame(raf);
     A.stop();
-    if (restore && startSnap) A.apply(startSnap);
+    if (startSnap) A.restoreState(startSnap, !restore);   // undo history and deltas as before the walkthrough
+    startSnap = null;
     if (startPin) { A.setPin(startPin); startPin = null; }
     const b = $('demoBtn'); if (b) b.focus({ preventScroll: true });
   }

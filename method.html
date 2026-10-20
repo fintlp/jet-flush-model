@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="How the Tangential Jet Flush Model works: geometry, wall film, pool swirl, outflow, waste transport, numerics, coefficients and calibration.">
+<meta name="description" content="How the Tangential Jet Flush Model works: geometry, wall film, pool swirl, outflow, waste transport, relative noise, numerics, coefficients and calibration.">
 <title>Jet Flush Model Method</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -93,8 +93,8 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
   <header>
     <span class="eyebrow">Model description · Tangential Jet Flush Model</span>
     <h1>How the jet flush model works</h1>
-    <p class="lede">A reduced-order model of a rimless WC flushed by tangential rim jets. It traces each jet as a film on the bowl wall, follows the pool level, swirl and trap flow, and estimates cleaning, waste removal and water use. One flush takes about 5 to 20 milliseconds to compute in a web browser.</p>
-    <p class="meta">Version 1.3.0 · 20 October 2026 · <a href="https://github.com/fintlp/jet-flush-model#change-log">change log</a> · model code: <a href="https://github.com/fintlp/jet-flush-model/blob/main/model.js">model.js</a></p>
+    <p class="lede">A reduced-order model of a rimless WC flushed by tangential rim jets. It traces each jet as a film on the bowl wall, follows the pool level, swirl and trap flow, and estimates cleaning, waste removal, water use and relative noise. One flush takes about 5 to 20 milliseconds to compute in a web browser.</p>
+    <p class="meta">Version 1.3.1 · 20 October 2026 · <a href="https://github.com/fintlp/jet-flush-model#change-log">change log</a> · model code: <a href="https://github.com/fintlp/jet-flush-model/blob/main/model.js">model.js</a></p>
   </header>
 
   <div class="layout">
@@ -154,8 +154,9 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
 
         <h3>Changing the design</h3>
         <ul>
-          <li><strong>Presets:</strong> EU washdown (4.5/3 L) and siphonic (4.8 L). Full or partial flush is switched next to the preset.</li>
+          <li><strong>Presets:</strong> EU washdown (4.5/3 L) and siphonic (4.8 L flush plus 0.6 L bowl refill, so 5.4 L per flush in the water use). Full or partial flush is switched next to the preset.</li>
           <li><strong>Sliders:</strong> grouped into cistern and flush, tangential jets, bowl and trap, siphon, test load, model coefficients and noise model. Each has an <strong>i</strong> button with a one-line explanation. The coefficient and noise groups are marked advanced; they hold the values that calibration would fit, not design choices.</li>
+          <li><strong>Rim and pool radius:</strong> the pool radius always stays at least 25 mm smaller than the rim radius, so the bowl wall keeps a width. The slider being moved stops at that gap; the other radius is never changed. In the design sweep, cells that break it are hatched and not simulated.</li>
           <li><strong>On phones:</strong> the sliders open in a drawer from the Adjust design button. The bar at the bottom always shows cleaning, solids and water with their change, so the effect is visible while you edit.</li>
         </ul>
 
@@ -681,7 +682,7 @@ console.log(r.cleanPct, r.solidsPct, r.water, r.noise.peak);</div>
 
       <footer class="foot">
         <span class="navl"><a href="./">← Simulator</a><a href="why.html">Why</a><a href="sources.html">Sources and references</a></span>
-        <span>Tangential Jet Flush Model · v1.3.0 · Peter Fintl</span>
+        <span>Tangential Jet Flush Model · v1.3.1 · Peter Fintl</span>
       </footer>
     </main>
   </div>

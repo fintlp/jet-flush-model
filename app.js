@@ -95,7 +95,7 @@
   const GROUPS = [
     ['flush', 'Cistern and flush', true, ''],
     ['jets', 'Tangential jets', true, 'Jets sit at the rim, evenly spaced, all pointing the same way round the bowl. At 0° jet 1 sits at the end of the long axis, at 90° on the side.'],
-    ['bowl', 'Bowl and trap', true, 'An oval bowl keeps the area of a round bowl with the equivalent radius, so volumes and levels do not change with ovality.'],
+    ['bowl', 'Bowl and trap', true, 'An oval bowl keeps the area of a round bowl with the equivalent radius, so volumes and levels do not change with ovality. The pool radius always stays at least 25 mm smaller than the rim radius.'],
     ['siph', 'Siphon', false, 'Used only when the trap type is siphonic.'],
     ['load', 'Test load', false, 'Media placed in the pool before the flush.'],
     ['coef', 'Model coefficients · advanced', false, 'Uncalibrated defaults. Fit them to CFD or rig data, see Calibrating it below.'],
@@ -103,8 +103,12 @@
   ];
 
   let P = M.defaults('washdown');
+  // the pool must stay at least GAP smaller than the rim, or the bowl wall has no width (same rule as the AI lab)
+  const GAP = 25;
+  const gapOK = (q) => q.Rpool <= q.Rrim - GAP + 1e-9;
   const STORE = 'tfs-params-v1';
   try { const s = localStorage.getItem(STORE); if (s) { const o = JSON.parse(s); if (o && typeof o === 'object') for (const k in o) if (k in P) P[k] = o[k]; } } catch (e) { }
+  if (!gapOK(P)) P.Rpool = Math.max(40, P.Rrim - GAP);   // a design saved before the rule existed
   // a returning visitor gets their last design back; say so when it differs from its preset
   const restoredDiffers = (() => { const d = M.defaults(P.type === 'siphonic' ? 'siphonic' : 'washdown'); return Object.keys(d).some((k) => typeof d[k] === 'number' ? Math.abs((+P[k]) - d[k]) > 1e-9 : P[k] !== d[k]); })();
   // settings are remembered in this browser, except while the Demo me walkthrough drives the page
@@ -128,7 +132,13 @@
       w.innerHTML = `<div class="row"><span style="font-size:13px">Trap type</span></div><div class="seg" role="group" aria-label="Trap type"><button type="button" data-type="washdown">Washdown</button><button type="button" data-type="siphonic">Siphonic</button></div>`;
       body.appendChild(w);
       typeBtns = w.querySelectorAll('button');
-      typeBtns.forEach((b) => b.addEventListener('click', () => { P.type = b.dataset.type; syncControls(); changed(); }));
+      typeBtns.forEach((b) => b.addEventListener('click', () => {
+        if (P.type === b.dataset.type) return;
+        P.type = b.dataset.type;
+        // a siphon empties the trap, so a siphonic bowl without refill would end with no water seal
+        if (P.type === 'siphonic' && !(P.refill > 0)) P.refill = M.PRESETS.siphonic.refill;
+        syncControls(); changed();
+      }));
     }
     SPEC.filter((s) => s.g === g).forEach((s) => {
       const id = 'p_' + s.k, w = document.createElement('div');
@@ -137,7 +147,14 @@
       body.appendChild(w);
       const inp = w.querySelector('input'), ib = w.querySelector('.info');
       if (ib) ib.addEventListener('click', () => { const hp = w.querySelector('.help'), open = hp.hidden; hp.hidden = !open; ib.setAttribute('aria-expanded', String(open)); });
-      inp.addEventListener('input', () => { P[s.k] = parseFloat(inp.value); setOut(s); changed(); });
+      inp.addEventListener('input', () => {
+        let v = parseFloat(inp.value);
+        // the slider being moved stops at the gap; the other radius is never changed
+        if (s.k === 'Rrim' && v < P.Rpool + GAP) { v = P.Rpool + GAP; inp.value = v; }
+        if (s.k === 'Rpool' && v > P.Rrim - GAP) { v = P.Rrim - GAP; inp.value = v; }
+        if (v === P[s.k]) return;
+        P[s.k] = v; setOut(s); changed();
+      });
       ctl[s.k] = { inp, w, s };
     });
     rail.appendChild(det);
@@ -152,6 +169,7 @@
     $('mPart').setAttribute('aria-pressed', String(P.flushMode === 'partial'));
     ctl.Vfull.w.classList.toggle('off', P.flushMode === 'partial');
     ctl.Vpart.w.classList.toggle('off', P.flushMode !== 'partial');
+    $('preset').value = P.type === 'siphonic' ? 'siphonic' : 'washdown';   // the preset family always matches the trap type
   }
   $('mFull').addEventListener('click', () => { P.flushMode = 'full'; syncControls(); changed(); });
   $('mPart').addEventListener('click', () => { P.flushMode = 'partial'; syncControls(); changed(); });
@@ -168,7 +186,7 @@
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z' && !typing && !document.body.classList.contains('touring')) { e.preventDefault(); undo(); }
   });
   $('pinBtn').addEventListener('click', () => {
-    if (pinned) { pinned = null; } else { const d = new Date(); pinned = { k: kpis(), t: d.toTimeString().slice(0, 5) }; }
+    if (pinned) { pinned = null; } else { const d = new Date(); pinned = { k: kpis(), p: snapP(), t: d.toTimeString().slice(0, 5) }; }
     refreshReference();
   });
   // everything that depends on the reference: cards, noise trace and its scale
@@ -195,8 +213,22 @@
     if (refCache.key !== key) { const r = M.simulate(d, { light: true, Tend: SIM_T }); refCache = { key, val: { peak: r.noise.peak, energy: r.noise.energy, peakV: r.noise.peakV, energyV: r.noise.energyV, kind, mode: P.flushMode } }; }
     return refCache.val;
   }
+  /* the pinned design, evaluated with the current model and noise coefficients: changing a coefficient
+     then shifts the reference and the current design alike, and an unchanged design still reads zero */
+  let pinCache = { key: null, k: null };
+  const kpisOf = (r) => ({ clean: r.cleanPct, solids: r.solidsPct, paper: r.paperPct, water: r.water, noise: r.noise.peak, noiseE: r.noise.energy, noiseV: r.noise.peakV, noiseEV: r.noise.energyV });
+  function pinnedK() {
+    if (!pinned) return null;
+    if (!pinned.p) return pinned.k;
+    const q = Object.assign({}, pinned.p); Object.keys(M.COEFFS).forEach((k) => { q[k] = P[k]; });
+    if (Object.keys(M.COEFFS).every((k) => q[k] === pinned.p[k])) return pinned.k;
+    const key = JSON.stringify(q);
+    if (pinCache.key !== key) pinCache = { key, k: kpisOf(M.simulate(q, { Tend: SIM_T })) };
+    return pinCache.k;
+  }
   function noiseRef() {
-    if (pinned && pinned.k && pinned.k.noise != null) return { peak: pinned.k.noise, energy: pinned.k.noiseE, peakV: pinned.k.noiseV, energyV: pinned.k.noiseEV, pin: true, label: `pinned reference from ${pinned.t}` };
+    const pk = pinnedK();
+    if (pk && pk.noise != null) return { peak: pk.noise, energy: pk.noiseE, peakV: pk.noiseV, energyV: pk.noiseEV, pin: true, label: `pinned reference from ${pinned.t}` };
     const v = presetNoise();
     return { peak: v.peak, energy: v.energy, peakV: v.peakV, energyV: v.energyV, pin: false, label: `${v.kind === 'siphonic' ? 'Siphonic' : 'EU washdown'} preset, ${v.mode === 'partial' ? 'partial' : 'full'} flush` };
   }
@@ -206,14 +238,29 @@
     clearTimeout(burstT); burstT = setTimeout(endChange, 1200);
   }
   function endChange() { clearTimeout(burstT); burst = false; committed = snapP(); committedK = kpis(); updateHistUI(); }
-  function setAll(vals) { for (const k in vals) if (k in P) P[k] = vals[k]; syncControls(); $('preset').value = P.type === 'siphonic' ? 'siphonic' : $('preset').value; }
-  function applyNow(vals) { beginChange(); setAll(vals); T = TVIEW; playing = false; setPlay(); run(); markSweepStale(); endChange(); changeHooks.forEach((f) => { try { f(); } catch (e) { } }); }
+  function setAll(vals) { for (const k in vals) if (k in P) P[k] = vals[k]; syncControls(); }
+  function applyNow(vals) { if (burst) endChange(); beginChange(); setAll(vals); T = TVIEW; playing = false; setPlay(); run(); markSweepStale(); endChange(); changeHooks.forEach((f) => { try { f(); } catch (e) { } }); }
   function undo() {
     if (!hist.length) return;
     clearTimeout(burstT); burst = false;
     const prev = hist.pop(); baseline = kpis(); setAll(prev);
     T = TVIEW; playing = false; setPlay(); run(); markSweepStale();
     committed = snapP(); committedK = kpis(); updateHistUI(); changeHooks.forEach((f) => { try { f(); } catch (e) { } });
+  }
+  // the walkthrough takes the whole history state and puts it back, so it leaves no undo steps or deltas behind
+  function histState() { if (burst) endChange(); return { p: snapP(), hist: hist.slice(), committed, committedK, baseline }; }
+  function restoreState(st, keep) {
+    clearTimeout(burstT); burst = false;
+    if (keep) {
+      // keep the design on screen: it becomes one change, and Undo goes back to the design from before the walkthrough
+      hist = st.hist.concat(st.committed ? [st.committed] : []); if (hist.length > 60) hist.shift();
+      baseline = st.committedK; committed = snapP(); committedK = kpis(); refreshReference();
+    } else {
+      hist = st.hist.slice(); baseline = st.baseline; setAll(st.p);
+      T = TVIEW; playing = false; setPlay(); run(); markSweepStale();
+      committed = st.committed; committedK = st.committedK;
+    }
+    updateHistUI(); changeHooks.forEach((f) => { try { f(); } catch (e) { } });
   }
   function resetPreset() { const d = M.defaults($('preset').value); applyNow(d); hideRestored(); }
   function hideRestored() { const n = $('restoredNote'); if (n) n.hidden = true; }
@@ -636,7 +683,7 @@
   function flash(id, on) { const el = $(id); if (!el || !on) return; el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
   function updateKPIs() {
     const r = R, p = R.p;
-    const ref = pinned ? pinned.k : baseline;
+    const ref = pinned ? pinnedK() : baseline;
     $('kClean').innerHTML = `${r.cleanPct.toFixed(0)}<small>%</small>${deltaHTML(r.cleanPct, ref && ref.clean, 0, '')}`;
     $('kWet').textContent = r.wetPct.toFixed(0) + ' %';
     $('kLine').textContent = r.linePct.toFixed(0) + ' % washed';
@@ -690,7 +737,7 @@
     if (r.incomplete) $('kDur').textContent = 'over 60 s';
     // comparison line, flash on change, phone mini bar
     const cmp = $('cmpLine');
-    if (pinned) cmp.innerHTML = `Changes compared with your <b>pinned reference</b> from ${pinned.t}.`;
+    if (pinned) cmp.innerHTML = `Changes compared with your <b>pinned reference</b> from ${pinned.t}${pinnedK() !== pinned.k ? ', recomputed with the current model coefficients' : ''}.`;
     else if (baseline) cmp.innerHTML = 'Changes compared with the design <b>before your last edit</b>.';
     else cmp.textContent = 'Change a setting and the results show how much it helped or hurt.';
     $('pinBtn').textContent = pinned ? 'Clear reference' : 'Pin as reference';
@@ -803,6 +850,7 @@
       const c0 = performance.now();
       while (k < total && performance.now() - c0 < 14) {
         const q = Object.assign({}, base); q[xk] = xs[k % xs.length]; q[yk] = ys[Math.floor(k / xs.length)];
+        if (!gapOK(q)) { SW.res[k] = { blocked: true }; k++; continue; }   // pool not 25 mm smaller than the rim: not a bowl
         const r = M.simulate(q, { light: true, coarse: true, Tend: SIM_T });
         SW.res[k] = { valid: r.valid }; SW_M.forEach(([m]) => { SW.res[k][m] = r[m]; });
         SW.res[k].noisePeak = r.noise.peak - SW.nref.peak; SW.res[k].noiseEnergy = r.noise.energy - SW.nref.energy;
@@ -840,11 +888,20 @@
     }
     const mk = swM.value, md = SW_M.find((m) => m[0] === mk), nx = SW.xs.length, ny = SW.ys.length, cw = w / nx, chh = h / ny;
     let lo = Infinity, hi = -Infinity;
-    SW.res.forEach((r) => { if (r && r.valid !== false) { lo = Math.min(lo, r[mk]); hi = Math.max(hi, r[mk]); } });
+    SW.res.forEach((r) => { if (r && !r.blocked && r.valid !== false) { lo = Math.min(lo, r[mk]); hi = Math.max(hi, r[mk]); } });
     if (hi - lo < 1e-9) { hi = lo + 1; }
     let best = -1, bv = md[4] > 0 ? -Infinity : Infinity;
+    const ix0 = (k) => k % nx, iy0 = (k) => Math.floor(k / nx);
     SW.res.forEach((r, k) => {
       if (!r) return;
+      if (r.blocked) { // excluded by the rim gap rule: hatched, no value
+        const x0 = padL + ix0(k) * cw, y0 = padT + h - (iy0(k) + 1) * chh;
+        ctx.save(); ctx.beginPath(); ctx.rect(x0, y0, cw, chh); ctx.clip();
+        ctx.strokeStyle = rgba(C.muted, 0.45); ctx.lineWidth = 1 * d; ctx.beginPath();
+        for (let o = -chh; o < cw; o += 6 * d) { ctx.moveTo(x0 + o, y0 + chh); ctx.lineTo(x0 + o + chh, y0); }
+        ctx.stroke(); ctx.restore();
+        return;
+      }
       const v = r[mk], f = (v - lo) / (hi - lo), ix = k % nx, iy = Math.floor(k / nx);
       ctx.fillStyle = rgba(mix(C.seq0, C.seq1, f));
       ctx.fillRect(padL + ix * cw, padT + h - (iy + 1) * chh, Math.ceil(cw) + 0.5, Math.ceil(chh) + 0.5);
@@ -896,11 +953,12 @@
   }
   cvSweep.addEventListener('mousemove', (e) => {
     const c = swCell(e); if (!c || !SW.res[c.k]) return;
+    if (SW.res[c.k].blocked) { $('swHov').textContent = `${SPECK[SW.xk].l} ${SW.xs[c.ix]} ${SPECK[SW.xk].u}, ${SPECK[SW.yk].l.toLowerCase()} ${SW.ys[c.iy]} ${SPECK[SW.yk].u}: not simulated, the pool must stay at least 25 mm smaller than the rim.`; return; }
     const md = SW_M.find((m) => m[0] === swM.value), sx = SPECK[SW.xk], sy = SPECK[SW.yk];
     $('swHov').textContent = `${sx.l} ${SW.xs[c.ix]} ${sx.u}, ${sy.l.toLowerCase()} ${SW.ys[c.iy]} ${sy.u}: ${md[1].toLowerCase()} ${SW.res[c.k][md[0]].toFixed(md[3])} ${md[2]}${SW.res[c.k].valid === false ? ' (not valid: overflow or unfinished flush)' : ''}`;
   });
   cvSweep.addEventListener('click', (e) => {
-    const c = swCell(e); if (!c || SW.stale) return;
+    const c = swCell(e); if (!c || SW.stale || (SW.res[c.k] && SW.res[c.k].blocked)) return;
     applyNow({ [SW.xk]: SW.xs[c.ix], [SW.yk]: SW.ys[c.iy] }); drawSweep();
   });
 
@@ -914,6 +972,7 @@
     stop: () => { playing = false; setPlay(); },
     setTime: (t) => { T = t; playing = false; setPlay(); draw(); },
     snapshot: () => snapP(),
+    histState, restoreState,
     save, noiseRef, nRange, noise: () => (R ? R.noise : null),
     pin: () => pinned, setPin: (v) => { pinned = v || null; refreshReference(); },
     _test: { result: () => R, sweep: () => (SW ? { stale: SW.stale, done: SW.done, total: SW.res.length, dirty: !!SW.dirty } : null) },

@@ -14,7 +14,7 @@
       Hs: 250, Ks: 3.0, Qgrav: 0.6, Vtrap: 0.5, refill: 0.0
     },
     siphonic: {
-      label: 'Siphonic, 4.8 L',
+      label: 'Siphonic, 4.8 L + 0.6 L refill',
       type: 'siphonic', Vfull: 4.8, Vpart: 3.0, Hcr: 200, Kpath: 1.0,
       nJets: 2, Anoz: 4.5, hNoz: 12, alpha: 10, jetPhase: 0,
       Rrim: 150, Rpool: 80, ovality: 1.0, Dwall: 130, seal: 60, dTrap: 50,

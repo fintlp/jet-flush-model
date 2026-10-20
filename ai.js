@@ -51,6 +51,8 @@
 
   /* ---------------- stale results ---------------- */
   // A tool's results stay valid only while the settings it did not vary are unchanged.
+  // the surrogate and the hybrid calibration always simulate a full flush, so the flush button and the partial volume do not matter to them
+  const FULL_ONLY = ['flushMode', 'Vpart'];
   const fingerprint = (p, skip) => JSON.stringify(Object.keys(p).filter((k) => !skip.includes(k)).sort().map((k) => [k, p[k]]));
   function staleNote(id, isStale, what) {
     const el = $(id); if (!el) return;
@@ -179,7 +181,8 @@
       if (e.water > t.water + 1e-9) { v += (e.water - t.water) / 0.5; miss.push(`water ${fmt(e.water - t.water, 1)} L over`); }
       [['clean', 'cleaned'], ['solids', 'solids'], ['paper', 'paper']].forEach(([k, lab]) => { if (e[k] < t[k] - 1e-9) { v += (t[k] - e[k]) / 5; miss.push(`${lab} ${fmt(t[k] - e[k], t[k] - e[k] < 1 ? 1 : 0)} points short`); } });
       // a noise limit must hold over the whole uncertainty range, so the upper end counts
-      if (t.noise != null && O.cur && e !== O.cur) { const over = nRng(e).hi - t.noise; if (over > 1e-9) { v += over / 3; miss.push(`${fmt(over, 1)} dB too loud at the upper end of the sampled noise range`); } }
+      if (t.noise != null && O.cur) {   // the current design counts too: against itself it reads 0 dB
+        const over = nRng(e).hi - t.noise; if (over > 1e-9) { v += over / 3; miss.push(`${fmt(over, 1)} dB too loud at the upper end of the sampled noise range`); } }
     }
     e.viol = v; e.miss = miss; return e;
   }
@@ -224,6 +227,8 @@
     const vars = chosenVars();
     if (!vars.length) { $('optStatus').textContent = 'Tick at least one setting the search may change.'; return null; }
     const base = A.getP(), r = rng(1234), mode = optMode();
+    // the simulator keeps this gap; a design that breaks it (for example one stored by an older version) is not searched around
+    if (base.Rpool > base.Rrim - GAP + 1e-9 && !searched(vars, 'Rrim') && !searched(vars, 'Rpool')) { $('optStatus').textContent = `The current pool is less than ${GAP} mm smaller than the rim. Tick the rim or pool radius, or change them, then search again.`; return null; }
     const [POP, GENS] = $('optEffort').value === 'thorough' ? [60, 24] : [36, 14];
     if (O.stop) O.stop();   // cancel a search or re-check still running
     const tok = ++O.token, sid = ++O.searchId;
@@ -245,7 +250,8 @@
       seenDes.set(key, e); O.all.push(e); return e;
     };
     O.cur = null;
-    O.cur = (() => { const des = {}; vars.forEach((d) => { des[d.k] = base[d.k]; }); return rate(Object.assign({ des, ctx, full: true }, evalPhysicsMode(base, des, mode, SIM_FULL))); })();
+    O.cur = (() => { const des = {}; vars.forEach((d) => { des[d.k] = base[d.k]; }); return Object.assign({ des, ctx, full: true }, evalPhysicsMode(base, des, mode, SIM_FULL)); })();
+    rate(O.cur);   // rated once O.cur is set, so its own noise target check applies
     let pop = [], children = [], gen = 0, queue = lhsN(POP, ND2, r); const t0 = now();
     const tour = () => { const a = pop[Math.floor(r() * pop.length)], b = pop[Math.floor(r() * pop.length)]; return (a.rank < b.rank || (a.rank === b.rank && a.crowd > b.crowd)) ? a : b; };
     const breed = () => {
@@ -502,7 +508,7 @@
     if (S.running) return;
     const base = A.getP(), n = +$('surN').value, nTest = 150, r = rng(777), EPOCHS = 1500;
     S.running = true; S.hist = []; S.net = null; S.metrics = null; S.base = base; $('surRun').disabled = true;
-    S.fp = fingerprint(base, DV.map((d) => d.k).concat(['flushMode'])); staleNote('surStale', false);
+    S.fp = fingerprint(base, DV.map((d) => d.k).concat(FULL_ONLY)); staleNote('surStale', false);
     const Xtr = [], Ytr = [], Xte = [], Yte = [], trainX = lhs(n, r), testX = lhs(nTest, rng(999));
     let phase = 'data', k = 0, ep = 0, simMs = 0; const t0 = now();
     const yOf = (e) => OUT.map(([key]) => e[key] / 100);
@@ -546,12 +552,13 @@
     if (!S.net || !S.metrics) return;
     const p = A.getP(), des = {}; DV.forEach((d) => { des[d.k] = p[d.k]; });
     const inRange = DV.every((d) => p[d.k] >= d.min && p[d.k] <= d.max);
-    if (fingerprint(p, DV.map((d) => d.k).concat(['flushMode'])) !== S.fp) {
+    if (fingerprint(p, DV.map((d) => d.k).concat(FULL_ONLY)) !== S.fp) {
       $('surCur').innerHTML = '<p><b>Current design:</b> no prediction. The network was trained with different bowl or flush settings, so it does not apply to this configuration. Train it again.</p>';
       return;
     }
     const nn = predict(S.net, toX(des)), ph = evalPhysics(p, des, null, SIM_FULL);
-    $('surCur').innerHTML = `<p><b>Current design</b>${inRange ? '' : ' (outside the training range)'}: network ${OUT.map(([, l], j) => `${l.toLowerCase()} ${fmt(nn[j] * 100, 0)} %`).join(', ')}. Physics model ${OUT.map(([k, l]) => `${fmt(ph[k], 0)} %`).join(', ')}.</p>`;
+    // the network learns full flushes only, so both numbers are for a full flush whatever the button above says
+    $('surCur').innerHTML = `<p><b>Current design, full flush</b>${inRange ? '' : ' (outside the training range)'}: network ${OUT.map(([, l], j) => `${l.toLowerCase()} ${fmt(nn[j] * 100, 0)} %`).join(', ')}. Physics model ${OUT.map(([k, l]) => `${fmt(ph[k], 0)} %`).join(', ')}.</p>${p.flushMode === 'partial' ? '<p class="ai-note">The simulator is set to a partial flush, so its result cards differ from these full-flush numbers.</p>' : ''}`;
   }
   function drawSurLoss() {
     const cv = $('cvSurLoss'); if ($('aiSur').hidden) return;
@@ -625,7 +632,7 @@
   function runHyb() {
     if (H.running) return;
     const base = A.getP(), nRef = +$('hybN').value, r = rng(2026), nHold = 24;
-    H.fp = fingerprint(base, DV.map((d) => d.k).concat(CAL.map((c) => c.k), ['flushMode'])); staleNote('hybStale', false);
+    H.fp = fingerprint(base, DV.map((d) => d.k).concat(CAL.map((c) => c.k), FULL_ONLY)); staleNote('hybStale', false);
     H.running = true; H.res = null; H.ell = null; H.best = null; $('hybRun').disabled = true;
     const refX = lhs(nRef, rng(5)), holdX = lhs(nHold, rng(6));
     const refD = refX.map(toDesign), holdD = holdX.map(toDesign);
@@ -722,8 +729,8 @@
   A.onChange(() => requestAnimationFrame(() => {
     const p = A.getP();
     optStaleCheck();
-    if (S.fp && S.metrics) { staleNote('surStale', fingerprint(p, DV.map((d) => d.k).concat(['flushMode'])) !== S.fp, 'training'); surCurrent(); }
-    if (H.fp && H.res) staleNote('hybStale', fingerprint(p, DV.map((d) => d.k).concat(CAL.map((c) => c.k), ['flushMode'])) !== H.fp, 'calibration');
+    if (S.fp && S.metrics) { staleNote('surStale', fingerprint(p, DV.map((d) => d.k).concat(FULL_ONLY)) !== S.fp, 'training'); surCurrent(); }
+    if (H.fp && H.res) staleNote('hybStale', fingerprint(p, DV.map((d) => d.k).concat(CAL.map((c) => c.k), FULL_ONLY)) !== H.fp, 'calibration');
   }));
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(redraw);
   redraw();

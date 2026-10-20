@@ -1,6 +1,6 @@
 # Tangential Jet Flush Model
 
-A fast model of how a rimless toilet flushes. Rim jets wash the bowl, swirl the pool and carry waste through the trap. Each flush computes in milliseconds in the browser, so you can change the design and see the effect on cleaning, waste removal and water use right away. An AI lab searches for better designs and shows how the model would be trained and calibrated with PreonLab.
+A fast model of how a rimless toilet flushes. Rim jets wash the bowl, swirl the pool and carry waste through the trap. Each flush computes in milliseconds in the browser, so you can change the design and see the effect on cleaning, waste removal, water use and relative noise right away. An AI lab searches for better designs and shows how the model would be trained and calibrated with PreonLab.
 
 - **Live simulator:** https://fintlp.github.io/jet-flush-model/
 - **Guided demo:** https://fintlp.github.io/jet-flush-model/#demo
@@ -30,7 +30,7 @@ It splits the flush into simple physical sub-models: cistern, rim jets, wall fil
 ## Quick start
 
 1. Open the [live simulator](https://fintlp.github.io/jet-flush-model/) and press **Demo me** for a one-minute guided tour.
-2. Pick a preset (EU washdown 4.5/3 L, or siphonic 4.8 L) and change the bowl and jets with the sliders. Each slider has an **i** button that explains it.
+2. Pick a preset (EU washdown 4.5/3 L, or siphonic 4.8 L plus 0.6 L bowl refill) and change the bowl and jets with the sliders. Each slider has an **i** button that explains it.
 3. Press **Play flush** and read the result cards. Green and red chips show how much each change helped or hurt.
 4. Use **Undo**, **Reset** and **Pin as reference** to compare designs.
 5. In the **AI lab**, let the optimiser find better settings, or give it targets such as "at most 4.0 L and at least 90 % cleaned".
@@ -104,6 +104,18 @@ console.log(r.cleanPct, r.solidsPct, r.paperPct, r.water);
 The coefficients that describe physics the model does not resolve (film friction, spreading, soil shear threshold, swirl transfer, transport thresholds and others) are fitted to a few reference runs. The procedure, the order of fitting and which measurement or CFD output to use for each coefficient are in [section 13 of the model description](https://fintlp.github.io/jet-flush-model/method.html#calibration). PreonLab is a good candidate for the reference runs; its fit for paper and other flexible media should be checked in a benchmark first.
 
 ## Change log
+
+### 1.3.1 · 20 October 2026
+
+Patch release with fixes from an independent review of 1.3.0. Model results are unchanged.
+
+- The preset menu always matches the trap type, also after Undo, the demo or the trap type buttons, so Reset returns to the right preset. Switching a washdown design to siphonic sets a bowl refill when none was set, so the seal is restored.
+- The pool radius now always stays at least 25 mm smaller than the rim radius, as in the AI lab: the slider being moved stops at that gap, and design sweep cells that break it are hatched and not simulated. Before, an equal rim and pool radius made the bowl wall vanish from the top view.
+- Demo me leaves no undo steps or changed comparison chips behind. Keep this design adds one undo step back to your own design. A demo closed and reopened during the AI search no longer shows the old search message.
+- Loading a sweep cell, Reset or an AI result right after moving a slider keeps the slider change as its own undo step.
+- The pinned reference is recomputed with the current model and noise coefficients, so changing a coefficient no longer shows a change for an unchanged design.
+- AI lab: the optimiser checks a noise limit against the current design too (it reads 0 dB against itself), and refuses to start from a design that breaks the rim gap when neither radius is searched. The surrogate readout says it is for a full flush and notes when the simulator is set to a partial flush; the partial flush volume no longer marks the surrogate or the calibration as out of date.
+- Links from the simulator page to the other pages and the slides are relative, so a local or branch copy opens its own pages. The siphonic preset is labelled 4.8 L + 0.6 L refill, matching the 5.4 L water use it reports. Page descriptions mention relative noise.
 
 ### 1.3.0 · 20 October 2026
 

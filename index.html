@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="A fast model of how a rimless toilet flushes: cleaning, waste removal and water use in milliseconds, with an AI lab for design search and calibration.">
+<meta name="description" content="A fast model of how a rimless toilet flushes: cleaning, waste removal, water use and relative noise in milliseconds, with an AI lab for design search and calibration.">
 <title>Tangential Jet Flush Model</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -296,12 +296,12 @@ td code{font-family:var(--f-mono);font-size:12.5px}
       <span class="eyebrow">Flush simulator · physics model + AI</span>
       <h1>Tangential Jet Flush Model</h1>
       <p class="lede">A fast model of how a rimless toilet flushes. Rim jets wash the bowl, swirl the pool and carry waste through the trap. Each flush computes in milliseconds, so you can change the design and see the effect on cleaning, waste removal, water use and relative noise right away. An AI lab searches for better designs and shows how the model would be trained and calibrated with PreonLab. The coefficients are not calibrated yet, so read the results as trends.</p>
-      <p class="lede-detail">Under the hood: a reduced-order model from cistern to trap, covering jet films on an oval bowl wall, pool swirl, washdown or siphonic outflow and waste transport. One flush takes 5 to 20 ms in the browser; a free-surface CFD case of a flush typically runs for hours. <a href="https://fintlp.github.io/jet-flush-model/method.html" target="_blank" rel="noopener">How the model works</a> · <a href="https://fintlp.github.io/jet-flush-model/why.html" target="_blank" rel="noopener">Why we built this</a> · Slides: <a href="https://fintlp.github.io/jet-flush-model/slides/jet-flush-model.pptx" target="_blank" rel="noopener">PowerPoint</a>, <a href="https://fintlp.github.io/jet-flush-model/slides/jet-flush-model.pdf" target="_blank" rel="noopener">PDF</a></p>
+      <p class="lede-detail">Under the hood: a reduced-order model from cistern to trap, covering jet films on an oval bowl wall, pool swirl, washdown or siphonic outflow and waste transport. One flush takes 5 to 20 ms in the browser; a free-surface CFD case of a flush typically runs for hours. <a href="method.html" target="_blank" rel="noopener">How the model works</a> · <a href="why.html" target="_blank" rel="noopener">Why we built this</a> · Slides: <a href="slides/jet-flush-model.pptx" target="_blank" rel="noopener">PowerPoint</a>, <a href="slides/jet-flush-model.pdf" target="_blank" rel="noopener">PDF</a></p>
     </div>
     <div class="actions">
       <select id="preset" aria-label="Design preset">
         <option value="washdown">Preset: EU washdown, 4.5/3 L</option>
-        <option value="siphonic">Preset: Siphonic, 4.8 L</option>
+        <option value="siphonic">Preset: Siphonic, 4.8 L + 0.6 L refill</option>
       </select>
       <div class="seg" role="group" aria-label="Flush button">
         <button type="button" id="mFull" aria-pressed="true">Full flush</button>
@@ -327,7 +327,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
   </section>
 
   <nav class="jump" aria-label="Page sections">
-    <a href="#sim">Simulate</a><a href="#results">Results</a><a href="#traces">Traces</a><a href="#wallmap">Wall map</a><a href="#sweep">Sweep</a><a href="#ai-lab">AI lab</a><a href="#how">How it works</a><a href="https://fintlp.github.io/jet-flush-model/why.html" target="_blank" rel="noopener">Why</a>
+    <a href="#sim">Simulate</a><a href="#results">Results</a><a href="#traces">Traces</a><a href="#wallmap">Wall map</a><a href="#sweep">Sweep</a><a href="#ai-lab">AI lab</a><a href="#how">How it works</a><a href="why.html" target="_blank" rel="noopener">Why</a>
     <button type="button" class="jump-demo" id="demoBtn2">Demo me</button>
   </nav>
 
@@ -577,11 +577,11 @@ td code{font-family:var(--f-mono);font-size:12.5px}
           <li>The presets are generic EU washdown and siphonic bowls and are not modelled on any manufacturer's product.</li>
           <li>Status chips use display bands chosen for this tool, not values from a standard.</li>
         </ul>
-        <p style="margin-top:16px"><a class="doclink" href="https://fintlp.github.io/jet-flush-model/method.html" target="_blank" rel="noopener">Read the full model description: equations, numerics, coefficients and calibration</a></p>
+        <p style="margin-top:16px"><a class="doclink" href="method.html" target="_blank" rel="noopener">Read the full model description: equations, numerics, coefficients and calibration</a></p>
       </section>
       <footer class="foot">
-        <span class="footlinks"><a href="https://fintlp.github.io/jet-flush-model/why.html" target="_blank" rel="noopener">Why we built this</a><a href="https://fintlp.github.io/jet-flush-model/method.html" target="_blank" rel="noopener">Model details</a><a href="https://fintlp.github.io/jet-flush-model/sources.html" target="_blank" rel="noopener">Sources and references</a><a href="https://fintlp.github.io/jet-flush-model/slides/jet-flush-model.pptx" target="_blank" rel="noopener">Slides, PowerPoint</a><a href="https://fintlp.github.io/jet-flush-model/slides/jet-flush-model.pdf" target="_blank" rel="noopener">Slides, PDF</a></span>
-        <span class="muted">Tangential Jet Flush Model · v1.3.0 · Peter Fintl</span>
+        <span class="footlinks"><a href="why.html" target="_blank" rel="noopener">Why we built this</a><a href="method.html" target="_blank" rel="noopener">Model details</a><a href="sources.html" target="_blank" rel="noopener">Sources and references</a><a href="slides/jet-flush-model.pptx" target="_blank" rel="noopener">Slides, PowerPoint</a><a href="slides/jet-flush-model.pdf" target="_blank" rel="noopener">Slides, PDF</a></span>
+        <span class="muted">Tangential Jet Flush Model · v1.3.1 · Peter Fintl</span>
       </footer>
     </div>
   </div>
