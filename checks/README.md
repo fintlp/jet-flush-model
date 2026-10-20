@@ -17,3 +17,4 @@ git show origin/main:model.js > /tmp/model-main.js
 | `node checks/presets.js` | Preset figures quoted in section 10: vortex dips, margins, air core and siphon break times, source shares, Gordon cross-check, siphonic against washdown |
 | `node checks/noise-range.js` | Width of the sampled noise range, and interior coefficient values outside the corner range (section 10) |
 | `node checks/timing.js /tmp/model-main.js` | Run time against the other model version; the quoted overhead is the ratio (section 11) |
+| `node checks/browser.js` | The simulator page in a headless browser: presets and trap type, the 25 mm rim gap in sliders and sweep, undo and Demo me history, pinned reference, and AI lab details (30 checks, about two minutes). Needs Playwright: `npm install --no-save playwright && npx playwright install chromium`. Exits with code 1 on any failure. |
