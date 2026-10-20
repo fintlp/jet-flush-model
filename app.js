@@ -649,7 +649,7 @@
     if (z > 0.001) { const s0 = M.sAtDepth(g, g.D - z); ctx.fillStyle = rgba(C.water, 0.55); ctx.fillRect(padL, Ys(s0), w, padT + h - Ys(s0)); }
     // rim line
     ctx.setLineDash([4 * d, 4 * d]); ctx.strokeStyle = rgba(C.ink, 0.55); ctx.lineWidth = 1 * d;
-    ctx.beginPath(); ctx.moveTo(padL, Ys(0.025)); ctx.lineTo(padL + w, Ys(0.025)); ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(padL, Ys(R.lineDepthS)); ctx.lineTo(padL + w, Ys(R.lineDepthS)); ctx.stroke(); ctx.setLineDash([]);
     // films
     const L = lineAt(t);
     if (L && L.jets.length && R.rec.Qin[i] > 0.01) {
@@ -674,7 +674,7 @@
     ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
     ctx.fillText('mm', 2 * d, padT - 2 * d);
     ctx.textAlign = 'right'; ctx.fillStyle = rgba(C.ink, 0.7);
-    ctx.fillText('rim line, 25 mm', padL + w - 4 * d, Ys(0.025) - 2 * d);
+    ctx.fillText('rim line, 25 mm deep', padL + w - 4 * d, Ys(R.lineDepthS) - 2 * d);
   }
 
   /* ---------------- KPIs ---------------- */

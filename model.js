@@ -147,14 +147,16 @@
   }
 
   /* ---------- main simulation ---------- */
-  const NTH = 90, NS = 40;
+  const NTH0 = 90, NS0 = 40;   // wall grid: cells round the rim and down the wall
 
   function simulate(p, opts) {
     opts = opts || {};
     const t0 = (typeof performance !== 'undefined' ? performance.now() : Date.now());
     const g = buildGeom(p);
-    const dt = opts.dt || 0.01, Tend = opts.Tend || 14, Tmax = Math.max(Tend, opts.Tmax || 60);   // run at least Tend, until settled, at most Tmax
+    const dt = opts.dt || 0.01, Tend = opts.Tend || 12, Tmax = Math.max(Tend, opts.Tmax || 60);   // run at least Tend (12 s, as the page), until settled, at most Tmax
     const light = !!opts.light;
+    // wall grid, film step and footprint sample spacing; other values only for the convergence checks
+    const NTH = opts.grid ? opts.grid[0] : NTH0, NS = opts.grid ? opts.grid[1] : NS0;
     // optional probes for the checks: called every time step and every film step; unused in the page
     const probe = typeof opts.probe === 'function' ? opts.probe : null, probeFilm = typeof opts.probeFilm === 'function' ? opts.probeFilm : null;
     // a dual-flush valve releases the partial volume from a full cistern: the head starts at the full level
@@ -195,7 +197,10 @@
     }
     // map a point on (or near) the wall to its cell; the wall row at a depth comes from a table
     const NZR = 4096, rowZ = new Uint8Array(NZR + 1), zScale = NZR / g.D;
-    for (let i = 0; i <= NZR; i++) rowZ[i] = Math.min(NS - 1, (sAtDepth(g, i / zScale) / dsb) | 0);
+    const sZ = new Float64Array(NZR + 2);   // arc length down the wall at a depth, as a table
+    for (let i = 0; i <= NZR + 1; i++) sZ[i] = sAtDepth(g, i / zScale);
+    for (let i = 0; i <= NZR; i++) rowZ[i] = Math.min(NS - 1, (sZ[i] / dsb) | 0);
+    const sOfZ = (z) => { const x = Math.max(0, Math.min(NZR, z * zScale)), i = x | 0; return sZ[i] + (x - i) * (sZ[i + 1] - sZ[i]); };
     const cellOf = (x, y, z) => {
       if (z < 0) return -1;
       const iz = z * zScale; const is = rowZ[iz >= NZR ? NZR : iz | 0];
@@ -212,8 +217,9 @@
        and splash; only the part still above water goes on round the wall. Flow still on the wall when the
        film stalls or after 3 m of path counts as lost: it brings no swirl and no splash.
        The paths are retraced whenever jet speed or pool level has changed by more than a tolerance, and at
-       least every tMaxR; in between, the shear dose, the swirl input and the splash follow the actual flow
-       at every time step. */
+       least every tMaxR. In between, the flow, swirl and splash reaching the pool follow the nozzle flow at every
+       time step (through the wall water store), and the shear dose of each interval is the mean of the footprints
+       at its start and end. */
     const fixedEvery = opts.uEvery || 0;                              // fixed retrace interval in steps (checks only)
     // tolerance: jet speed change in %, pool level change in mm (filmTol 0 retraces every step, the reference)
     const tolS = opts.filmTol == null ? (opts.coarse ? 10 : 3) : opts.filmTol;
@@ -223,9 +229,54 @@
     // total jet flow (q), its transit time on the wall (tau), its angular momentum per unit mass (L), and for the
     // splash term its entry velocity and position; flow lost on the wall has L = 0 and no splash.
     const lines = [];
-    const dl = 0.006, samp = 0.005;
+    const dl = opts.filmStep || 0.006, samp = opts.sampleStep || 0.005, KMAX = Math.round(3 / dl);   // at most 3 m of path
 
     // stamp the film footprint: a segment of width w across the flow, centred at offset c from the point
+    // centre of every wall cell (position on the wall, angle round the rim and depth), for the footprint test
+    const ccx = new Float64Array(NC), ccy = new Float64Array(NC), ccz = new Float64Array(NC);
+    for (let is = 0; is < NS; is++) {
+      const zc = geomAt(g, (is + 0.5) * dsb).z, R = Rz(zc);
+      for (let it = 0; it < NTH; it++) { const a = (it + 0.5) * dth, c = is * NTH + it; ccx[c] = R * sE * Math.cos(a); ccy[c] = R / sE * Math.sin(a); ccz[c] = zc; }
+    }
+    const stampCentres = opts.stamp !== 'samples';
+    const angOf = (x, y) => { let a = Math.atan2(y * sE, x / sE); if (a < 0) a += TAU2; return a; };
+    /* Footprint of one film step: the rectangle the band sweeps, from the current point along the flow (unit
+       vector u) for one step length, and across the flow (unit vector d) over the band width. A wall cell counts
+       as covered when its centre lies inside the rectangle and between the rim and the waterline. The covered
+       area then converges as the wall grid is refined, and hardly depends on the film step. */
+    // centre of the step in wall coordinates: xi round the rim (arc length), eta down the wall (arc length s)
+    function markRect(x, y, z, ux, uy, uz, dx, dy, dz, w, len, tau, zStop) {
+      const cx = x + 0.5 * len * ux, cy = y + 0.5 * len * uy, cz = Math.max(0, z + 0.5 * len * uz);
+      const th = angOf(cx, cy), R = Rz(cz), sn = Math.sin(th), cs = Math.cos(th);
+      const mt = R * Math.sqrt(E * sn * sn + cs * cs / E);                      // arc length per radian round the rim here
+      let ex = -R * sE * sn, ey = R / sE * cs; const em = Math.hypot(ex, ey) || 1; ex /= em; ey /= em;   // along the rim
+      wallNormal(cx, cy, cz, nrm);
+      // down the wall, in the tangent plane: n x e_theta, pointing to greater depth
+      let fx = nrm[1] * 0 - nrm[2] * ey, fy = nrm[2] * ex - nrm[0] * 0, fz = nrm[0] * ey - nrm[1] * ex;
+      const fm = Math.hypot(fx, fy, fz) || 1; fx /= fm; fy /= fm; fz /= fm; if (fz < 0) { fx = -fx; fy = -fy; fz = -fz; }
+      const uX = ux * ex + uy * ey, uE = ux * fx + uy * fy + uz * fz, dX = dx * ex + dy * ey, dE = dx * fx + dy * fy + dz * fz;
+      const um = Math.hypot(uX, uE) || 1, dmn = Math.hypot(dX, dE) || 1;
+      const u1 = uX / um, u2 = uE / um, d1 = dX / dmn, d2 = dE / dmn;
+      const hl = 0.5 * len + 1e-9, hw = 0.5 * w + 1e-9, sc = sOfZ(cz);
+      const ext = hl * Math.abs(u2) + hw * Math.abs(d2);
+      const sStop = sOfZ(zStop);
+      const r0 = Math.max(0, Math.floor((sc - ext) / dsb)), r1 = Math.min(NS - 1, Math.floor(Math.min(sc + ext, sStop) / dsb));
+      for (let is = r0; is <= r1; is++) {
+        const eta = (is + 0.5) * dsb - sc;
+        if (ccz[is * NTH] >= zStop) continue;
+        // xi range where the row cuts the rectangle {a u + b d : |a| <= hl, |b| <= hw}
+        let xlo = Infinity, xhi = -Infinity;
+        if (Math.abs(d2) > 1e-12) for (let k = -1; k <= 1; k += 2) { const a = k * hl, b = (eta - a * u2) / d2; if (b >= -hw && b <= hw) { const xi = a * u1 + b * d1; if (xi < xlo) xlo = xi; if (xi > xhi) xhi = xi; } }
+        if (Math.abs(u2) > 1e-12) for (let k = -1; k <= 1; k += 2) { const b = k * hw, a = (eta - b * d2) / u2; if (a >= -hl && a <= hl) { const xi = a * u1 + b * d1; if (xi < xlo) xlo = xi; if (xi > xhi) xhi = xi; } }
+        if (xlo > xhi) continue;
+        const i0 = Math.ceil((th + xlo / mt) / dth - 0.5), i1 = Math.floor((th + xhi / mt) / dth - 0.5);
+        for (let ii = i0; ii <= i1; ii++) {
+          const it = ((ii % NTH) + NTH) % NTH, c = is * NTH + it;
+          if (stamp[c] !== cur) { stamp[c] = cur; tauStep[c] = tau; touched.push(c); }
+          else if (tau > tauStep[c]) tauStep[c] = tau;
+        }
+      }
+    }
     function mark(x, y, z, dx, dy, dz, c, w, tau, zStop) {
       // only the part of the segment between the rim and the waterline is sampled
       let a0 = c - 0.5 * w, a1 = c + 0.5 * w;
@@ -285,7 +336,7 @@
         // entering flow is gathered into a few parcels per jet for the splash term
         let eQ = 0, eL = 0, eT = 0, eVx = 0, eVy = 0, eVz = 0, eX = 0, eY = 0, tp = 0;   // tp: travel time from the nozzle
         const flush = () => { if (eQ > 0) { film.parcels.push({ q: eQ * qj, L: eL / eQ, tau: eT / eQ, splash: true, vx: eVx / eQ, vy: eVy / eQ, vz: eVz / eQ, x: eX / eQ, y: eY / eQ }); eQ = eL = eT = eVx = eVy = eVz = eX = eY = 0; } };
-        for (let k = 0; k < 500; k++) {
+        for (let k = 0; k < KMAX; k++) {
           const U = Math.hypot(vx, vy, vz);
           if (U < 0.05) break;
           wallNormal(x, y, zp, nrm);
@@ -317,7 +368,10 @@
             const Vm2 = Math.hypot(vx, vy, vz) || 1; vx *= U / Vm2; vy *= U / Vm2; vz *= U / Vm2;
             nx = nrm[0]; ny = nrm[1]; nz = nrm[2];
           }
-          if (tp <= front) mark(x, y, zp, dx, dy, dz, 0, w, tau, zStop);   // only the wall the front has reached is wet
+          if (tp <= front) {   // only the wall the front has reached is wet
+            if (stampCentres) markRect(x, y, zp, vx / U, vy / U, vz / U, dx, dy, dz, w, dl, tau, zStop);
+            else mark(x, y, zp, dx, dy, dz, 0, w, tau, zStop);
+          }
           const dtp = dl / U, af = p.cf * U / (2 * h);
           tp += dtp;
           // forces along the wall: gravity (+z is down) and wall friction against the velocity; the wall reaction
@@ -442,8 +496,8 @@
       const open = Vgo > 1e-7 ? Math.min(1, t / p.tOpen) : 0;
       const H = Vc / p.Acist + Hcr;
       const vj = open * Math.sqrt(2 * G * H / (1 + p.Kpath));
-      let Qin = nJ * An * vj;
-      if (Qin * dt > Vgo) Qin = Vgo / dt;
+      let Qin = nJ * An * vj, capped = false;
+      if (Qin * dt > Vgo) { Qin = Vgo / dt; capped = true; }   // last step of the flush: only what is left
       if (Vgo > 1e-7 && Vgo - Qin * dt <= 1e-7 && tEmpty === null) tEmpty = t + dt;   // valve closes: flush released
       Vgo = Math.max(0, Vgo - Qin * dt); Vc = Math.max(0, Vc - Qin * dt); Vin += Qin * dt;
       // refill into the bowl once the valve has closed
@@ -453,7 +507,8 @@
       if (Qin > Qpeak) Qpeak = Qin;
 
       const z = levelFromVol(g, Vrel);
-      if (needRetrace(n, t, vj, Qin / nJ, z)) { traceFilm(vj, Qin / nJ, z, t); doseInterval(t); }
+      // the capped last step keeps the films traced at full flow (its small flow would give a slow, thin film)
+      if (!capped && needRetrace(n, t, vj, Qin / nJ, z)) { traceFilm(vj, Qin / nJ, z, t); doseInterval(t); }
       if (film.active) { film.allQ += Qin * dt; film.lostQ += Qin * Math.max(0, 1 - film.reach) * dt; }
       // mean properties of the current films (kept from the last trace once the jets have stopped)
       if (film.active && film.tR === t) {
@@ -588,15 +643,19 @@
     // cleaning metrics
     let Atot = 0, Aclean = 0, Awet = 0;
     for (let i = 0; i < NC; i++) { Atot += cellA[i]; if (J[i] >= p.Jcrit) Aclean += cellA[i]; if (tWet[i] < Infinity) Awet += cellA[i]; }
-    const lineRow = Math.min(NS - 1, Math.floor(0.025 / dsb));
-    let lineHit = 0;
-    for (let it = 0; it < NTH; it++) if (J[lineRow * NTH + it] >= p.Jcrit) lineHit++;
+    // rim line: the share of the line exactly 25 mm below the rim (by length round the bowl) that is cleaned
+    const lineRow = rowZ[Math.min(NZR, (0.025 * zScale) | 0)];
+    let lineHit = 0, lineLen = 0;
+    for (let it = 0; it < NTH; it++) {
+      const a = (it + 0.5) * dth, wl = Math.sqrt(E * Math.sin(a) ** 2 + Math.cos(a) ** 2 / E);   // length per angle on the ellipse
+      lineLen += wl; if (J[lineRow * NTH + it] >= p.Jcrit) lineHit += wl;
+    }
 
     const incomplete = Vgo > 1e-6;   // flush still not released at Tmax
     const water = (Vin + Vref) * 1000;   // water actually released, plus the bowl refill that ran in
     const out = {
       p, geom: g, NTH, NS, dsb,
-      cleanPct: 100 * Aclean / Atot, wetPct: 100 * Awet / Atot, linePct: 100 * lineHit / NTH,
+      cleanPct: 100 * Aclean / Atot, wetPct: 100 * Awet / Atot, linePct: 100 * lineHit / lineLen, lineDepthS: sAtDepth(g, 0.025),
       solidsPct: p.Ms > 0 ? 100 * (1 - Ms / p.Ms) : 100, paperPct: p.Np > 0 ? 100 * (1 - Np / p.Np) : 100,
       capS, water, flushVol: Vfl * 1000, Qpeak: Qpeak * 1000, tEmpty, vsPeak, zPeak: zPeak * 1000, dipPeak: dipPeak * 1000,
       primeT, breakT, everPrimed, sealEnd, sealOK: sealEnd >= p.sealMin - 0.5, zEnd: zEnd * 1000,
@@ -619,5 +678,5 @@
     return out;
   }
 
-  root.FlushModel = { simulate, defaults, PRESETS, COEFFS, buildGeom, geomAt, sAtDepth, levelFromVol, volAtLevel, q4AtLevel, coreFactor, rankineF, noiseCorners, NTH, NS };
+  root.FlushModel = { simulate, defaults, PRESETS, COEFFS, buildGeom, geomAt, sAtDepth, levelFromVol, volAtLevel, q4AtLevel, coreFactor, rankineF, noiseCorners, NTH: NTH0, NS: NS0 };
 })(typeof window !== 'undefined' ? window : globalThis);

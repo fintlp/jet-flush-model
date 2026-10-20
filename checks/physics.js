@@ -114,7 +114,7 @@ function smoothScan(kind, metric, lim, scans, extra) {
   const scans = [['Hcr', 100, 600, 2], ['alpha', 0, 35, 0.2], ['Anoz', 1.5, 8, 0.05], ['jetPhase', 0, 180, 1]];
   for (const kind of ['washdown', 'siphonic']) {
     const r = smoothScan(kind, (x) => x.vsPeak, 0.03, scans, (k) => ({ ovality: k === 'jetPhase' ? 1.3 : 1 }));
-    const kn = kind === 'siphonic' ? 'in a siphonic bowl the pool spins up while the siphon draws it down to the trap inlet; when the level only just reaches the inlet, the moment of the break and with it the peak swirl shift with tiny design changes. Cleaning, waste, seal and noise are checked separately in A5. Documented in the model description, section 16' : null;
+    const kn = null;   // no open issue: the siphonic jumps found earlier came from the capped last flush step
     check(`A4 ${kind}: largest jump in peak pool swirl between neighbouring designs`, r.worst, 0.03, 'm/s', `at ${r.where}; ${r.steep} steep but continuous step${r.steep === 1 ? '' : 's'} resolved by refining`, kn);
     check(`A4 ${kind}: largest time-step jitter in peak pool swirl`, r.jit, 0.05, 'm/s', r.jit > 0 ? `at ${r.jitWhere}; it shrinks to less than half with a 2 ms step` : 'none found', kn);
   }
@@ -219,6 +219,82 @@ for (const kind of ['washdown', 'siphonic']) {
     peak = Math.max(peak, s.L); worstL = Math.max(worstL, Math.abs(L - s.L));
   }
   check(`C2 ${kind} pool swirl against RK4 re-integration, worst`, 100 * worstL / peak, 2, '% of peak angular momentum');
+}
+
+console.log('\nD · Checks proposed by the independent physics review of 852170c');
+// D1 spatial convergence: cleaning with the simulator's grid and film step against a 4 x 4 times finer grid and a 1 mm step
+{
+  const fx = design('washdown', { ovality: 1.35, Anoz: 6.8, alpha: 35, jetPhase: 25, hNoz: 19, Hcr: 390, Vfull: 5.4 });
+  for (const [lab, p] of [['washdown preset', design('washdown')], ['siphonic preset', design('siphonic')], ['oval short strong flush', fx]]) {
+    const a = sim(p).cleanPct, b = sim(p, { grid: [360, 160], filmStep: 0.001 }).cleanPct;
+    check(`D1 ${lab}: cleaning against a 360 x 160 grid and 1 mm film step`, a - b, 1, 'points', `${a.toFixed(2)} % against ${b.toFixed(2)} %`);
+  }
+}
+// D2 siphon break: the level stops at the trap inlet; a strong siphon keeps the water balance; the seal without
+// refill does not depend on the time step
+{
+  const r0 = rng(23); let worst = 0, n = 0;
+  for (let i = 0; i < 120; i++) {
+    const p = design('siphonic'); p.Anoz = 1.5 + 6.5 * r0(); p.Hcr = 50 + 550 * r0(); p.Vfull = 3 + 4 * r0(); p.dTrap = 38 + 27 * r0(); p.Hs = 120 + 280 * r0(); p.Ks = 1.5 + 4.5 * r0(); p.seal = 40 + 50 * r0(); p.Rpool = 40 + 70 * r0(); p.Rrim = Math.max(p.Rrim, p.Rpool + 25);
+    const ds = p.seal / 1000; let zmin = Infinity;
+    sim(p, { probe: (s) => { if (s.z < zmin) zmin = s.z; } });
+    if (zmin < Infinity) { worst = Math.max(worst, (-ds - zmin) * 1000); n++; }
+  }
+  check(`D2 lowest pool level below the trap inlet, ${n} random siphonic designs`, Math.max(0, worst), 1, 'mm');
+  const p = design('siphonic', { dTrap: 65, Hs: 400, Ks: 1.5, seal: 40, Rpool: 40 });
+  let vin = 0, vout = 0, V0 = null, V1 = 0;
+  sim(p, { probe: (s) => { if (V0 === null) V0 = s.Vrel - (s.Qpin - s.Qout) * s.dt; vin += s.Qpin * s.dt; vout += s.Qout * s.dt; V1 = s.Vrel; } });
+  check('D2 water balance of a strong siphon (trapway 65 mm, drop 400 mm, loss 1.5, seal 40 mm, pool 40 mm)', Math.abs(vin - vout - (V1 - V0)) * 1e6, 1, 'mL');
+  const q = design('siphonic', { refill: 0 });
+  check('D2 seal after flush without refill, 10 ms against 1 ms time step', sim(q).sealEnd - sim(q, { dt: 0.001 }).sealEnd, 1, 'mm');
+}
+// D3 time-step convergence down to 1 ms for peak swirl, vortex dip and seal, with the siphon settings varied too
+{
+  const r0 = rng(24); let wv = 0, wd = 0, ws = 0;
+  const cases = [design('washdown'), design('siphonic'), design('siphonic', { flushMode: 'partial' })];
+  for (let i = 0; i < 6; i++) { const p = design(r0() < 0.5 ? 'washdown' : 'siphonic'); p.Anoz = 1.5 + 6.5 * r0(); p.Hcr = 100 + 500 * r0(); p.Vfull = 3 + 4 * r0(); p.Hs = 120 + 280 * r0(); p.Ks = 1.5 + 4.5 * r0(); p.dTrap = 38 + 27 * r0(); cases.push(p); }
+  for (const p of cases) { const a = sim(p), b = sim(p, { dt: 0.001 }); if (a.everPrimed !== b.everPrimed) continue; wv = Math.max(wv, Math.abs(a.vsPeak / b.vsPeak - 1)); wd = Math.max(wd, Math.abs(a.dipPeak - b.dipPeak)); ws = Math.max(ws, Math.abs(a.sealEnd - b.sealEnd)); }
+  check(`D3 peak swirl, 10 ms against 1 ms time step, worst of ${cases.length} designs`, 100 * wv, 3, '%');
+  check(`D3 vortex dip, 10 ms against 1 ms time step, worst`, wd, 3, 'mm');
+  check(`D3 seal after flush, 10 ms against 1 ms time step, worst`, ws, 1, 'mm');
+}
+// D4 a partial flush starts from the full cistern: the jet speed at full opening equals that of a full flush
+for (const kind of ['washdown', 'siphonic']) {
+  const vjAt = (fm) => { let v = null; sim(design(kind, { flushMode: fm }), { probe: (s) => { if (v === null && s.t >= 0.2) v = s.vj; } }); return v; };
+  check(`D4 ${kind}: jet speed at 0.2 s, partial against full flush`, 100 * (vjAt('partial') / vjAt('full') - 1), 0.1, '%');
+}
+// D5 film transit: nothing reaches the pool before the film front does, and all water released arrives
+{
+  let first = null, vin = 0, varr = 0;
+  sim(design('washdown'), { probe: (s) => { if (first === null && s.Qarr > 0) first = s.t; vin += s.Qin * s.dt; varr += s.Qarr * s.dt; } });
+  check('D5 washdown preset: first water reaches the pool no earlier than 0.3 s after the valve opens', Math.max(0, 0.3 - first), 0, 's', `first arrival at ${first.toFixed(2)} s`);
+  check('D5 washdown preset: water released at the nozzles minus water arrived in the pool', Math.abs(vin - varr) * 1e6, 1, 'mL');
+}
+// D6 monotone trends: more flush volume, valve height or nozzle area never removes less waste (washdown bowl)
+{
+  let worst = 0, where = '';
+  for (const [k, a, b, st] of [['Vfull', 3, 7, 0.1], ['Hcr', 100, 600, 10], ['Anoz', 1.5, 8, 0.1]]) {
+    let prev = null;
+    for (let v = a; v <= b + 1e-9; v += st) {
+      const r = sim(design('washdown', { [k]: +v.toFixed(3) }));
+      if (prev) for (const m of ['solidsPct', 'paperPct']) { const drop = prev[m] - r[m]; if (drop > worst) { worst = drop; where = `${m} at ${k} ${v.toFixed(2)}`; } }
+      prev = r;
+    }
+  }
+  check('D6 washdown: largest drop in solids or paper removed when flush volume, valve height or nozzle area rises', worst, 0.5, 'points', where ? `at ${where}` : 'no drop');
+}
+// D7 round bowl: where the jets sit round the rim must not matter
+{
+  const cl = [], sw = [];
+  for (let ph = 0; ph <= 180; ph += 15) { const r = sim(design('washdown', { ovality: 1, jetPhase: ph })); cl.push(r.cleanPct); sw.push(r.vsPeak); }
+  check('D7 round bowl: spread of cleaning over jet positions 0 to 180°', Math.max(...cl) - Math.min(...cl), 0.5, 'points');
+  check('D7 round bowl: spread of peak swirl over jet positions', Math.max(...sw) - Math.min(...sw), 0.005, 'm/s');
+}
+// D8 rim line: measured at 25 mm depth, also on a flat, shallow wall
+{
+  const p = design('washdown', { Rrim: 190, Rpool: 40, Dwall: 90 }), r = M.simulate(p, { light: false, Tend: 12 }), g = M.buildGeom(p);
+  const row = Math.floor(M.sAtDepth(g, 0.025) / r.dsb), zTop = M.geomAt(g, row * r.dsb).z, zBot = M.geomAt(g, (row + 1) * r.dsb).z;
+  check('D8 rim line row on a flat wall (rim 190 mm, pool 40 mm, depth 90 mm): 25 mm depth lies inside the row', (zTop <= 0.025 && zBot >= 0.025) ? 0 : 1, 0, '', `row from ${(zTop * 1000).toFixed(1)} to ${(zBot * 1000).toFixed(1)} mm deep`);
 }
 
 const failed = results.filter((x) => !x).length;
