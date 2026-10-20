@@ -30,11 +30,23 @@
     // noise indicator (relative): sound from air bubbles, written as air flow into the water
     nUe: 0.8, nExp: 1.8, nK: 0.04, hFall: 120, rCore: 0.6, cCore: 0.05, wTrap: 0.1
   };
-  // centre depression of a Rankine vortex below the mean surface, in units of vs^2/(2g),
-  // for a core radius a = rc/R and a fixed swirl speed vs at the wall (a = 1: solid body, 0.5)
+  // Centre depression of a Rankine vortex below the mean surface, in units of vs^2/(2g), where vs is the
+  // edge speed of a solid-body pool with the same angular momentum. Core radius a = rc/R.
+  // F(a): depression for an edge speed ve; ve = vs / (2 - a^2) keeps the angular momentum of the pool
+  // (cylinder of uniform depth). a = 1 gives the solid body, 0.5.
+  function rankineF(a) { return (2 / (a * a) - 1) * (1 - a * a) + 0.5 + 2 * Math.log(a) + 1 - a * a; }
   function coreFactor(a) {
     a = Math.min(1, Math.max(0.15, a));
-    return (2 / (a * a) - 1) * (1 - a * a) + 0.5 + 2 * Math.log(a) + 1 - a * a;
+    return rankineF(a) / ((2 - a * a) * (2 - a * a));
+  }
+  // uncertain noise coefficients: every combination of a low and a high value around the current setting
+  function noiseCorners(p) {
+    const lo = { nUe: Math.max(0.3, p.nUe - 0.15), hFall: p.hFall / 1.5, rCore: Math.max(0.3, p.rCore - 0.15), cCore: p.cCore / 2.5, wTrap: p.wTrap / 3 };
+    const hi = { nUe: p.nUe + 0.15, hFall: p.hFall * 1.5, rCore: Math.min(1, p.rCore + 0.2), cCore: Math.min(0.5, p.cCore * 2.5), wTrap: Math.min(1, p.wTrap * 3) };
+    const keys = ['nUe', 'hFall', 'rCore', 'cCore', 'wTrap'];
+    const out = [{ nUe: p.nUe, hFall: p.hFall, rCore: p.rCore, cCore: p.cCore, wTrap: p.wTrap }];   // index 0: the setting itself
+    for (let m = 0; m < 32; m++) { const c = {}; keys.forEach((k, j) => { c[k] = (m >> j) & 1 ? hi[k] : lo[k]; }); out.push(c); }
+    return { lo, hi, list: out };
   }
 
   function defaults(kind) {
@@ -176,7 +188,7 @@
     const touched = [];
     let cur = 0;
 
-    const film = { uthArr: 0, rArr: g.Rp, active: false, end: [] };   // end: per jet [Q, u_theta, u_r, u_z] where the film meets the pool
+    const film = { uthArr: 0, rArr: g.Rp, active: false, end: [] };   // end: per jet [Q, vx, vy, vz, x, y] where the film meets the pool
     const lines = [];
     const dl = 0.006, samp = 0.005;
 
@@ -258,7 +270,7 @@
         }
         if (pts) { pushPt(); rec.jets.push({ pts, w }); }
         sumL += Math.max(0, x * vy - y * vx);   // angular momentum per unit mass about the bowl axis
-        { const rr = Math.max(1e-6, Math.hypot(x, y)); film.end.push([Qj, (x * vy - y * vx) / rr, (x * vx + y * vy) / rr, vz]); }
+        film.end.push([Qj, vx, vy, vz, x, y]);   // where and how fast the film meets the pool
       }
       film.uthArr = sumL / nJ; film.rArr = 1;
       // apply shear impulse for this update interval
@@ -278,13 +290,21 @@
     const rec = light ? null : { t: [], Qin: [], Qout: [], z: [], Vc: [], vs: [], phi: [], Ms: [], Np: [], primed: [], Vt: [] };
 
     let tEnd = 0, Vspill = 0, overflowT = null;
-    // noise indicator state
-    const Ue = p.nUe, nX = p.nExp, hF = p.hFall / 1000, Cv = coreFactor(p.rCore), tauF = 0.125;
-    const ent = (Q, U) => (U > Ue ? p.nK * Q * Math.pow(U - Ue, nX) : 0);   // air entrained by plunging water, m3/s
-    let Wf = 0, WfPeak = 0, tPeakN = 0, Eacc = 0, airT = null, airDur = 0;
-    let tBrk = null, Qbrk = 0;
-    const Esrc = [0, 0, 0, 0], Wsrc = [0, 0, 0, 0];
-    const nrec = light ? null : { t: [], L: [], pl: [], out: [], air: [], brk: [], core: [] };
+    // noise indicator state. Variant 0 uses the current coefficients; variants 1..32 are the corners of the
+    // uncertainty box from noiseCorners(). Each uncertain value takes one of three levels (setting, low, high).
+    const nX = p.nExp, tauF = 0.125, aF = 1 - Math.exp(-dt / tauF);   // exact 125 ms exponential smoothing
+    const NCo = noiseCorners(p), VAR = NCo.list, NV = VAR.length;
+    const lev = (k, v) => (v[k] === NCo.lo[k] ? 1 : 2);
+    const UeL = [p.nUe, NCo.lo.nUe, NCo.hi.nUe], hFL = [p.hFall, NCo.lo.hFall, NCo.hi.hFall].map((h) => h / 1000);
+    const CvL = [p.rCore, NCo.lo.rCore, NCo.hi.rCore].map(coreFactor);
+    const vUe = VAR.map((v, i) => (i === 0 ? 0 : lev('nUe', v))), vhF = VAR.map((v, i) => (i === 0 ? 0 : lev('hFall', v))), vCv = VAR.map((v, i) => (i === 0 ? 0 : lev('rCore', v)));
+    const ent = (Q, U, Ue) => (U > Ue ? p.nK * Q * Math.pow(U - Ue, nX) : 0);   // air entrained by plunging water, m3/s
+    const WfV = new Float64Array(NV), peakV = new Float64Array(NV), EV = new Float64Array(NV), coreV = [false, false, false];
+    let tPeakN = 0, airT = null, airDur = 0, tBrk = null, Qbrk = 0;
+    const Esrc = [0, 0, 0, 0], Wsrc = [0, 0, 0, 0], WfS = [0, 0, 0, 0];
+    let peakShare = [0, 0, 0, 0];
+    const s1L = [0, 0, 0], s2L = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], coreL = [false, false, false];
+    const nrec = light ? null : { t: [], L: [], pl: [], out: [], air: [], brk: [], core: [], Lv: Array.from({ length: NV }, () => []) };
     for (let n = 0; ; n++) {
       const t = n * dt; tEnd = t;
       // stop once the flush is over: cistern empty and 6 s of settling, but never before Tend or after Tmax
@@ -338,26 +358,32 @@
       // noise indicator. Every source is written as a flow of air into the water (m3/s), weighted by the
       // sound it makes per unit of air: 1 for fine splash bubbles, wTrap for large air pockets in the trap.
       // The weighted sum stands for radiated sound power and is only used relative to a reference.
-      // 1 jet films plunging into the pool, speed relative to the swirling pool surface
-      let s1 = 0;
-      if (film.active) for (const e of film.end) s1 += ent(e[0], Math.hypot(e[1] - vs, e[2], e[3]));
+      // 1 jet films plunging into the pool, speed relative to the local surface velocity of the rotating pool
+      s1L[0] = s1L[1] = s1L[2] = 0;
+      if (film.active) for (const e of film.end) {
+        const ur = Math.hypot(e[1] + om * e[5], e[2] - om * e[4], e[3]);   // pool surface moves at om x r
+        for (let k = 0; k < 3; k++) s1L[k] += ent(e[0], ur, UeL[k]);
+      }
       // 2 water falling from the trap weir into the outlet (free surface flow only)
       const Qfree = siph && primed ? 0 : Qout;
-      const s2 = Qfree > 0 ? ent(Qfree, Math.sqrt(2 * G * Math.max(z, 0) / 3 + 2 * G * hF)) : 0;
-      // 3 air core: vortex depression at the trap reaches the trap inlet while water flows out
-      const subm = z + ds, dCore = Cv * dip;
-      const core = Qout > 1e-6 && dCore >= subm;
+      for (let k = 0; k < 3; k++) for (let h = 0; h < 3; h++) s2L[k][h] = Qfree > 0 ? ent(Qfree, Math.sqrt(2 * G * Math.max(z, 0) / 3 + 2 * G * hFL[h]), UeL[k]) : 0;
+      // 3 air core: the vortex centre dips down to the top of the trap inlet while water flows out
+      const subm = z + ds;
+      for (let k = 0; k < 3; k++) { coreL[k] = Qout > 1e-6 && CvL[k] * dip >= subm; if (coreL[k]) coreV[k] = true; }
+      const core = coreL[0];
       if (core) { airDur += dt; if (airT === null) airT = t; }
-      const s3 = core ? p.cCore * Qout : 0;
       // 4 siphon break: air replaces the water in the trap leg at the rate the siphon was carrying it out,
       // decaying once the leg's volume has been replaced (time constant Vtrap / Qbrk)
       const s4 = tBrk !== null && t >= tBrk ? Qbrk * Math.exp(-(t - tBrk) * Qbrk / Math.max(1e-9, Vtrap)) : 0;
-      Wsrc[0] = s1; Wsrc[1] = s2; Wsrc[2] = p.wTrap * s3; Wsrc[3] = p.wTrap * s4;
-      const W = Wsrc[0] + Wsrc[1] + Wsrc[2] + Wsrc[3];
-      for (let k = 0; k < 4; k++) Esrc[k] += Wsrc[k] * dt;
-      Eacc += W * dt;
-      Wf += (W - Wf) * dt / tauF;                      // 'fast' time weighting, 125 ms
-      if (Wf > WfPeak) { WfPeak = Wf; tPeakN = t; }
+      Wsrc[0] = s1L[0]; Wsrc[1] = s2L[0][0]; Wsrc[2] = p.wTrap * (core ? p.cCore * Qout : 0); Wsrc[3] = p.wTrap * s4;
+      for (let k = 0; k < 4; k++) { Esrc[k] += Wsrc[k] * dt; WfS[k] += (Wsrc[k] - WfS[k]) * aF; }
+      for (let v = 0; v < NV; v++) {
+        const c = VAR[v], ku = vUe[v];
+        const Wv = s1L[ku] + s2L[ku][vhF[v]] + c.wTrap * ((coreL[vCv[v]] ? c.cCore * Qout : 0) + s4);
+        EV[v] += Wv * dt;
+        WfV[v] += (Wv - WfV[v]) * aF;                  // 'fast' time weighting, 125 ms
+        if (WfV[v] > peakV[v]) { peakV[v] = WfV[v]; if (v === 0) { tPeakN = t; const sw = WfS[0] + WfS[1] + WfS[2] + WfS[3]; peakShare = WfS.map((x) => (sw > 0 ? x / sw : 0)); } }
+      }
 
       // waste transport
       const ut = Qtrans / At;
@@ -373,7 +399,8 @@
         rec.t.push(t); rec.Qin.push(Qin * 1000); rec.Qout.push(Qout * 1000); rec.z.push(z * 1000);
         rec.Vc.push(Vc * 1000); rec.vs.push(vs); rec.phi.push(phi); rec.Ms.push(Ms); rec.Np.push(Np);
         rec.primed.push(primed ? 1 : 0); rec.Vt.push(Vt / Math.max(1e-9, Vtrap));
-        nrec.t.push(t); nrec.L.push(10 * Math.log10(Wf + 1e-12)); nrec.pl.push(Wsrc[0]); nrec.out.push(Wsrc[1]); nrec.air.push(Wsrc[2]); nrec.brk.push(Wsrc[3]); nrec.core.push(core ? 1 : 0);
+        nrec.t.push(t); nrec.L.push(10 * Math.log10(WfV[0] + 1e-12)); nrec.pl.push(Wsrc[0]); nrec.out.push(Wsrc[1]); nrec.air.push(Wsrc[2]); nrec.brk.push(Wsrc[3]); nrec.core.push(core ? 1 : 0);
+        for (let v = 0; v < NV; v++) nrec.Lv[v].push(10 * Math.log10(WfV[v] + 1e-12));
       }
     }
 
@@ -399,10 +426,15 @@
       primeT, breakT, everPrimed, sealEnd, sealOK: sealEnd >= p.sealMin - 0.5, zEnd: zEnd * 1000,
       tEnd, incomplete, cisternLeft: Vc * 1000, overflow: overflowT !== null, overflowT, spill: Vspill * 1000, valid: overflowT === null && !incomplete,
       cleanPerL: 100 * Aclean / Atot / water,
-      noise: {
-        peak: 10 * Math.log10(WfPeak + 1e-12), energy: 10 * Math.log10(Eacc + 1e-12), tPeak: tPeakN,
-        share: Esrc.map((e) => (Eacc > 0 ? e / Eacc : 0)), airT, airDur, coreFactor: Cv
-      },
+      noise: (() => {
+        const dB = (x) => 10 * Math.log10(x + 1e-12), Es = Esrc[0] + Esrc[1] + Esrc[2] + Esrc[3];
+        const nCore = VAR.reduce((s, v, i) => s + (i > 0 && coreV[vCv[i]] ? 1 : 0), 0);
+        return {
+          peak: dB(peakV[0]), energy: dB(EV[0]), tPeak: tPeakN,
+          share: Esrc.map((e) => (Es > 0 ? e / Es : 0)), peakShare, airT, airDur, coreFactor: CvL[0],
+          peakV: Array.from(peakV, dB), energyV: Array.from(EV, dB), coreCorners: nCore, nCorners: NV - 1
+        };
+      })(),
       runMs: 0
     };
     if (!light) Object.assign(out, { J, tWet, tClean, lines, rec, nrec, dtu });
@@ -410,5 +442,5 @@
     return out;
   }
 
-  root.FlushModel = { simulate, defaults, PRESETS, COEFFS, buildGeom, geomAt, sAtDepth, coreFactor, NTH, NS };
+  root.FlushModel = { simulate, defaults, PRESETS, COEFFS, buildGeom, geomAt, sAtDepth, coreFactor, rankineF, noiseCorners, NTH, NS };
 })(typeof window !== 'undefined' ? window : globalThis);

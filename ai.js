@@ -32,7 +32,7 @@
   function evalPhysics(base, design, coeff, opts) {
     const q = Object.assign({}, base, design, coeff || {}, { flushMode: 'full' });
     const r = M.simulate(q, opts || SIM);
-    return { clean: r.cleanPct, solids: r.solidsPct, paper: r.paperPct, water: r.water, seal: r.sealEnd, sealOK: r.sealOK, overflow: r.overflow, incomplete: r.incomplete, noise: r.noise.peak };
+    return { clean: r.cleanPct, solids: r.solidsPct, paper: r.paperPct, water: r.water, seal: r.sealEnd, sealOK: r.sealOK, overflow: r.overflow, incomplete: r.incomplete, noise: r.noise.peak, noiseV: r.noise.peakV };
   }
   // run a list of jobs in time slices so the page stays responsive
   function slices(step, done, budget = 14) {
@@ -148,6 +148,8 @@
   const targets = () => { const nz = $('tNoise').value.trim(); return { water: +$('tWater').value, clean: +$('tClean').value, solids: +$('tSolids').value, paper: +$('tPaper').value, noise: nz === '' || !isFinite(+nz) ? null : +nz, pick: $('tPick').value }; };
   // noise relative to the current design (both at full resolution once re-checked)
   const nRel = (e) => (O.cur && e.noise != null ? e.noise - O.cur.noise : 0);
+  // range of the noise difference over the uncertain coefficients (each variant against the same variant of the current design)
+  const nRng = (e) => (O.cur && e.noiseV && O.cur.noiseV ? A.nRange(e.noiseV, O.cur.noiseV) : { lo: nRel(e), hi: nRel(e) });
   const pickCmp = (t) => (a, b) => t.pick === 'water' ? (a.water - b.water || b.score - a.score)
     : t.pick === 'noise' ? (nRel(a) - nRel(b) || b.score - a.score) : (b.score - a.score || a.water - b.water);
   const pickName = (t) => (t.pick === 'water' ? 'lowest water' : t.pick === 'noise' ? 'quietest' : 'highest score');
@@ -163,7 +165,8 @@
       const t = targets();
       if (e.water > t.water + 1e-9) { v += (e.water - t.water) / 0.5; miss.push(`water ${fmt(e.water - t.water, 1)} L over`); }
       [['clean', 'cleaned'], ['solids', 'solids'], ['paper', 'paper']].forEach(([k, lab]) => { if (e[k] < t[k] - 1e-9) { v += (t[k] - e[k]) / 5; miss.push(`${lab} ${fmt(t[k] - e[k], t[k] - e[k] < 1 ? 1 : 0)} points short`); } });
-      if (t.noise != null && O.cur && e !== O.cur) { const over = nRel(e) - t.noise; if (over > 1e-9) { v += over / 3; miss.push(`${fmt(over, 1)} dB too loud`); } }
+      // a noise limit must hold over the whole uncertainty range, so the upper end counts
+      if (t.noise != null && O.cur && e !== O.cur) { const over = nRng(e).hi - t.noise; if (over > 1e-9) { v += over / 3; miss.push(`${fmt(over, 1)} dB too loud at the upper end of the noise range`); } }
     }
     e.viol = v; e.miss = miss; return e;
   }
@@ -235,49 +238,55 @@
       if (gen >= GENS) return false;
       gen++; queue = breed(); return true;
     }, () => {
-      // The search runs at coarse wall-film resolution for speed. Re-check the designs
-      // that could be reported (trade-off curve and best target candidates) at the
-      // simulator's own resolution, so the numbers shown match the page once loaded.
-      const tSearch = now() - t0, nSearch = O.all.length, seen = new Set(), check = [];
-      const add = (e) => { if (e && !e.full && !seen.has(e)) { seen.add(e); check.push(e); } };
-      O.front.forEach(add);
+      const tSearch = now() - t0, nSearch = O.all.length;
+      confirmReported(() => {
+        O.running = false; $('optRun').disabled = false;
+        const nOk = O.all.filter((e) => e.viol === 0).length;
+        $('optStatus').textContent = `Done: ${nSearch} designs in ${(tSearch / 1000).toFixed(1)} s, ${(tSearch / nSearch).toFixed(1)} ms each; every design shown is re-checked at full resolution. ${O.goal === 'targets' ? nOk + ' meet all targets.' : O.front.length + ' designs on the best trade-off curve.'}`;
+      });
+    });
+  }
+  // The search runs at coarse wall-film resolution for speed, which can be off by several points of cleaning in
+  // short, strong flushes. Every design that can be reported (trade-off curve, best and closest candidates, table
+  // rows) is re-run at the simulator's own resolution and re-rated before it is shown as a result. Re-checking can
+  // change the ranking, so it repeats until all reported designs are checked.
+  function confirmReported(done) {
+    const base = O.base, mode = O.mode, seen = new Set(), check = [];
+    const add = (e) => { if (e && !e.full && !seen.has(e)) { seen.add(e); check.push(e); } };
+    const collect = () => {
+      O.front = paretoOf(O.all); O.best = pickBest();
+      O.front.forEach(add); add(O.best);
       if (O.goal === 'targets') {
         const t = targets(), ok = O.all.filter((e) => e.viol === 0);
         ok.sort(pickCmp(t)).slice(0, 12).forEach(add);
         if (!ok.length) O.all.slice().sort((a, b) => a.viol - b.viol || b.score - a.score).slice(0, 6).forEach(add);
       }
-      $('optStatus').textContent = `Checking ${check.length} best designs at full resolution…`;
-      O.stop = slices(() => {
-        let e = check.shift();
-        if (!e) {
-          // a coarse design may have moved up when a checked one dropped out: check it too
-          if (seen.size >= 80) return false;
-          O.front = paretoOf(O.all); O.best = pickBest();
-          O.front.forEach(add); add(O.best);
-          e = check.shift(); if (!e) return false;
-        }
-        Object.assign(e, evalPhysicsMode(base, e.des, mode, SIM_FULL), { full: true }); rate(e);
-        return true;
-      }, () => {
-        O.front = paretoOf(O.all); O.best = pickBest();
-        O.running = false; $('optRun').disabled = false;
-        const nOk = O.all.filter((e) => e.viol === 0).length;
-        $('optStatus').textContent = `Done: ${nSearch} designs in ${(tSearch / 1000).toFixed(1)} s, ${(tSearch / nSearch).toFixed(1)} ms each; the best ones re-checked at full resolution. ${O.goal === 'targets' ? nOk + ' meet all targets.' : O.front.length + ' designs on the best trade-off curve.'}`;
-        drawOpt(); fillOptTable(); optSummary();
-      });
+    };
+    collect();
+    if (O.stop) O.stop();
+    O.checking = true;
+    $('optStatus').textContent = `Checking ${check.length} designs at full resolution…`;
+    O.stop = slices(() => {
+      let e = check.shift();
+      if (!e) { if (seen.size >= 150) return false; collect(); e = check.shift(); if (!e) return false; }   // the ranking moved: check the newcomers
+      Object.assign(e, evalPhysicsMode(base, e.des, mode, SIM_FULL), { full: true }); rate(e);
+      return true;
+    }, () => {
+      O.front = paretoOf(O.all); O.best = pickBest(); O.checking = false;
+      drawOpt(); fillOptTable(); optSummary(); if (done) done();
     });
   }
   function evalPhysicsMode(base, des, mode, opts) {
     const q = Object.assign({}, base, des, { flushMode: mode });
     const r = M.simulate(q, opts || SIM);
-    return { clean: r.cleanPct, solids: r.solidsPct, paper: r.paperPct, water: r.water, seal: r.sealEnd, sealOK: r.sealOK, overflow: r.overflow, incomplete: r.incomplete, noise: r.noise.peak };
+    return { clean: r.cleanPct, solids: r.solidsPct, paper: r.paperPct, water: r.water, seal: r.sealEnd, sealOK: r.sealOK, overflow: r.overflow, incomplete: r.incomplete, noise: r.noise.peak, noiseV: r.noise.peakV };
   }
   function lhsN(n, nd, r) {
     const cols = Array.from({ length: nd }, () => { const p = Array.from({ length: n }, (_, i) => (i + r()) / n); for (let i = n - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [p[i], p[j]] = [p[j], p[i]]; } return p; });
     return Array.from({ length: n }, (_, i) => cols.map((c) => c[i]));
   }
   const sdb = (v) => `${v > 0.05 ? '+' : v < -0.05 ? '−' : '±'}${fmt(Math.abs(v), 1)}`;
-  const metricsLine = (e) => `cleaned ${fmt(e.clean, 0)} %, solids ${fmt(e.solids, 0)} %, paper ${fmt(e.paper, 0)} %, ${fmt(e.water, 1)} L` + (O.cur && e !== O.cur ? `, noise ${sdb(nRel(e))} dB vs now` : '');
+  const metricsLine = (e) => { const g = nRng(e); return `cleaned ${fmt(e.clean, 0)} %, solids ${fmt(e.solids, 0)} %, paper ${fmt(e.paper, 0)} %, ${fmt(e.water, 1)} L` + (O.cur && e !== O.cur ? `, noise ${sdb(nRel(e))} dB vs now (range ${sdb(g.lo)} to ${sdb(g.hi)})` : ''); };
   function optSummary() {
     const c = O.cur; if (!c) return;
     const box = $('optBest'); let html = `<p><b>Current design:</b> ${metricsLine(c)}, score ${fmt(c.score, 1)}${c.viol > 0 ? ` (${c.miss.join(', ')})` : ''}.</p>`;
@@ -335,7 +344,7 @@
     } else { rows = O.front.slice(0, 12); title = rows.length ? 'Best trade-off designs, sorted by water' : ''; }
     $('optTableTitle').textContent = title;
     $('optTable').innerHTML = rows.length ? `<thead><tr><th></th><th>Water, L</th><th>Score</th><th>Cleaned, %</th><th>Solids, %</th><th>Paper, %</th><th>Noise, dB vs now</th>${vars.map((d) => `<th>${d.l}${d.u ? ', ' + d.u : ''}</th>`).join('')}</tr></thead><tbody>` +
-      rows.map((e, i) => `<tr${e === O.best ? ' class="best"' : ''}><td><button class="btn mini" type="button" data-opt="${i}">Load</button></td><td class="num">${fmt(e.water, 1)}</td><td class="num">${fmt(e.score, 1)}</td><td class="num">${fmt(e.clean, 0)}</td><td class="num">${fmt(e.solids, 0)}</td><td class="num">${fmt(e.paper, 0)}</td><td class="num">${sdb(nRel(e))}</td>${vars.map((d) => `<td class="num">${fmt(e.des[d.k], d.int ? 0 : d.dp)}</td>`).join('')}</tr>`).join('') + '</tbody>' : '';
+      rows.map((e, i) => `<tr${e === O.best ? ' class="best"' : ''}><td><button class="btn mini" type="button" data-opt="${i}">Load</button></td><td class="num">${fmt(e.water, 1)}</td><td class="num">${fmt(e.score, 1)}</td><td class="num">${fmt(e.clean, 0)}</td><td class="num">${fmt(e.solids, 0)}</td><td class="num">${fmt(e.paper, 0)}</td><td class="num" title="Range ${sdb(nRng(e).lo)} to ${sdb(nRng(e).hi)} dB">${sdb(nRel(e))}</td>${vars.map((d) => `<td class="num">${fmt(e.des[d.k], d.int ? 0 : d.dp)}</td>`).join('')}</tr>`).join('') + '</tbody>' : '';
     $('optTable').querySelectorAll('[data-opt]').forEach((b) => b.addEventListener('click', () => loadOpt(rows[+b.dataset.opt])));
   }
   function loadOpt(e) {
@@ -352,7 +361,7 @@
   }
   $('cvOpt').addEventListener('mousemove', (ev) => {
     const e = nearestOpt(ev); O.hover = e; drawOpt();
-    $('optHover').textContent = e ? `${metricsLine(e)} · score ${fmt(e.score, 1)}${e.viol > 0 ? ' · ' + e.miss.join(', ') : ''}. Click to load.` : 'Hover a point to read it, click to load that design.';
+    $('optHover').textContent = e ? `${metricsLine(e)} · score ${fmt(e.score, 1)}${e.viol > 0 ? ' · ' + e.miss.join(', ') : ''}${e.full ? '' : ' · quick estimate, the simulator may differ'}. Click to load.` : 'Hover a point to read it, click to load that design.';
   });
   $('cvOpt').addEventListener('click', (ev) => loadOpt(nearestOpt(ev)));
   $('optRun').addEventListener('click', runOpt);
@@ -360,7 +369,12 @@
   function rerate() {
     if (!O.all.length || O.running) return;
     O.goal = goal(); O.all.forEach(rate); if (O.cur) rate(O.cur);
-    O.front = paretoOf(O.all); O.best = pickBest(); drawOpt(); fillOptTable(); optSummary();
+    O.front = paretoOf(O.all); O.best = pickBest(); drawOpt();
+    // new targets or weights can promote designs that were only rated coarsely: check them before reporting
+    confirmReported(() => {
+      const nOk = O.all.filter((e) => e.viol === 0).length;
+      $('optStatus').textContent = `Re-rated for the new ${O.goal === 'targets' ? 'targets' : 'weights'}; every design shown is checked at full resolution. ${O.goal === 'targets' ? nOk + ' meet all targets.' : O.front.length + ' designs on the best trade-off curve.'}`;
+    });
   }
   ['wClean', 'wSolids', 'wPaper'].forEach((id) => $(id).addEventListener('input', () => {
     const w = weights(); $('wOut').textContent = `Score weights: cleaning ${Math.round(w[0] * 100)} % · solids ${Math.round(w[1] * 100)} % · paper ${Math.round(w[2] * 100)} %`; rerate();

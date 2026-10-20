@@ -26,7 +26,7 @@
   document.body.appendChild(ov);
   const spot = ov.querySelector('.tour-spot'), card = ov.querySelector('.tour-card');
 
-  let idx = 0, active = false, startSnap = null, busy = false, target = null, raf = 0, mem = {};
+  let idx = 0, active = false, startSnap = null, startPin = null, busy = false, target = null, raf = 0, mem = {};
 
   async function runOptimiser() {
     document.querySelector('[data-aitab="aiOpt"]').click();
@@ -34,7 +34,7 @@
     document.querySelectorAll('#optVarsJets input, #optVarsBowl input').forEach((c) => { c.checked = ['ov_Anoz', 'ov_alpha', 'ov_jetPhase', 'ov_hNoz', 'ov_Hcr', 'ov_VOL'].includes(c.id); });
     $('optFlush').value = 'full'; $('optEffort').value = 'quick';
     $('goalTargets').click();
-    const k = A.kpis(); mem.tClean = Math.min(95, Math.round(k.clean) + 3);
+    const k = A.kpis(); mem.tClean = Math.min(95, Math.round(k.clean) + 2);
     $('tWater').value = '4.0'; $('tClean').value = String(mem.tClean); $('tSolids').value = '95'; $('tPaper').value = '80'; $('tPick').value = 'score'; if ($('tNoise')) $('tNoise').value = '0';
     $('tPaper').dispatchEvent(new Event('input'));
     $('optRun').click();
@@ -84,7 +84,7 @@
     {
       t: 'Load the winner', el: () => $('results'), block: 'center',
       x: async () => { mem.before3 = A.kpis(); mem.hadBest = !!$('optLoadBest') && /meeting all targets/.test($('optBest').textContent); const b = $('optLoadBest'); if (b) b.click(); await wait(50); },
-      h: () => { const k = A.kpis(), b = mem.before3 || k; return `<p>The ${mem.hadBest ? 'suggested' : 'closest'} design is now loaded in the simulator:</p><ul><li>Cleaning <b>${pct(k.clean)} %</b> (${signed(k.clean - b.clean)})</li><li>Solids <b>${pct(k.solids)} %</b> (${signed(k.solids - b.solids)})</li><li>Water <b>${k.water.toFixed(1)} L</b> (${signed(k.water - b.water, 1)} L)</li><li>Noise <b>${signed(k.noise - b.noise, 1)} dB</b> against the design before</li></ul><p class="tour-hint">The model is not calibrated yet, so a suggestion like this is a candidate for a CFD or rig check, not a final answer.</p>`; }
+      h: () => { const k = A.kpis(), b = mem.before3 || k; return `<p>The ${mem.hadBest ? 'suggested' : 'closest'} design is now loaded in the simulator:</p><ul><li>Cleaning <b>${pct(k.clean)} %</b> (${signed(k.clean - b.clean)})</li><li>Solids <b>${pct(k.solids)} %</b> (${signed(k.solids - b.solids)})</li><li>Water <b>${k.water.toFixed(1)} L</b> (${signed(k.water - b.water, 1)} L)</li><li>Noise <b>${signed(k.noise - b.noise, 1)} dB</b> against the design before${(() => { const g = A.nRange(k.noiseV, b.noiseV); return g ? `, range ${signed(g.lo, 1)} to ${signed(g.hi, 1)} dB` : ''; })()}</li></ul><p class="tour-hint">The model is not calibrated yet, so a suggestion like this is a candidate for a CFD or rig check, not a final answer.</p>`; }
     },
     {
       t: 'Your turn', el: () => document.querySelector('.top .actions'), block: 'center', last: true,
@@ -140,6 +140,7 @@
   function start() {
     if (active) return;
     startSnap = A.snapshot(); mem = {}; active = true; ov.hidden = false; document.body.classList.add('touring');
+    startPin = A.pin(); if (startPin) A.setPin(null);   // the demo compares with the preset; a pinned reference comes back at the end
     if (A.isPhone()) A.drawer(false);
     cancelAnimationFrame(raf); raf = requestAnimationFrame(place);
     show(0);
@@ -149,6 +150,7 @@
     active = false; ov.hidden = true; document.body.classList.remove('touring'); cancelAnimationFrame(raf);
     A.stop();
     if (restore && startSnap) A.apply(startSnap);
+    if (startPin) { A.setPin(startPin); startPin = null; }
     const b = $('demoBtn'); if (b) b.focus({ preventScroll: true });
   }
   $('tourNext').addEventListener('click', () => { if (busy) return; if (idx >= STEPS.length - 1) end(true); else show(idx + 1); });

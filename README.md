@@ -23,7 +23,7 @@ The simulator answers three questions for a given bowl and flush design, in this
 2. **Waste removal:** how much of a solid test load and of floating paper leaves through the trap.
 3. **Water use:** how much water the flush takes, and whether the water seal is restored.
 
-A fourth result, **noise**, is a relative indicator in dB against a reference design: louder or quieter, and which part of the flush makes the noise (jet films entering the pool, water falling into the outlet, an air core reaching the trap, or the siphon break). It is not a sound level and leaves out the cistern, valves, pipes and building. See [section 10 of the model description](https://fintlp.github.io/jet-flush-model/method.html#noise).
+A fourth result, **noise**, is an experimental, relative indicator in dB against a reference design: louder or quieter, and which part of the flush makes the noise (jet films entering the pool, water falling into the outlet, an air core reaching the trap, or the siphon break). Every noise result comes with a range over five assumed coefficients, and a direction is only shown when the whole range agrees. It is not a sound level, it is not yet checked against recordings, and it leaves out the cistern, valves, pipes and building. See [section 10 of the model description](https://fintlp.github.io/jet-flush-model/method.html#noise).
 
 It splits the flush into simple physical sub-models: cistern, rim jets, wall film on an oval bowl, pool level and swirl, washdown or siphonic trap, and waste transport. One flush takes about 5 to 20 ms in a browser; a free-surface CFD case of a flush typically runs for hours.
 
@@ -51,7 +51,7 @@ On a phone, the sliders open from the **Adjust design** button at the bottom.
 
 ## AI lab
 
-- **Design optimiser:** an evolutionary multi-objective search (NSGA-II style). You choose which jet, flush and bowl geometry settings may change, then either trade a weighted score against water or set targets it must meet, including an optional noise limit such as "no louder than now". About 540 designs take 3 to 5 seconds.
+- **Design optimiser:** an evolutionary multi-objective search (NSGA-II style). You choose which jet, flush and bowl geometry settings may change, then either trade a weighted score against water or set targets it must meet, including an optional noise limit such as "no louder than now". About 540 designs take about 4 to 7 seconds, and every design it reports is re-checked at the simulator's own resolution.
 - **Neural surrogate:** a small neural network trained in the browser on a few hundred flushes. It answers about 1,000 to 2,000 times faster than the physics model. This stands in for training a network on PreonLab runs.
 - **Hybrid calibration:** the calibration workflow end to end. Six coefficients are fitted with Nelder-Mead to a few reference runs, a Gaussian process corrects what is left, and all versions are checked on hold-out designs. The reference data is synthetic and labelled as such.
 
@@ -106,10 +106,11 @@ The coefficients that describe physics the model does not resolve (film friction
 
 ### 1.3.0 · preview, not released yet
 
-- Noise indicator: a fourth result card with the peak noise in dB against the preset, or against the pinned reference when one is set, plus sound energy, the loudest source, when an air core reaches the trap and the siphon break gurgle.
-- Four sources, each written as a flow of air into the water: jet films entering the swirling pool, water falling into the outlet, an air core at the trap (Rankine vortex check) and the siphon break.
-- Noise trace with air core shading, noise in the design sweep, and a noise limit and "quietest" pick in the optimiser.
-- Model description section 10 and new sources on bubble acoustics, air entrainment and intake vortices.
+- Noise indicator, experimental: a fourth result card with the peak noise in dB against the preset, or against the pinned reference when one is set, its range over five assumed coefficients, sound energy, which source makes the peak and which makes most of the energy, when an air core reaches the trap and the siphon break gurgle.
+- Four sources, each written as a flow of air into the water: jet films entering the swirling pool, water falling into the outlet, an air core at the trap (Rankine vortex with the pool's angular momentum) and the siphon break.
+- Noise trace with uncertainty band and air core shading, noise in the design sweep, and a noise limit (upper end of the range) and "quietest" pick in the optimiser. The Demo me walkthrough reports noise and asks for "no louder than now".
+- Fixes from an external review, including two in 1.2.0: the optimiser re-checks every design it reports at full resolution, also after targets or weights change; a sweep is marked out of date when settings change while it runs. Pinning updates the noise trace too, and the demo sets a pinned reference aside.
+- Model description: section 10 on noise, and a note on the resolution of the film updates. New sources on bubble acoustics, air entrainment and intake vortices.
 
 ### 1.2.0 · 20 October 2026
 

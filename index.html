@@ -396,18 +396,19 @@ td code{font-family:var(--f-mono);font-size:12.5px}
             </dl>
           </article>
           <article class="kpi" id="kpiNoise">
-            <div class="head"><span class="eyebrow">Noise <span class="est" title="Relative indicator from an uncalibrated model, not a sound level in dB(A)">· relative</span></span><span class="chip" id="cNoise" title="Display band chosen for this tool, not a standard"></span></div>
+            <div class="head"><span class="eyebrow">Noise <span class="est" title="Relative indicator from an uncalibrated model, not a sound level in dB(A)">· experimental</span></span><span class="chip" id="cNoise" title="Quieter or Louder only when the whole range agrees by at least 0.5 dB; Unclear when it does not. Display bands for this tool, not a standard."></span></div>
             <div><div class="big" id="kNoise"></div><div class="cap" id="kNoiseCap">peak level vs the preset</div></div>
             <dl>
               <dt>Sound energy</dt><dd id="kNoiseE"></dd>
-              <dt>Loudest source</dt><dd id="kNoiseSrc"></dd>
+              <dt>Peak mostly from</dt><dd id="kNoisePk"></dd>
+              <dt>Energy mostly from</dt><dd id="kNoiseSrc"></dd>
               <dt>Air core at trap</dt><dd id="kAirCore"></dd>
               <dt>Siphon gurgle</dt><dd id="kGurgle"></dd>
             </dl>
           </article>
         </div>
         <div class="strip" id="strip"></div>
-        <p class="estline">All results are illustrative estimates from a model that is not yet calibrated against CFD or tests. Use them to compare designs, not as product values. Noise is a relative indicator in dB against the reference named on its card: the preset, or your pinned reference. It is not a sound level and covers only the flush in the bowl and trap, not the cistern, pipes or building.</p>
+        <p class="estline">All results are illustrative estimates from a model that is not yet calibrated against CFD or tests. Use them to compare designs, not as product values. Noise is an experimental, relative indicator in dB against the reference named on its card: the preset, or your pinned reference. It is not a sound level, it covers only the flush in the bowl and trap, and its range shows how much the result moves with the uncertain noise coefficients.</p>
       </section>
 
       <section class="panel" aria-label="Time traces" id="traces">

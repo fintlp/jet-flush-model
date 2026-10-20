@@ -169,13 +169,22 @@
   });
   $('pinBtn').addEventListener('click', () => {
     if (pinned) { pinned = null; } else { const d = new Date(); pinned = { k: kpis(), t: d.toTimeString().slice(0, 5) }; }
-    updateKPIs();
+    refreshReference();
   });
+  // everything that depends on the reference: cards, noise trace and its scale
+  function refreshReference() { if (!R) return; noiseTrace(); updateKPIs(); draw(); }
 
   const changeHooks = [];
   // history: each burst of edits becomes one undo step; deltas compare with the state before the burst
   const snapP = () => JSON.parse(JSON.stringify(P));
-  const kpis = () => (R ? { clean: R.cleanPct, solids: R.solidsPct, paper: R.paperPct, water: R.water, noise: R.noise.peak, noiseE: R.noise.energy } : null);
+  const kpis = () => (R ? { clean: R.cleanPct, solids: R.solidsPct, paper: R.paperPct, water: R.water, noise: R.noise.peak, noiseE: R.noise.energy, noiseV: R.noise.peakV, noiseEV: R.noise.energyV } : null);
+  // range of a noise difference over the uncertain coefficients: each variant is compared with the same variant of the reference
+  function nRange(a, b) {
+    if (!a || !b) return null;
+    let lo = Infinity, hi = -Infinity;
+    for (let v = 0; v < a.length; v++) { const x = a[v] - b[v]; if (x < lo) lo = x; if (x > hi) hi = x; }
+    return { lo, hi };
+  }
   /* noise reference: the pinned design, or else the preset of the same trap type and flush button,
      computed with the current model coefficients so that only the design differs */
   let refCache = { key: null, val: null };
@@ -183,13 +192,13 @@
     const kind = P.type === 'siphonic' ? 'siphonic' : 'washdown', d = M.defaults(kind);
     Object.keys(M.COEFFS).forEach((k) => { d[k] = P[k]; }); d.flushMode = P.flushMode;
     const key = JSON.stringify(d);
-    if (refCache.key !== key) { const r = M.simulate(d, { light: true, Tend: SIM_T }); refCache = { key, val: { peak: r.noise.peak, energy: r.noise.energy, kind, mode: P.flushMode } }; }
+    if (refCache.key !== key) { const r = M.simulate(d, { light: true, Tend: SIM_T }); refCache = { key, val: { peak: r.noise.peak, energy: r.noise.energy, peakV: r.noise.peakV, energyV: r.noise.energyV, kind, mode: P.flushMode } }; }
     return refCache.val;
   }
   function noiseRef() {
-    if (pinned && pinned.k && pinned.k.noise != null) return { peak: pinned.k.noise, energy: pinned.k.noiseE, pin: true, label: `pinned reference from ${pinned.t}` };
+    if (pinned && pinned.k && pinned.k.noise != null) return { peak: pinned.k.noise, energy: pinned.k.noiseE, peakV: pinned.k.noiseV, energyV: pinned.k.noiseEV, pin: true, label: `pinned reference from ${pinned.t}` };
     const v = presetNoise();
-    return { peak: v.peak, energy: v.energy, pin: false, label: `${v.kind === 'siphonic' ? 'Siphonic' : 'EU washdown'} preset, ${v.mode === 'partial' ? 'partial' : 'full'} flush` };
+    return { peak: v.peak, energy: v.energy, peakV: v.peakV, energyV: v.energyV, pin: false, label: `${v.kind === 'siphonic' ? 'Siphonic' : 'EU washdown'} preset, ${v.mode === 'partial' ? 'partial' : 'full'} flush` };
   }
   let hist = [], committed = null, committedK = null, burst = false, burstT = null, baseline = null, pinned = null;
   function beginChange() {
@@ -503,7 +512,7 @@
       { t: 'Bowl level vs. weir, mm', min: zmin, max: zmax, s: [['z', 'level', C.waterDeep]], ref: siph ? [0, -p.seal] : [0] },
       { t: 'Pool swirl, m/s', min: 0, max: vmax, s: [['vs', 'rim speed', C.accent]] },
       { t: 'Load left, %', min: 0, max: 100, s: [['MsP', 'solids', C.solid], ['NpP', 'paper', C.paperEdge]] },
-      { t: 'Noise level, dB vs reference peak', min: R.nmin, max: R.nmax, s: [['nRel', 'fast level', C.ink]], ref: [0], noise: true }
+      { t: 'Noise level, dB vs reference peak', min: R.nmin, max: R.nmax, s: [['nRel', 'fast level (grey band: range)', C.ink]], ref: [0], noise: true }
     ];
     const NP = panels.length, ph = (H - padT - padB - gap * (NP - 1)) / NP, pw = W - padL - padR;
     const Xt = (tt) => padL + tt / TVIEW * pw;
@@ -515,6 +524,13 @@
       ctx.fillStyle = rgba(C.raised); ctx.fillRect(padL, y0, pw, ph);
       ctx.strokeStyle = rgba(C.line); ctx.lineWidth = 1 * d; ctx.strokeRect(padL + 0.5, y0 + 0.5, pw - 1, ph - 1);
       ctx.beginPath(); for (let s = gstep; s < TVIEW - 1e-6; s += gstep) { ctx.moveTo(Xt(s), y0); ctx.lineTo(Xt(s), y0 + ph); } ctx.stroke();
+      if (pn.noise) { // band over the uncertain coefficients
+        ctx.fillStyle = rgba(C.ink, 0.1); ctx.beginPath();
+        const cl = (v) => Yv(Math.max(pn.min, Math.min(pn.max, v)));
+        for (let q = 0; q < n; q++) { const x = Xt(rec.t[q]); q ? ctx.lineTo(x, cl(rec.nHi[q])) : ctx.moveTo(x, cl(rec.nHi[q])); }
+        for (let q = n - 1; q >= 0; q--) ctx.lineTo(Xt(rec.t[q]), cl(rec.nLo[q]));
+        ctx.closePath(); ctx.fill();
+      }
       if (pn.noise) { // shade the time the air core reaches the trap
         const nr = R.nrec; ctx.fillStyle = rgba(C.bad, 0.13);
         for (let q = 0; q < n; q++) {
@@ -647,14 +663,20 @@
     const nr = noiseRef(), nd = r.noise.peak - nr.peak, ne = r.noise.energy - nr.energy;
     const sdb = (v) => (v < -40 ? 'below −40' : `${v > 0.05 ? '+' : v < -0.05 ? '−' : '±'}${Math.abs(v).toFixed(1)}`);
     $('kNoise').innerHTML = `${sdb(nd)}<small>dB</small>${!pinned && baseline && baseline.noise != null ? deltaHTML(r.noise.peak, baseline.noise, 1, '', true) : ''}`;
-    $('kNoiseCap').innerHTML = `peak level vs <span class="reftag${nr.pin ? ' pin' : ''}">${nr.pin ? '📌 ' : ''}${nr.label}</span>`;
-    $('kNoiseE').textContent = `${sdb(ne)} dB`;
+    const rg = nRange(r.noise.peakV, nr.peakV) || { lo: nd, hi: nd }, rgE = nRange(r.noise.energyV, nr.energyV) || { lo: ne, hi: ne };
+    const span = (q) => (Math.abs(q.hi - q.lo) < 0.05 ? '' : ` (${sdb(q.lo)} to ${sdb(q.hi)})`);
+    $('kNoiseCap').innerHTML = `peak level vs <span class="reftag${nr.pin ? ' pin' : ''}">${nr.pin ? '📌 ' : ''}${nr.label}</span><br>range over uncertain coefficients: <b>${sdb(rg.lo)} to ${sdb(rg.hi)} dB</b>`;
+    $('kNoiseE').textContent = `${sdb(ne)} dB${span(rgE)}`;
     const SRC = ['jet films hitting the pool', 'fall into the outlet', 'air core in the trap', 'siphon break'];
-    const sh = r.noise.share, im = sh.indexOf(Math.max(...sh));
-    $('kNoiseSrc').textContent = sh[im] > 0 ? `${SRC[im]}, ${Math.round(sh[im] * 100)} %` : '–';
-    $('kAirCore').textContent = r.noise.airT != null ? `from ${r.noise.airT.toFixed(1)} s, ${r.noise.airDur.toFixed(1)} s in all` : 'none';
+    const top = (sh) => { const im = sh.indexOf(Math.max(...sh)); return sh[im] > 0 ? `${SRC[im]}, ${Math.round(sh[im] * 100)} %` : '–'; };
+    $('kNoisePk').textContent = top(r.noise.peakShare);
+    $('kNoiseSrc').textContent = top(r.noise.share);
+    $('kAirCore').textContent = r.noise.airT != null ? `from ${r.noise.airT.toFixed(1)} s, ${r.noise.airDur.toFixed(1)} s in all`
+      : r.noise.coreCorners > 0 ? `none; possible with other coefficients (${r.noise.coreCorners} of ${r.noise.nCorners})` : 'none';
     $('kGurgle').textContent = p.type !== 'siphonic' ? 'none, washdown' : r.breakT != null ? `at ${r.breakT.toFixed(1)} s` : r.everPrimed ? 'none' : 'no siphon';
-    chip($('cNoise'), nd <= -1 ? 'good' : nd < 1 ? 'neutral' : nd < 3 ? 'warn' : 'bad', nd <= -1 ? 'Quieter' : nd < 1 ? 'Similar' : nd < 3 ? 'Slightly louder' : 'Louder');
+    // a direction is shown only when the whole range agrees
+    const cls = rg.hi <= -0.5 ? ['good', 'Quieter'] : rg.lo >= 0.5 ? ['warn', 'Louder'] : rg.lo > -0.5 && rg.hi < 0.5 ? ['neutral', 'Similar'] : ['neutral', 'Unclear'];
+    chip($('cNoise'), cls[0], cls[1]);
 
     // validity: overflow or unfinished flush make the numbers meaningless
     const vb = $('validity');
@@ -702,14 +724,24 @@
     const rec = R.rec;
     rec.MsP = rec.Ms.map((v) => P.Ms > 0 ? 100 * v / P.Ms : 0);
     rec.NpP = rec.Np.map((v) => P.Np > 0 ? 100 * v / P.Np : 0);
-    const nref = noiseRef().peak;
-    rec.nRel = R.nrec.L.map((v) => v - nref);
-    const nTop = Math.max(...rec.nRel.slice(0, Math.round(TVIEW / 0.02) + 1));
-    R.nmax = Math.max(10, Math.ceil((nTop + 6) / 5) * 5); R.nmin = R.nmax - 40;
+    noiseTrace();
     save();
     updateKPIs();
     if (firstRun) { firstRun = false; }
     draw();
+  }
+  // noise trace against the reference peak, with the band spanned by the uncertain coefficients
+  function noiseTrace() {
+    const rec = R.rec, nr = noiseRef(), Lv = R.nrec.Lv, nS = R.nrec.L.length;
+    rec.nRel = R.nrec.L.map((v) => v - nr.peak);
+    rec.nLo = new Array(nS); rec.nHi = new Array(nS);
+    for (let i = 0; i < nS; i++) {
+      let lo = Infinity, hi = -Infinity;
+      for (let v = 0; v < Lv.length; v++) { const x = Lv[v][i] - (nr.peakV ? nr.peakV[v] : nr.peak); if (x < lo) lo = x; if (x > hi) hi = x; }
+      rec.nLo[i] = lo; rec.nHi[i] = hi;
+    }
+    const nTop = Math.max(...rec.nHi.slice(0, Math.round(TVIEW / 0.02) + 1));
+    R.nmax = Math.max(10, Math.ceil((nTop + 4) / 5) * 5); R.nmin = R.nmax - 40;
   }
   function draw() {
     if (!R) return;
@@ -782,6 +814,7 @@
       if (k < total) requestAnimationFrame(chunk);
       else {
         swRunning = false; $('swRun').disabled = false;
+        if (SW.dirty) SW.stale = true;   // settings changed while the sweep ran
         $('swInfo').textContent = `${total} flushes in ${(SW.ms / 1000).toFixed(1)} s, ${(SW.ms / total).toFixed(1)} ms each`;
         drawSweep();
       }
@@ -790,7 +823,7 @@
   $('swRun').addEventListener('click', runSweep);
   swM.addEventListener('change', drawSweep);
   [swX, swY].forEach((s) => s.addEventListener('change', () => { if (SW) { SW.stale = true; drawSweep(); } }));
-  function markSweepStale() { if (SW && !swRunning) { SW.stale = true; drawSweep(); } }
+  function markSweepStale() { if (!SW) return; if (swRunning) { SW.dirty = true; return; } SW.stale = true; drawSweep(); }
 
   let swGeom = null;
   function drawSweep() {
@@ -881,7 +914,9 @@
     stop: () => { playing = false; setPlay(); },
     setTime: (t) => { T = t; playing = false; setPlay(); draw(); },
     snapshot: () => snapP(),
-    save, noiseRef, noise: () => (R ? R.noise : null),
+    save, noiseRef, nRange, noise: () => (R ? R.noise : null),
+    pin: () => pinned, setPin: (v) => { pinned = v || null; refreshReference(); },
+    _test: { result: () => R, sweep: () => (SW ? { stale: SW.stale, done: SW.done, total: SW.res.length, dirty: !!SW.dirty } : null) },
     drawer: (open) => toggleDrawer(open),
     isPhone: () => window.matchMedia('(max-width: 940px)').matches,
     SPECK, readColors, rgba, mix, sizeCanvas, dpr, font
