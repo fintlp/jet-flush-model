@@ -116,6 +116,7 @@ Patch release with fixes from an independent review of 1.3.0. Model results are 
 - The pinned reference is recomputed with the current model and noise coefficients, so changing a coefficient no longer shows a change for an unchanged design.
 - AI lab: the optimiser checks a noise limit against the current design too (it reads 0 dB against itself), and refuses to start from a design that breaks the rim gap when neither radius is searched. The surrogate readout says it is for a full flush and notes when the simulator is set to a partial flush; the partial flush volume no longer marks the surrogate or the calibration as out of date.
 - Links from the simulator page to the other pages and the slides are relative, so a local or branch copy opens its own pages. The siphonic preset is labelled 4.8 L + 0.6 L refill, matching the 5.4 L water use it reports. Page descriptions mention relative noise.
+- Slides, walkthrough video and stills are unchanged from 1.3.0 and still carry that version; the results they show, including the Demo me result of 87 % cleaning at 4.0 L, are the same in 1.3.1.
 
 ### 1.3.0 · 20 October 2026
 
