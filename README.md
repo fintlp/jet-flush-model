@@ -23,6 +23,8 @@ The simulator answers three questions for a given bowl and flush design, in this
 2. **Waste removal:** how much of a solid test load and of floating paper leaves through the trap.
 3. **Water use:** how much water the flush takes, and whether the water seal is restored.
 
+A fourth result, **noise**, is a relative indicator in dB against a reference design: louder or quieter, and which part of the flush makes the noise (jet films entering the pool, water falling into the outlet, an air core reaching the trap, or the siphon break). It is not a sound level and leaves out the cistern, valves, pipes and building. See [section 10 of the model description](https://fintlp.github.io/jet-flush-model/method.html#noise).
+
 It splits the flush into simple physical sub-models: cistern, rim jets, wall film on an oval bowl, pool level and swirl, washdown or siphonic trap, and waste transport. One flush takes about 5 to 20 ms in a browser; a free-surface CFD case of a flush typically runs for hours.
 
 ## Quick start
@@ -41,21 +43,21 @@ On a phone, the sliders open from the **Adjust design** button at the bottom.
 |---|---|
 | Bowl from above | Jet films, cleaned wall areas, pool swirl and waste media during the flush |
 | Section | Cistern, bowl level, weir and trap, with vertical positions to scale |
-| Result cards | Cleaning, waste removal and water use, with changes against the previous design or a pinned reference |
-| Flush traces | Flow in and out, bowl level, pool swirl and load left over time; click to jump to a moment |
+| Result cards | Cleaning, waste removal, water use and relative noise, with changes against the previous design or a pinned reference |
+| Flush traces | Flow in and out, bowl level, pool swirl, load left and noise level over time, with air core and siphon events; click to jump to a moment |
 | Wall cleaning map | The bowl wall unrolled, showing dry, wetted and cleaned areas |
 | Design sweep | A 12 × 12 heat map of one result over two settings; click a cell to load that design |
 | AI lab | Design optimiser, neural surrogate and hybrid calibration, all running in the browser |
 
 ## AI lab
 
-- **Design optimiser:** an evolutionary multi-objective search (NSGA-II style). You choose which jet, flush and bowl geometry settings may change, then either trade a weighted score against water or set targets it must meet. About 540 designs take 3 to 5 seconds.
+- **Design optimiser:** an evolutionary multi-objective search (NSGA-II style). You choose which jet, flush and bowl geometry settings may change, then either trade a weighted score against water or set targets it must meet, including an optional noise limit such as "no louder than now". About 540 designs take 3 to 5 seconds.
 - **Neural surrogate:** a small neural network trained in the browser on a few hundred flushes. It answers about 1,000 to 2,000 times faster than the physics model. This stands in for training a network on PreonLab runs.
 - **Hybrid calibration:** the calibration workflow end to end. Six coefficients are fitted with Nelder-Mead to a few reference runs, a Gaussian process corrects what is left, and all versions are checked on hold-out designs. The reference data is synthetic and labelled as such.
 
 ![Design optimiser: simulated designs, best trade-off and best design meeting the targets](media/ai-optimiser-chart.png)
 
-Details are in [section 13 of the model description](https://fintlp.github.io/jet-flush-model/method.html#ailab).
+Details are in [section 14 of the model description](https://fintlp.github.io/jet-flush-model/method.html#ailab).
 
 ## Run it locally
 
@@ -98,9 +100,16 @@ console.log(r.cleanPct, r.solidsPct, r.paperPct, r.water);
 
 ## Calibration
 
-The coefficients that describe physics the model does not resolve (film friction, spreading, soil shear threshold, swirl transfer, transport thresholds and others) are fitted to a few reference runs. The procedure, the order of fitting and which measurement or CFD output to use for each coefficient are in [section 12 of the model description](https://fintlp.github.io/jet-flush-model/method.html#calibration). PreonLab is a good candidate for the reference runs; its fit for paper and other flexible media should be checked in a benchmark first.
+The coefficients that describe physics the model does not resolve (film friction, spreading, soil shear threshold, swirl transfer, transport thresholds and others) are fitted to a few reference runs. The procedure, the order of fitting and which measurement or CFD output to use for each coefficient are in [section 13 of the model description](https://fintlp.github.io/jet-flush-model/method.html#calibration). PreonLab is a good candidate for the reference runs; its fit for paper and other flexible media should be checked in a benchmark first.
 
 ## Change log
+
+### 1.3.0 · preview, not released yet
+
+- Noise indicator: a fourth result card with the peak noise in dB against the preset, or against the pinned reference when one is set, plus sound energy, the loudest source, when an air core reaches the trap and the siphon break gurgle.
+- Four sources, each written as a flow of air into the water: jet films entering the swirling pool, water falling into the outlet, an air core at the trap (Rankine vortex check) and the siphon break.
+- Noise trace with air core shading, noise in the design sweep, and a noise limit and "quietest" pick in the optimiser.
+- Model description section 10 and new sources on bubble acoustics, air entrainment and intake vortices.
 
 ### 1.2.0 · 20 October 2026
 

@@ -94,7 +94,7 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
     <span class="eyebrow">Model description · Tangential Jet Flush Model</span>
     <h1>How the jet flush model works</h1>
     <p class="lede">A reduced-order model of a rimless WC flushed by tangential rim jets. It traces each jet as a film on the bowl wall, follows the pool level, swirl and trap flow, and estimates cleaning, waste removal and water use. One flush takes about 5 to 20 milliseconds to compute in a web browser.</p>
-    <p class="meta">Version 1.2.0 · 20 October 2026 · <a href="https://github.com/fintlp/jet-flush-model#change-log">change log</a> · model code: <a href="https://github.com/fintlp/jet-flush-model/blob/main/model.js">model.js</a></p>
+    <p class="meta">Version 1.3.0 preview · 20 October 2026 · <a href="https://github.com/fintlp/jet-flush-model#change-log">change log</a> · model code: <a href="https://github.com/fintlp/jet-flush-model/blob/main/model.js">model.js</a></p>
   </header>
 
   <div class="layout">
@@ -110,15 +110,16 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
         <li><a href="#outflow"><span class="n">7</span>Pool level and outflow</a></li>
         <li><a href="#swirl"><span class="n">8</span>Pool swirl</a></li>
         <li><a href="#waste"><span class="n">9</span>Waste transport</a></li>
-        <li><a href="#numerics"><span class="n">10</span>Numerics and speed</a></li>
-        <li><a href="#coefficients"><span class="n">11</span>Parameters and coefficients</a></li>
-        <li><a href="#calibration"><span class="n">12</span>Calibration with PreonLab</a></li>
-        <li><a href="#ailab"><span class="n">13</span>AI lab</a></li>
-        <li><a href="#approaches"><span class="n">14</span>Comparison with other approaches</a></li>
-        <li><a href="#limits"><span class="n">15</span>Assumptions and limits</a></li>
-        <li><a href="#code"><span class="n">16</span>Code map</a></li>
-        <li><a href="#glossary"><span class="n">17</span>Glossary</a></li>
-        <li><a href="sources.html"><span class="n">18</span>Sources and references ↗</a></li>
+        <li><a href="#noise"><span class="n">10</span>Noise indicator</a></li>
+        <li><a href="#numerics"><span class="n">11</span>Numerics and speed</a></li>
+        <li><a href="#coefficients"><span class="n">12</span>Parameters and coefficients</a></li>
+        <li><a href="#calibration"><span class="n">13</span>Calibration with PreonLab</a></li>
+        <li><a href="#ailab"><span class="n">14</span>AI lab</a></li>
+        <li><a href="#approaches"><span class="n">15</span>Comparison with other approaches</a></li>
+        <li><a href="#limits"><span class="n">16</span>Assumptions and limits</a></li>
+        <li><a href="#code"><span class="n">17</span>Code map</a></li>
+        <li><a href="#glossary"><span class="n">18</span>Glossary</a></li>
+        <li><a href="sources.html"><span class="n">19</span>Sources and references ↗</a></li>
       </ol>
     </nav>
 
@@ -131,10 +132,11 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
           <li><strong>Waste removal.</strong> How much of a solid test load and of floating paper leaves through the trap.</li>
           <li><strong>Water use.</strong> How much water the flush takes, and whether the water seal is restored afterwards.</li>
         </ol>
+        <p>A fourth result, <strong>noise</strong>, is a relative indicator: is the design louder or quieter than a reference, and which part of the flush makes the noise. It is described in <a href="#noise">section 10</a>.</p>
         <p>It does this by splitting the flush into a chain of simple physical sub-models that each have a clear meaning: cistern, jets, wall film, pool, trap and waste. Each sub-model uses a few equations instead of solving the full three-dimensional flow. That is why one flush computes in milliseconds rather than the hours a free-surface CFD case needs.</p>
         <div class="box note">
           <h4>What the numbers mean today</h4>
-          <p>All coefficients are physically reasonable estimates, not yet fitted to measurements or CFD. The model shows how designs compare and which way a change pushes the result. Absolute percentages and grams become trustworthy only after calibration against a few reference runs, as described in <a href="#calibration">section 12</a>.</p>
+          <p>All coefficients are physically reasonable estimates, not yet fitted to measurements or CFD. The model shows how designs compare and which way a change pushes the result. Absolute percentages and grams become trustworthy only after calibration against a few reference runs, as described in <a href="#calibration">section 13</a>.</p>
         </div>
         <p>Typical uses are screening many design variants quickly, explaining the flush mechanism to non-specialists, and choosing which few variants deserve a full CFD or rig test.</p>
       </section>
@@ -153,7 +155,7 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
         <h3>Changing the design</h3>
         <ul>
           <li><strong>Presets:</strong> EU washdown (4.5/3 L) and siphonic (4.8 L). Full or partial flush is switched next to the preset.</li>
-          <li><strong>Sliders:</strong> grouped into cistern and flush, tangential jets, bowl and trap, siphon, test load and model coefficients. Each has an <strong>i</strong> button with a one-line explanation. The coefficients group is marked advanced; it holds the values that calibration would fit, not design choices.</li>
+          <li><strong>Sliders:</strong> grouped into cistern and flush, tangential jets, bowl and trap, siphon, test load, model coefficients and noise model. Each has an <strong>i</strong> button with a one-line explanation. The coefficient and noise groups are marked advanced; they hold the values that calibration would fit, not design choices.</li>
           <li><strong>On phones:</strong> the sliders open in a drawer from the Adjust design button. The bar at the bottom always shows cleaning, solids and water with their change, so the effect is visible while you edit.</li>
         </ul>
 
@@ -164,6 +166,7 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
           <li><strong>Change chips:</strong> each result card shows a green or red chip with the change, for example +5 or −12, and briefly pulses when its value moves. For water, less is shown as an improvement.</li>
           <li><strong>What the chips compare with:</strong> by default, the design before your last edit. A series of quick slider moves counts as one edit, so the chip shows the effect of the whole adjustment.</li>
           <li><strong>Pin as reference:</strong> fixes the current results as a reference. Every change after that is compared with it, until you clear the reference.</li>
+          <li><strong>Noise card:</strong> the big number is the peak noise in dB against a reference, not a sound level. Without a pinned design the reference is the preset of the same trap type and flush button, named in a grey tag under the number; with a pinned design it is that design, marked with a pin in a blue tag. When no design is pinned, the small chip next to the number shows the change against the design before your last edit, like on the other cards.</li>
           <li><strong>Playback:</strong> Play flush replays the flush at 1×, ½× or ¼× speed. After a change, the views show the end of the flush, so the wall map shows the final cleaning result.</li>
         </ul>
 
@@ -171,10 +174,10 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
         <ul>
           <li><strong>Bowl from above:</strong> the jet films as dashed lines, the wall coloured dry, wetted or cleaned, the pool with its swirl, solid media as brown dots and paper as white squares. Nozzles are blue triangles at the rim.</li>
           <li><strong>Section:</strong> a cut along the long axis through cistern, bowl and trap. Vertical positions are to scale; the cistern and trap layout is schematic. It shows the cistern level, the bowl level, water over the weir and, for siphonic bowls, the trapway filling and the siphon running.</li>
-          <li><strong>Flush traces:</strong> four charts over the first 10 s: flow into the bowl and out of the trap, bowl level against the weir crest, pool swirl speed, and the share of solids and paper still in the bowl. Dashed markers show when the cistern empties and when a siphon starts and breaks. Click anywhere on the charts to jump the playback to that moment.</li>
+          <li><strong>Flush traces:</strong> five charts over the first 10 s, or longer for slow flushes: flow into the bowl and out of the trap, bowl level against the weir crest, pool swirl speed, the share of solids and paper still in the bowl, and the noise level in dB against the reference peak. Dashed markers show when the cistern empties, when a siphon starts and breaks, and when an air core reaches the trap; the time an air core is open is shaded red. Click anywhere on the charts to jump the playback to that moment.</li>
           <li><strong>Wall cleaning map:</strong> the bowl wall unrolled. Left to right is the position round the rim, with 0° at the end of the long axis; top to bottom is the depth below the rim. The dashed line marks the row 25 mm below the rim used for the rim-line result. During playback, water above the static level is shown as a blue band.</li>
           <li><strong>Design sweep:</strong> pick two settings for the axes and one result, then run 144 flushes on a 12 × 12 grid in about a second. The heat map uses a stronger colour for higher values, the best cell is outlined, and a red cross marks the current design. Hover a cell to read it and click it to load that design. All other settings stay as they are; if you change them, the map is greyed out until you run it again.</li>
-          <li><strong>AI lab:</strong> design optimiser, neural surrogate and hybrid calibration, described in <a href="#ailab">section 13</a>.</li>
+          <li><strong>AI lab:</strong> design optimiser, neural surrogate and hybrid calibration, described in <a href="#ailab">section 14</a>.</li>
         </ul>
 
         <h3>Going back</h3>
@@ -347,8 +350,85 @@ dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
         <p>With φ₀ = 0.2, a flush without swirl removes paper at one fifth of the rate of a strongly swirling one at the same trap velocity.</p>
       </section>
 
+      <section id="noise">
+        <h2>10 · Noise indicator</h2>
+        <p>The noise result is a relative indicator. It answers two questions: is this design louder or quieter than a reference, and which part of the flush makes the noise. It does not give a sound level in dB(A). It covers sound made by the water in the bowl and the trap. The cistern, the fill valve, the pipes and the building are out of scope; they often dominate what a neighbour hears, but they depend on the installation, not on the bowl.</p>
+
+        <h3>Why the model counts air bubbles</h3>
+        <p>At the speeds in a flush, about 1 to 3 m/s, most of the sound of running water comes from air bubbles. A bubble rings briefly when it is formed, close to its Minnaert frequency:</p>
+        <div class="eq">f₀ = (1 / 2πR) · √( 3 γ p₀ / ρ )      <span class="c">≈ 3.3 kHz at R = 1 mm</span></div>
+        <p>So the noise rises with the rate at which air is drawn under the water. The model writes every source as a flow of air into the water, <span class="sym">Q<sub>a</sub></span> in m³/s, and takes the radiated sound power as proportional to it. Large air pockets in the trap make less sound per litre of air than fine splash bubbles, so they carry a weight <span class="sym">w<sub>trap</sub></span>:</p>
+        <div class="eq">W(t) = Q_a1 + Q_a2 + w_trap · ( Q_a3 + Q_a4 )</div>
+
+        <h3>The four sources</h3>
+        <p><strong>1 · Jet films entering the pool.</strong> Where a film meets the pool, the model knows the film velocity from the film trace and the swirl speed of the pool surface. What counts is the speed relative to the surface: a film that slides into a pool turning the same way pulls in much less air than one that hits still water. Plunging water starts to entrain air above an onset speed <span class="sym">U<sub>e</sub></span> of about 0.8 to 1 m/s for turbulent jets, and the air flow then grows with about the 1.8th power of the excess speed up to about 4 m/s (Brattberg and Chanson, reviewed by Kiger and Duncan):</p>
+        <div class="eq">U_rel = | u_film − v_s · e_θ |
+Q_a1  = k_e · Σ_jets Q_j · (U_rel − U_e)^n     <span class="c">U_rel &gt; U_e</span></div>
+        <p><strong>2 · Water falling into the outlet.</strong> Water that passes the trap weir drops by <span class="sym">h<sub>fall</sub></span> before it lands in the outlet. Its landing speed combines critical flow over the crest with the free fall, and the same entrainment law applies. This source runs only while the trap flows with a free surface: always in a washdown bowl, and before priming and after the break in a siphonic bowl. While a siphon runs full, it is silent in the model.</p>
+        <div class="eq">U_fall = √( 2 g z_p / 3  +  2 g h_fall )
+Q_a2   = k_e · Q_out · (U_fall − U_e)^n</div>
+        <p><strong>3 · Air core at the trap.</strong> Swirl lowers the pool surface over the trap. The pool swirl model gives the swirl speed <span class="sym">v<sub>s</sub></span> at the pool edge, which fixes the circulation there. Near the trap the vortex concentrates: the model takes a Rankine vortex, turning as a solid body inside a core of radius <span class="sym">r<sub>c</sub> = a · R<sub>c</sub></span> and as a free vortex outside it, with the same circulation at the edge. Integrating the radial pressure balance gives the depth of the vortex centre below the mean water level:</p>
+        <div class="eq">Δh = F(a) · v_s² / 2g
+F(a) = (2/a² − 1)(1 − a²) + ½ + 2 ln a + 1 − a²
+<span class="c">F(1) = 0.5 (solid body), F(0.6) = 3.0</span></div>
+        <p>An air core reaches the trap when the vortex centre dips down to the top of the trap inlet while water is flowing out, that is when <span class="sym">Δh ≥ z<sub>p</sub> + d<sub>s</sub></span>. While it is open, air is drawn into the trap at a share <span class="sym">c<sub>core</sub></span> of the outflow, <span class="sym">Q<sub>a3</sub> = c<sub>core</sub> · Q<sub>out</sub></span>. The model assumes that the vortex centre sits over the trap inlet; in a real bowl the inlet is off-centre and the vortex is drawn towards it.</p>
+        <p><strong>4 · Siphon break.</strong> When the siphon breaks, air rushes into the trap leg. The model lets air replace the water in the leg at the rate the siphon was carrying it away, decaying once the leg's volume has been replaced:</p>
+        <div class="eq">Q_a4 = Q_brk · exp( −(t − t_b) · Q_brk / V_prime )</div>
+        <p>Here <span class="sym">Q<sub>brk</sub></span> is the siphon flow just before the break, <span class="sym">t<sub>b</sub></span> the time of the break and <span class="sym">V<sub>prime</sub></span> the priming volume, the water the trapway holds when the siphon starts.</p>
+
+        <h3>From sound power to the result</h3>
+        <ul>
+          <li><strong>Time weighting:</strong> W is smoothed with a 125 ms time constant, the "fast" setting of sound level meters (IEC 61672-1). Building acoustics tests such as DIN 4109 also rate installation noise by the fast-weighted maximum, L<sub>AF,max</sub>.</li>
+          <li><strong>Peak level:</strong> 10 · log₁₀ of the largest smoothed W during the flush. This is the big number on the card.</li>
+          <li><strong>Sound energy:</strong> 10 · log₁₀ of the time integral of W. It also counts how long the flush is loud.</li>
+          <li><strong>Reference:</strong> both are shown as differences in dB from a reference. Without a pinned design, the reference is the preset of the same trap type and the same flush button, computed with the current model coefficients so that only the design differs. With a pinned design, it is that design, and the card marks this with a pin. The noise trace shows the fast level against the reference peak.</li>
+          <li><strong>Chip:</strong> Similar within ±1 dB, Quieter at 1 dB less or more, Slightly louder from 1 to 3 dB more, Louder above 3 dB. As a rough guide, about 1 dB is the smallest difference most listeners notice in a direct comparison, and 3 dB is clearly audible. These are display bands for this tool, not values from a standard.</li>
+        </ul>
+        <p>Constant factors cancel in the differences: changing <span class="sym">k<sub>e</sub></span> alone shifts every design by the same amount. What matters is the balance between the splash sources and the trap sources, set by <span class="sym">w<sub>trap</sub> · c<sub>core</sub> / k<sub>e</sub></span> and <span class="sym">w<sub>trap</sub> / k<sub>e</sub></span>. That balance is the main uncertainty and the first thing to calibrate.</p>
+
+        <h3>Coefficients</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Coefficient</th><th>Default</th><th>Unit</th><th>Basis</th><th>Fit against</th></tr></thead>
+            <tbody>
+              <tr><td>Entrainment onset speed U<sub>e</sub></td><td class="num">0.8</td><td>m/s</td><td>0.8 to 1 m/s for rough turbulent jets (Ervine and co-workers, USBR review); 0.7 to 1 m/s for planar jets (Kiger and Duncan)</td><td>Speed at which a test jet into a pool becomes audible</td></tr>
+              <tr><td>Entrainment exponent n</td><td class="num">1.8</td><td>–</td><td>Brattberg and Chanson, plunging jets up to 4 m/s</td><td>Sound recordings at two or three flow rates</td></tr>
+              <tr><td>Entrainment factor k<sub>e</sub></td><td class="num">0.04</td><td>(m/s)<sup>−n</sup></td><td>Brattberg and Chanson's correlation for a fall of about 7 jet thicknesses and a 10 mm thick jet: 7.7·10⁻⁴ · (7 − 1.04) · (1/√(g · 0.01))<sup>1.8</sup> ≈ 0.04</td><td>Only its ratio to w<sub>trap</sub> matters</td></tr>
+              <tr><td>Fall into the outlet h<sub>fall</sub></td><td class="num">120</td><td>mm</td><td>Typical drop from the trap weir to the outlet of a floor-standing or wall-hung pan</td><td>Drawing of the trapway</td></tr>
+              <tr><td>Vortex core size a = r<sub>c</sub>/R<sub>c</sub></td><td class="num">0.6</td><td>–</td><td>Assumed; 1 is pure solid-body rotation</td><td>Video from above: the moment an air core reaches the trap</td></tr>
+              <tr><td>Air drawn by an air core c<sub>core</sub></td><td class="num">0.05</td><td>of Q<sub>out</sub></td><td>Assumed, a few per cent of the water flow</td><td>Sound recordings of a design with and without an air core</td></tr>
+              <tr><td>Sound per unit of air in the trap w<sub>trap</sub></td><td class="num">0.1</td><td>–</td><td>Assumed. Trap air pockets are about 10 times larger than splash bubbles (about 10 mm against 1 mm). The surface energy released per litre of air falls in proportion to bubble size, and their sound is near 300 Hz, where the ear is less sensitive than near 3 kHz</td><td>Recordings of a siphonic flush: gurgle peak against the splash level before it</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>What it shows for the presets</h3>
+        <p>With the default coefficients, the EU washdown preset gets almost all of its noise from water falling into the outlet, and it never forms an air core: the vortex centre dips at most about 62 mm, while the trap inlet then lies about 108 mm below the raised pool surface. The smallest margin during the flush is about 45 mm. The jet films slide into the swirling pool at about 0.7 m/s relative speed, just below the entrainment onset, so they add little. The siphonic preset forms an air core at about 2.5 s, when the running siphon has drawn the pool down while the swirl is strongest, and its loudest moment is the gurgle when the siphon breaks at about 3.6 s, about 3.5 dB above the washdown peak. Because that break is the loudest moment, the peak of a siphonic bowl depends mainly on the trap (seal depth, trapway, siphon drop and priming volume); the jets change mainly the sound energy, through the splash and air core phases.</p>
+        <div class="box note">
+          <p><strong>Cross-check against intake design practice.</strong> Engineers who design water intakes use empirical rules for the submergence at which air-entraining vortices appear. Gordon's rule for a symmetric approach flow, <span class="sym">S<sub>c</sub> = 0.543 · V · √d</span> in SI units, is meant for large intakes with weak swirl, so it is only a plausibility check here. It gives about 95 mm for the washdown preset at peak outflow, less than the 108 mm available, so no air core. For the running siphon at peak outflow it gives about 170 mm against about 107 mm available, so an air core is expected. Both agree with the vortex criterion above, which places the air core in the siphonic preset about half a second later, as the pool is drawn down.</p>
+        </div>
+
+        <h3>How to calibrate it</h3>
+        <ol class="steps">
+          <li>Record three to five flushes of each of at least three designs, with a sound level meter or a calibrated phone app at a fixed point, for example 1 m above the bowl in a quiet room. Note the A-weighted fast maximum of each flush.</li>
+          <li>Compare the differences between designs, not the absolute values, with the model's peak differences.</li>
+          <li>Film the pool from above at the same time to see when an air core reaches the trap, and fit the core size a.</li>
+          <li>Fit h<sub>fall</sub> to the trapway drawing, then w<sub>trap</sub> and c<sub>core</sub> to the recordings, starting with a siphonic bowl if there is one, because its gurgle separates the trap sources from the splash sources.</li>
+        </ol>
+
+        <h3>Limits</h3>
+        <ul>
+          <li>Not a sound level: no spectrum, no A-weighting, no room, no microphone position. Only differences between designs are meaningful.</li>
+          <li>No noise from the cistern, the flush or fill valve, the pipes or the building structure. Valve opening can be the loudest moment of a pressure-fed flush (Querido and Bistafa).</li>
+          <li>No splashing droplets, no jets hitting each other, no film breaking away from the wall.</li>
+          <li>The air core does not change the trap flow in the model: it adds noise but does not slow the siphon or change waste removal.</li>
+          <li>The vortex centre is assumed to sit over the trap inlet, with a fixed core size.</li>
+          <li>All sources are lumped. The coefficients are uncalibrated starting values, so the balance between splash and trap sources can be off by several dB until recordings are fitted.</li>
+        </ul>
+      </section>
+
       <section id="numerics">
-        <h2>10 · Numerics and speed</h2>
+        <h2>11 · Numerics and speed</h2>
         <div class="tablewrap">
           <table>
             <thead><tr><th>Item</th><th>Setting</th><th>Why</th></tr></thead>
@@ -357,6 +437,7 @@ dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
               <tr><td>Simulated time</td><td>Until the flush is over: at least 12 s, then until the cistern is empty plus 6 s of settling, at most 60 s</td><td>Slow flushes run to completion. If the cistern is still not empty at 60 s, the result is marked incomplete and not counted as a solution.</td></tr>
               <tr><td>Overflow</td><td>The level table reaches the rim; water above it is counted as spilled</td><td>A design whose pool reaches the rim is marked as overflowing and its results as not valid.</td></tr>
               <tr><td>Film re-trace</td><td>Every 100 ms (200 ms in the design sweep and the optimiser search)</td><td>The film responds within a fraction of a second, so it is treated as quasi-steady.</td></tr>
+              <tr><td>Noise indicator</td><td>Every 10 ms step, from the film state and the pool and trap flow already computed</td><td>Adds well under 1 % to the run time.</td></tr>
               <tr><td>Film step</td><td>6 mm arc length, at most 500 steps per jet</td><td>Smaller than the wall cell size, so the footprint has no gaps.</td></tr>
               <tr><td>Wall grid</td><td>90 × 40 cells, about 4 mm high and 10 mm wide</td><td>Resolves the gaps behind the nozzles while staying cheap.</td></tr>
               <tr><td>Level from volume</td><td>Pre-computed table of 800 levels</td><td>Turns the irregular basin into a single lookup per step.</td></tr>
@@ -367,7 +448,7 @@ dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
       </section>
 
       <section id="coefficients">
-        <h2>11 · Parameters and coefficients</h2>
+        <h2>12 · Parameters and coefficients</h2>
         <p>Design parameters describe the product and are set by the designer. Model coefficients describe physics the model does not resolve and are fitted during calibration.</p>
         <h3>Design parameters (EU washdown preset)</h3>
         <div class="tablewrap">
@@ -416,7 +497,7 @@ dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
       </section>
 
       <section id="calibration">
-        <h2>12 · Calibration with PreonLab</h2>
+        <h2>13 · Calibration with PreonLab</h2>
         <h3>Why PreonLab fits this job</h3>
         <p>PreonLab is a particle-based (SPH) flow solver from FIFTY2. It needs no volume mesh and handles free surfaces, splashing and thin films naturally, which suits a flush better than many mesh-based tools. For the media in a flush it offers:</p>
         <ul>
@@ -444,7 +525,7 @@ dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
       </section>
 
       <section id="ailab">
-        <h2>13 · AI lab</h2>
+        <h2>14 · AI lab</h2>
         <p>The simulator has an AI lab with three tools. All of them use the physics model described above as their engine, and all run in the browser. They show three different roles AI can play next to a physics model: searching designs, replacing the model with a faster learned copy, and correcting the model with data.</p>
 
         <h3>Design optimiser</h3>
@@ -453,7 +534,7 @@ dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
           <li><strong>What may change:</strong> any mix of nozzle area, downward jet angle, jet position, nozzle height, number of jets, valve height and flush volume, plus the bowl geometry: ovality, rim radius, pool radius, rim-to-waterline depth, seal depth and trapway diameter. Each setting is searched over its full slider range. Everything not ticked stays at the current simulator value. The pool radius is kept at least 25 mm smaller than the rim radius.</li>
           <li><strong>Flush to optimise:</strong> the full or the partial flush. Its volume is the flush volume variable, and water per flush includes any bowl refill.</li>
           <li><strong>Goal "best trade-off":</strong> maximise a weighted score and minimise water. The score is the weighted sum of cleaned area, solids removed and paper removed, with weights set by the user (default 50, 30 and 20 %).</li>
-          <li><strong>Goal "meet targets":</strong> the user sets a maximum water use and minimum cleaned, solids and paper shares. Among the designs that meet all of them, the tool reports the one with the highest score or the lowest water. If none qualifies, it reports the closest design and which targets it misses.</li>
+          <li><strong>Goal "meet targets":</strong> the user sets a maximum water use and minimum cleaned, solids and paper shares, and optionally a noise limit in dB against the current design, for example 0 for "no louder than now". Among the designs that meet all of them, the tool reports the one with the highest score, the lowest water or the lowest noise. If none qualifies, it reports the closest design and which targets it misses. Results and the table show each design's noise against the current design.</li>
           <li><strong>Constraints:</strong> handled by constrained domination. A design that meets all constraints always ranks above one that does not; among designs that miss, the smaller miss ranks higher. A restored water seal is always a constraint.</li>
           <li><strong>Search:</strong> 36 designs per generation over 15 generations (about 540 flushes, 3 to 5 s), or 60 over 25 generations (about 1,500 flushes) in the thorough setting. It starts from a Latin hypercube. Parents are picked by tournament on rank and crowding distance; children come from blend crossover and occasional Gaussian mutation.</li>
           <li><strong>Re-rating:</strong> changing weights or targets after a run re-ranks the designs already found without running them again.</li>
@@ -467,10 +548,11 @@ dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
           <li><strong>Training:</strong> mean squared error, full batch, Adam with a learning rate of 0.01 that decays tenfold over 1,500 epochs.</li>
           <li><strong>Checks:</strong> mean absolute error and R² on the unseen test designs, and the measured time per prediction against the physics model.</li>
         </ul>
+        <p>The surrogate and the hybrid calibration below do not cover the noise indicator yet.</p>
         <p>With 300 training flushes the network typically reaches an R² around 0.9 to 0.96 on unseen designs and answers in about 5 µs, roughly 1,000 to 2,000 times faster than the physics model. The physics model plays the part that PreonLab runs would play in practice. Trained on PreonLab runs, the same kind of network could be faster than a new PreonLab run by a much larger factor. That is a rough expectation, not a benchmark, and each training run would cost minutes to hours.</p>
 
         <h3>Hybrid calibration</h3>
-        <p>An end-to-end run of the calibration workflow in <a href="#calibration">section 12</a>, against synthetic reference data.</p>
+        <p>An end-to-end run of the calibration workflow in <a href="#calibration">section 13</a>, against synthetic reference data.</p>
         <ul>
           <li><strong>Reference data:</strong> a hidden reference model stands in for PreonLab. It is the physics model with different coefficients, plus two effects the physics model cannot represent (a penalty away from an optimal nozzle size and a dependence on jet position for cleaning, a low-flow penalty for solids), plus measurement noise of 0.7 points.</li>
           <li><strong>Calibration:</strong> Nelder-Mead fits six coefficients (film friction, spreading, critical shear, shear dose, solids transport threshold, maximum solids concentration) to 4, 6 or 10 reference runs. Coefficients are searched in a bounded log space, for up to 60 iterations.</li>
@@ -481,7 +563,7 @@ dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
       </section>
 
       <section id="approaches">
-        <h2>14 · Comparison with other approaches</h2>
+        <h2>15 · Comparison with other approaches</h2>
         <div class="tablewrap">
           <table>
             <thead><tr><th>Approach</th><th>Time per flush case</th><th>One-off cost</th><th>Fidelity</th></tr></thead>
@@ -498,12 +580,13 @@ dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
       </section>
 
       <section id="limits">
-        <h2>15 · Assumptions and limits</h2>
+        <h2>16 · Assumptions and limits</h2>
         <ul>
           <li>The oval shape has the same axis ratio at every depth. Real bowls change shape with depth, have an off-centre trap inlet and often an asymmetric back wall.</li>
           <li>The film is quasi-steady, always attached to the wall, and does not splash, break up or interact with the other jet. Overlaps simply take the higher shear.</li>
           <li>Wall shear comes from a friction-factor law, not from a resolved boundary layer. Its absolute level depends on the calibration of c<sub>f</sub>.</li>
-          <li>The pool rotates as one body. There is no resolved vortex core, no air entrainment and no wave motion.</li>
+          <li>The pool rotates as one body. The noise indicator adds an assumed vortex core over the trap to judge when air is drawn in, but this does not feed back into the flow. There is no wave motion.</li>
+          <li>Noise is a relative indicator from four lumped air entrainment sources in the bowl and trap, not a sound level. Cistern, valve, pipe and building noise are not included. See <a href="#noise">section 10</a>.</li>
           <li>The trap is a lumped weir, orifice and siphon model. Its geometry beyond diameter, seal depth and siphon drop is not represented.</li>
           <li>Waste is two lumped classes. Clogging, media shape, paper tearing and carry along the drain line are not modelled.</li>
           <li>Splashing, jets hitting each other and spill-over before the pool is full are not modelled, so the model cannot say whether a design splashes. It only detects a pool that reaches the rim.</li>
@@ -514,7 +597,7 @@ dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
       </section>
 
       <section id="code">
-        <h2>16 · Code map</h2>
+        <h2>17 · Code map</h2>
         <p>The model is plain JavaScript with no dependencies and runs the same way in a browser and in Node.js.</p>
         <div class="tablewrap">
           <table>
@@ -525,6 +608,7 @@ dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
               <tr><td><code>geomAt</code>, <code>sAtDepth</code>, <code>levelFromVol</code></td><td>Lookups for profile, arc length and pool level</td></tr>
               <tr><td><code>simulate(p, opts)</code></td><td>Runs one flush and returns results, traces and the cleaning map</td></tr>
               <tr><td><code>wallNormal</code>, <code>computeFilm</code>, <code>mark</code></td><td>Inside <code>simulate</code>: wall surface, film tracer, footprint stamping</td></tr>
+              <tr><td><code>coreFactor(a)</code></td><td>Depth factor F(a) of the Rankine vortex used for the air core check</td></tr>
             </tbody>
           </table>
         </div>
@@ -535,11 +619,12 @@ const M = globalThis.FlushModel;
 const p = M.defaults('washdown');
 p.ovality = 1.3; p.jetPhase = 90;
 const r = M.simulate(p, { light: true });
-console.log(r.cleanPct, r.solidsPct, r.water);</div>
+console.log(r.cleanPct, r.solidsPct, r.water, r.noise.peak);</div>
+        <p><code>r.noise</code> holds the peak and energy levels in dB against an arbitrary unit, the share of each source, and the air core start and duration. Only differences between two runs are meaningful.</p>
       </section>
 
       <section id="glossary">
-        <h2>17 · Glossary</h2>
+        <h2>18 · Glossary</h2>
         <ul>
           <li><strong>Equivalent radius:</strong> radius of a circle with the same area as the oval section.</li>
           <li><strong>Ovality:</strong> long axis divided by short axis of the bowl opening.</li>
@@ -551,17 +636,20 @@ console.log(r.cleanPct, r.solidsPct, r.water);</div>
           <li><strong>SPH:</strong> smoothed particle hydrodynamics, the meshless particle method used by PreonLab.</li>
           <li><strong>VOF:</strong> volume of fluid, the usual free-surface method in mesh-based CFD.</li>
           <li><strong>PINN:</strong> physics-informed neural network, a network trained to satisfy the flow equations directly.</li>
+          <li><strong>Air core:</strong> a vortex deep enough that air reaches the outlet through its centre.</li>
+          <li><strong>Minnaert frequency:</strong> the natural frequency of a gas bubble in a liquid; it falls as the bubble gets bigger.</li>
+          <li><strong>Fast time weighting:</strong> the 125 ms smoothing of a sound level meter's "fast" setting.</li>
         </ul>
       </section>
 
       <section id="sources">
-        <h2>18 · Sources</h2>
+        <h2>19 · Sources</h2>
         <p>All standards, papers, books and web sources used for this description and the simulator are collected, with notes on what each one is used for, on the <a href="sources.html">sources and references page</a>.</p>
       </section>
 
       <footer class="foot">
         <span class="navl"><a href="./">← Simulator</a><a href="why.html">Why</a><a href="sources.html">Sources and references</a></span>
-        <span>Tangential Jet Flush Model · v1.2.0 · Peter Fintl</span>
+        <span>Tangential Jet Flush Model · v1.3.0 preview · Peter Fintl</span>
       </footer>
     </main>
   </div>

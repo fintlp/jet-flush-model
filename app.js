@@ -39,7 +39,13 @@
     { g: 'coef', k: 'cmax', l: 'Max solids concentration', u: 'vol.', min: 0.03, max: 0.3, st: 0.01, d: 2 },
     { g: 'coef', k: 'kS', l: 'Solids removal rate', u: '1/s', min: 0.2, max: 6, st: 0.1, d: 1 },
     { g: 'coef', k: 'kP', l: 'Paper removal rate', u: '1/s', min: 0.2, max: 6, st: 0.1, d: 1 },
-    { g: 'coef', k: 'Cweir', l: 'Weir coefficient', u: 'm½/s', min: 1.2, max: 2.2, st: 0.05, d: 2 }
+    { g: 'coef', k: 'Cweir', l: 'Weir coefficient', u: 'm½/s', min: 1.2, max: 2.2, st: 0.05, d: 2 },
+    { g: 'noise', k: 'hFall', l: 'Fall from trap weir into outlet', u: 'mm', min: 40, max: 300, st: 5, d: 0 },
+    { g: 'noise', k: 'rCore', l: 'Vortex core size, share of pool radius', u: '', min: 0.3, max: 1, st: 0.05, d: 2 },
+    { g: 'noise', k: 'cCore', l: 'Air drawn in by an air core', u: 'of trap flow', min: 0, max: 0.3, st: 0.01, d: 2 },
+    { g: 'noise', k: 'wTrap', l: 'Sound per unit of air, trap vs splash', u: '', min: 0.01, max: 1, st: 0.01, d: 2 },
+    { g: 'noise', k: 'nUe', l: 'Air entrainment onset speed', u: 'm/s', min: 0.4, max: 1.5, st: 0.05, d: 2 },
+    { g: 'noise', k: 'nExp', l: 'Air entrainment exponent', u: '', min: 1, max: 3, st: 0.1, d: 1 }
   ];
   const HELP = {
     Vfull: 'Water released by the big button. Less water saves, but leaves less for cleaning and carrying waste.',
@@ -76,7 +82,13 @@
     cmax: 'Largest share of solids the trap flow can carry.',
     kS: 'How quickly solids leave once they start moving.',
     kP: 'How quickly paper leaves once it starts moving.',
-    Cweir: 'Sets how high the pool rises before water spills over the weir.'
+    Cweir: 'Sets how high the pool rises before water spills over the weir.',
+    hFall: 'Height the water drops after passing the trap weir before it lands in the outlet. A bigger drop splashes harder.',
+    rCore: 'How tightly the pool swirl concentrates over the trap. Smaller means a deeper vortex dip and an earlier air core. 1.00 is plain solid-body rotation.',
+    cCore: 'Air pulled into the trap through an air core, as a share of the water flowing out.',
+    wTrap: 'Sound made by a litre of air drawn into the trap in large pockets, compared with a litre entrained as fine splash bubbles.',
+    nUe: 'Speed at which falling water starts to pull air under the surface. About 0.8 to 1 m/s for turbulent jets.',
+    nExp: 'How fast entrained air grows with speed above the onset. Published plunging-jet data give about 1.8 below 4 m/s.'
   };
   SPEC.forEach((s) => { s.h = HELP[s.k] || ''; });
   const SPECK = Object.fromEntries(SPEC.map((s) => [s.k, s]));
@@ -86,7 +98,8 @@
     ['bowl', 'Bowl and trap', true, 'An oval bowl keeps the area of a round bowl with the equivalent radius, so volumes and levels do not change with ovality.'],
     ['siph', 'Siphon', false, 'Used only when the trap type is siphonic.'],
     ['load', 'Test load', false, 'Media placed in the pool before the flush.'],
-    ['coef', 'Model coefficients · advanced', false, 'Uncalibrated defaults. Fit them to CFD or rig data, see Calibrating it below.']
+    ['coef', 'Model coefficients · advanced', false, 'Uncalibrated defaults. Fit them to CFD or rig data, see Calibrating it below.'],
+    ['noise', 'Noise model · advanced', false, 'Uncalibrated defaults for the relative noise indicator. See the noise section in How the model works.']
   ];
 
   let P = M.defaults('washdown');
@@ -162,7 +175,22 @@
   const changeHooks = [];
   // history: each burst of edits becomes one undo step; deltas compare with the state before the burst
   const snapP = () => JSON.parse(JSON.stringify(P));
-  const kpis = () => (R ? { clean: R.cleanPct, solids: R.solidsPct, paper: R.paperPct, water: R.water } : null);
+  const kpis = () => (R ? { clean: R.cleanPct, solids: R.solidsPct, paper: R.paperPct, water: R.water, noise: R.noise.peak, noiseE: R.noise.energy } : null);
+  /* noise reference: the pinned design, or else the preset of the same trap type and flush button,
+     computed with the current model coefficients so that only the design differs */
+  let refCache = { key: null, val: null };
+  function presetNoise() {
+    const kind = P.type === 'siphonic' ? 'siphonic' : 'washdown', d = M.defaults(kind);
+    Object.keys(M.COEFFS).forEach((k) => { d[k] = P[k]; }); d.flushMode = P.flushMode;
+    const key = JSON.stringify(d);
+    if (refCache.key !== key) { const r = M.simulate(d, { light: true, Tend: SIM_T }); refCache = { key, val: { peak: r.noise.peak, energy: r.noise.energy, kind, mode: P.flushMode } }; }
+    return refCache.val;
+  }
+  function noiseRef() {
+    if (pinned && pinned.k && pinned.k.noise != null) return { peak: pinned.k.noise, energy: pinned.k.noiseE, pin: true, label: `pinned reference from ${pinned.t}` };
+    const v = presetNoise();
+    return { peak: v.peak, energy: v.energy, pin: false, label: `${v.kind === 'siphonic' ? 'Siphonic' : 'EU washdown'} preset, ${v.mode === 'partial' ? 'partial' : 'full'} flush` };
+  }
   let hist = [], committed = null, committedK = null, burst = false, burstT = null, baseline = null, pinned = null;
   function beginChange() {
     if (!burst) { if (committed) { hist.push(committed); if (hist.length > 60) hist.shift(); } baseline = committedK; burst = true; updateHistUI(); }
@@ -474,9 +502,10 @@
       { t: 'Flow, L/s', min: 0, max: qmax, s: [['Qin', 'into bowl', C.accent], ['Qout', 'out of trap', C.water]] },
       { t: 'Bowl level vs. weir, mm', min: zmin, max: zmax, s: [['z', 'level', C.waterDeep]], ref: siph ? [0, -p.seal] : [0] },
       { t: 'Pool swirl, m/s', min: 0, max: vmax, s: [['vs', 'rim speed', C.accent]] },
-      { t: 'Load left, %', min: 0, max: 100, s: [['MsP', 'solids', C.solid], ['NpP', 'paper', C.paperEdge]] }
+      { t: 'Load left, %', min: 0, max: 100, s: [['MsP', 'solids', C.solid], ['NpP', 'paper', C.paperEdge]] },
+      { t: 'Noise level, dB vs reference peak', min: R.nmin, max: R.nmax, s: [['nRel', 'fast level', C.ink]], ref: [0], noise: true }
     ];
-    const ph = (H - padT - padB - gap * 3) / 4, pw = W - padL - padR;
+    const NP = panels.length, ph = (H - padT - padB - gap * (NP - 1)) / NP, pw = W - padL - padR;
     const Xt = (tt) => padL + tt / TVIEW * pw;
     const lstep = TVIEW <= 12 ? 2 : TVIEW <= 30 ? 5 : 10, gstep = TVIEW <= 12 ? 1 : 5;
     chartGeom = { padL, pw };
@@ -486,6 +515,14 @@
       ctx.fillStyle = rgba(C.raised); ctx.fillRect(padL, y0, pw, ph);
       ctx.strokeStyle = rgba(C.line); ctx.lineWidth = 1 * d; ctx.strokeRect(padL + 0.5, y0 + 0.5, pw - 1, ph - 1);
       ctx.beginPath(); for (let s = gstep; s < TVIEW - 1e-6; s += gstep) { ctx.moveTo(Xt(s), y0); ctx.lineTo(Xt(s), y0 + ph); } ctx.stroke();
+      if (pn.noise) { // shade the time the air core reaches the trap
+        const nr = R.nrec; ctx.fillStyle = rgba(C.bad, 0.13);
+        for (let q = 0; q < n; q++) {
+          if (!nr.core[q]) continue;
+          let q1 = q; while (q1 + 1 < n && nr.core[q1 + 1]) q1++;
+          const x0 = Xt(nr.t[q]), x1 = Xt(nr.t[q1] + 0.02); ctx.fillRect(x0, y0, Math.max(1, x1 - x0), ph); q = q1;
+        }
+      }
       (pn.ref || []).forEach((v) => { ctx.setLineDash([3 * d, 3 * d]); ctx.strokeStyle = rgba(C.muted, 0.7); ctx.beginPath(); ctx.moveTo(padL, Yv(v)); ctx.lineTo(padL + pw, Yv(v)); ctx.stroke(); ctx.setLineDash([]); });
       ctx.fillStyle = rgba(C.muted); ctx.font = font(10); ctx.textAlign = 'right'; ctx.textBaseline = 'top';
       ctx.fillText(String(+pn.max.toFixed(2)), padL - 5 * d, y0); ctx.textBaseline = 'bottom'; ctx.fillText(String(+pn.min.toFixed(2)), padL - 5 * d, y0 + ph);
@@ -506,10 +543,13 @@
       if (k === 0 && R.tEmpty) ev.push([R.tEmpty, 'cistern empty']);
       if (k === 1 && R.primeT != null) ev.push([R.primeT, 'siphon primes']);
       if (k === 1 && R.breakT != null) ev.push([R.breakT, 'siphon breaks']);
-      ev.forEach(([te, lab]) => {
+      if (pn.noise && R.noise.airT != null) ev.push([R.noise.airT, 'air core at trap', true]);
+      if (pn.noise && R.breakT != null) ev.push([R.breakT, 'siphon gurgle']);
+      ev.forEach(([te, lab, top]) => {
         if (te > TVIEW) return;
         ctx.strokeStyle = rgba(C.ink, 0.45); ctx.setLineDash([2 * d, 3 * d]); ctx.beginPath(); ctx.moveTo(Xt(te), y0); ctx.lineTo(Xt(te), y0 + ph); ctx.stroke(); ctx.setLineDash([]);
-        ctx.fillStyle = rgba(C.muted); ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText(lab, Xt(te) + 4 * d, y0 + ph - 3 * d);
+        ctx.fillStyle = rgba(C.muted); ctx.textAlign = top ? 'right' : 'left'; ctx.textBaseline = 'bottom';
+        ctx.fillText(lab, Xt(te) + (top ? -4 : 4) * d, y0 + ph - 3 * d);
       });
     });
     // x axis
@@ -603,14 +643,27 @@
     if (!r.sealOK) chip($('cWater'), 'bad', 'Seal low');
     else chip($('cWater'), r.water <= 4.0 ? 'good' : r.water <= 6.0 ? 'neutral' : 'warn', r.water <= 4.0 ? 'Low use' : r.water <= 6.0 ? 'Moderate' : 'High use');
 
+    // noise, relative to the preset or the pinned reference
+    const nr = noiseRef(), nd = r.noise.peak - nr.peak, ne = r.noise.energy - nr.energy;
+    const sdb = (v) => (v < -40 ? 'below −40' : `${v > 0.05 ? '+' : v < -0.05 ? '−' : '±'}${Math.abs(v).toFixed(1)}`);
+    $('kNoise').innerHTML = `${sdb(nd)}<small>dB</small>${!pinned && baseline && baseline.noise != null ? deltaHTML(r.noise.peak, baseline.noise, 1, '', true) : ''}`;
+    $('kNoiseCap').innerHTML = `peak level vs <span class="reftag${nr.pin ? ' pin' : ''}">${nr.pin ? '📌 ' : ''}${nr.label}</span>`;
+    $('kNoiseE').textContent = `${sdb(ne)} dB`;
+    const SRC = ['jet films hitting the pool', 'fall into the outlet', 'air core in the trap', 'siphon break'];
+    const sh = r.noise.share, im = sh.indexOf(Math.max(...sh));
+    $('kNoiseSrc').textContent = sh[im] > 0 ? `${SRC[im]}, ${Math.round(sh[im] * 100)} %` : '–';
+    $('kAirCore').textContent = r.noise.airT != null ? `from ${r.noise.airT.toFixed(1)} s, ${r.noise.airDur.toFixed(1)} s in all` : 'none';
+    $('kGurgle').textContent = p.type !== 'siphonic' ? 'none, washdown' : r.breakT != null ? `at ${r.breakT.toFixed(1)} s` : r.everPrimed ? 'none' : 'no siphon';
+    chip($('cNoise'), nd <= -1 ? 'good' : nd < 1 ? 'neutral' : nd < 3 ? 'warn' : 'bad', nd <= -1 ? 'Quieter' : nd < 1 ? 'Similar' : nd < 3 ? 'Slightly louder' : 'Louder');
+
     // validity: overflow or unfinished flush make the numbers meaningless
     const vb = $('validity');
     if (r.overflow) {
       vb.hidden = false; vb.innerHTML = `<b>This design overflows the bowl.</b> About ${r.spill.toFixed(1)} L spill over the rim from ${r.overflowT.toFixed(1)} s on. The model is not valid beyond that point, so the results below are not meaningful. Try less flow, a wider trapway or a deeper bowl.`;
-      chip($('cClean'), 'bad', 'Overflow'); chip($('cWaste'), 'bad', 'Overflow'); chip($('cWater'), 'bad', 'Spills');
+      chip($('cClean'), 'bad', 'Overflow'); chip($('cWaste'), 'bad', 'Overflow'); chip($('cWater'), 'bad', 'Spills'); chip($('cNoise'), 'bad', 'Overflow');
     } else if (r.incomplete) {
       vb.hidden = false; vb.innerHTML = `<b>The flush did not finish within 60 s.</b> ${r.cisternLeft.toFixed(1)} L were still in the cistern. The results only cover the water that flowed. Try a larger nozzle area or a higher valve.`;
-      chip($('cClean'), 'bad', 'Incomplete'); chip($('cWaste'), 'bad', 'Incomplete'); chip($('cWater'), 'bad', 'Incomplete');
+      chip($('cClean'), 'bad', 'Incomplete'); chip($('cWaste'), 'bad', 'Incomplete'); chip($('cWater'), 'bad', 'Incomplete'); chip($('cNoise'), 'bad', 'Incomplete');
     } else vb.hidden = true;
     if (r.incomplete) $('kDur').textContent = 'over 60 s';
     // comparison line, flash on change, phone mini bar
@@ -623,6 +676,7 @@
       flash('kpiClean', Math.abs(r.cleanPct - ref.clean) >= 0.5);
       flash('kpiWaste', Math.abs(r.solidsPct - ref.solids) >= 0.5 || Math.abs(r.paperPct - ref.paper) >= 0.5);
       flash('kpiWater', Math.abs(r.water - ref.water) >= 0.05);
+      flash('kpiNoise', ref.noise != null && Math.abs(r.noise.peak - ref.noise) >= 0.05);
     }
     const mb = $('mobarK');
     if (mb) mb.innerHTML = `<span>Clean <b>${r.cleanPct.toFixed(0)} %</b>${deltaHTML(r.cleanPct, ref && ref.clean, 0, '')}</span><span>Solids <b>${r.solidsPct.toFixed(0)} %</b>${deltaHTML(r.solidsPct, ref && ref.solids, 0, '')}</span><span>Water <b>${r.water.toFixed(1)} L</b>${deltaHTML(r.water, ref && ref.water, 1, '', true)}</span>`;
@@ -648,6 +702,10 @@
     const rec = R.rec;
     rec.MsP = rec.Ms.map((v) => P.Ms > 0 ? 100 * v / P.Ms : 0);
     rec.NpP = rec.Np.map((v) => P.Np > 0 ? 100 * v / P.Np : 0);
+    const nref = noiseRef().peak;
+    rec.nRel = R.nrec.L.map((v) => v - nref);
+    const nTop = Math.max(...rec.nRel.slice(0, Math.round(TVIEW / 0.02) + 1));
+    R.nmax = Math.max(10, Math.ceil((nTop + 6) / 5) * 5); R.nmin = R.nmax - 40;
     save();
     updateKPIs();
     if (firstRun) { firstRun = false; }
@@ -685,7 +743,8 @@
   const SW_M = [
     ['cleanPct', 'Wall area cleaned', '%', 1, 1], ['solidsPct', 'Solids removed', '%', 1, 1], ['paperPct', 'Paper removed', '%', 1, 1],
     ['capS', 'Solids transport capacity', 'g', 0, 1], ['cleanPerL', 'Cleaned per litre', '%/L', 1, 1],
-    ['water', 'Water per flush', 'L', 2, -1], ['sealEnd', 'Seal after flush', 'mm', 0, 1], ['Qpeak', 'Peak flow', 'L/s', 2, 1]
+    ['water', 'Water per flush', 'L', 2, -1], ['sealEnd', 'Seal after flush', 'mm', 0, 1], ['Qpeak', 'Peak flow', 'L/s', 2, 1],
+    ['noisePeak', 'Noise peak vs reference', 'dB', 1, -1], ['noiseEnergy', 'Sound energy vs reference', 'dB', 1, -1]
   ];
   const swX = $('swX'), swY = $('swY'), swM = $('swM');
   SW_P.forEach((k) => { const s = SPECK[k]; [swX, swY].forEach((sel) => { const o = document.createElement('option'); o.value = k; o.textContent = `${s.l}${s.u ? ', ' + s.u : ''}`; sel.appendChild(o); }); });
@@ -705,7 +764,7 @@
     const xk = swX.value, yk = swY.value;
     if (xk === yk) { $('swHov').textContent = 'Pick two different parameters for the axes.'; return; }
     const xs = axisVals(xk), ys = axisVals(yk), total = xs.length * ys.length;
-    SW = { xk, yk, xs, ys, res: new Array(total).fill(null), done: 0, stale: false, ms: 0, mode: P.flushMode, type: P.type };
+    SW = { xk, yk, xs, ys, res: new Array(total).fill(null), done: 0, stale: false, ms: 0, mode: P.flushMode, type: P.type, nref: noiseRef() };
     swRunning = true; $('swRun').disabled = true;
     const base = Object.assign({}, P); let k = 0; const t0 = performance.now();
     (function chunk() {
@@ -714,6 +773,7 @@
         const q = Object.assign({}, base); q[xk] = xs[k % xs.length]; q[yk] = ys[Math.floor(k / xs.length)];
         const r = M.simulate(q, { light: true, coarse: true, Tend: SIM_T });
         SW.res[k] = { valid: r.valid }; SW_M.forEach(([m]) => { SW.res[k][m] = r[m]; });
+        SW.res[k].noisePeak = r.noise.peak - SW.nref.peak; SW.res[k].noiseEnergy = r.noise.energy - SW.nref.energy;
         k++;
       }
       SW.done = k; SW.ms = performance.now() - t0;
@@ -767,7 +827,7 @@
       const ix = best % nx, iy = Math.floor(best / nx);
       ctx.strokeStyle = rgba(C.ink); ctx.lineWidth = 2 * d;
       ctx.strokeRect(padL + ix * cw + 2 * d, padT + h - (iy + 1) * chh + 2 * d, cw - 4 * d, chh - 4 * d);
-      $('swBest').textContent = `${md[4] > 0 ? 'Highest' : 'Lowest'} ${md[1].toLowerCase()}: ${bv.toFixed(md[3])} ${md[2]} at ${SPECK[SW.xk].l.toLowerCase()} ${SW.xs[ix]} ${SPECK[SW.xk].u}, ${SPECK[SW.yk].l.toLowerCase()} ${SW.ys[iy]} ${SPECK[SW.yk].u} (outlined).`;
+      $('swBest').textContent = `${md[4] > 0 ? 'Highest' : 'Lowest'} ${md[1].toLowerCase()}: ${bv.toFixed(md[3])} ${md[2]} at ${SPECK[SW.xk].l.toLowerCase()} ${SW.xs[ix]} ${SPECK[SW.xk].u}, ${SPECK[SW.yk].l.toLowerCase()} ${SW.ys[iy]} ${SPECK[SW.yk].u} (outlined).${mk.startsWith('noise') ? ` Noise is relative to the ${SW.nref.label}.` : ''}`;
     }
     // current design marker
     const xs = SW.xs, ys = SW.ys;
@@ -821,7 +881,7 @@
     stop: () => { playing = false; setPlay(); },
     setTime: (t) => { T = t; playing = false; setPlay(); draw(); },
     snapshot: () => snapP(),
-    save,
+    save, noiseRef,
     drawer: (open) => toggleDrawer(open),
     isPhone: () => window.matchMedia('(max-width: 940px)').matches,
     SPECK, readColors, rgba, mix, sizeCanvas, dpr, font

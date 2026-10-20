@@ -26,8 +26,16 @@
     Acist: 0.035, tOpen: 0.15, Lweir: 70, Cweir: 1.7,
     cf: 0.008, ksp: 0.22, tauC: 3.0, Jcrit: 1.5, cfp: 0.02, eta: 0.5, kov: 2.0,
     ucS: 0.35, ucP: 0.45, cmax: 0.12, kS: 2.0, kP: 1.2, beta: 0.2, phi0: 0.2, Fr0: 0.1,
-    rhoS: 1100, sealMin: 50
+    rhoS: 1100, sealMin: 50,
+    // noise indicator (relative): sound from air bubbles, written as air flow into the water
+    nUe: 0.8, nExp: 1.8, nK: 0.04, hFall: 120, rCore: 0.6, cCore: 0.05, wTrap: 0.1
   };
+  // centre depression of a Rankine vortex below the mean surface, in units of vs^2/(2g),
+  // for a core radius a = rc/R and a fixed swirl speed vs at the wall (a = 1: solid body, 0.5)
+  function coreFactor(a) {
+    a = Math.min(1, Math.max(0.15, a));
+    return (2 / (a * a) - 1) * (1 - a * a) + 0.5 + 2 * Math.log(a) + 1 - a * a;
+  }
 
   function defaults(kind) {
     const pre = PRESETS[kind || 'washdown'];
@@ -168,7 +176,7 @@
     const touched = [];
     let cur = 0;
 
-    const film = { uthArr: 0, rArr: g.Rp, active: false };
+    const film = { uthArr: 0, rArr: g.Rp, active: false, end: [] };   // end: per jet [Q, u_theta, u_r, u_z] where the film meets the pool
     const lines = [];
     const dl = 0.006, samp = 0.005;
 
@@ -196,6 +204,7 @@
     function computeFilm(vj, Qj, z, t) {
       cur++; touched.length = 0;
       const rec = light ? null : { t, jets: [] };
+      film.end.length = 0;
       if (Qj < 2e-5 || vj < 0.05) { film.active = false; if (rec) lines.push(rec); return; }
       film.active = true;
       const zStop = Math.max(0.002, Math.min(g.D, g.D - z));   // waterline depth below the rim
@@ -249,6 +258,7 @@
         }
         if (pts) { pushPt(); rec.jets.push({ pts, w }); }
         sumL += Math.max(0, x * vy - y * vx);   // angular momentum per unit mass about the bowl axis
+        { const rr = Math.max(1e-6, Math.hypot(x, y)); film.end.push([Qj, (x * vy - y * vx) / rr, (x * vx + y * vy) / rr, vz]); }
       }
       film.uthArr = sumL / nJ; film.rArr = 1;
       // apply shear impulse for this update interval
@@ -268,6 +278,13 @@
     const rec = light ? null : { t: [], Qin: [], Qout: [], z: [], Vc: [], vs: [], phi: [], Ms: [], Np: [], primed: [], Vt: [] };
 
     let tEnd = 0, Vspill = 0, overflowT = null;
+    // noise indicator state
+    const Ue = p.nUe, nX = p.nExp, hF = p.hFall / 1000, Cv = coreFactor(p.rCore), tauF = 0.125;
+    const ent = (Q, U) => (U > Ue ? p.nK * Q * Math.pow(U - Ue, nX) : 0);   // air entrained by plunging water, m3/s
+    let Wf = 0, WfPeak = 0, tPeakN = 0, Eacc = 0, airT = null, airDur = 0;
+    let tBrk = null, Qbrk = 0;
+    const Esrc = [0, 0, 0, 0], Wsrc = [0, 0, 0, 0];
+    const nrec = light ? null : { t: [], L: [], pl: [], out: [], air: [], brk: [], core: [] };
     for (let n = 0; ; n++) {
       const t = n * dt; tEnd = t;
       // stop once the flush is over: cistern empty and 6 s of settling, but never before Tend or after Tmax
@@ -298,7 +315,7 @@
         if (Vt >= Vtrap) { primed = true; everPrimed = true; if (primeT === null) primeT = t; }
       } else {
         Qout = At * Math.sqrt(2 * G * Math.max(0, z + Hs) / p.Ks); Qtrans = Qout;
-        if (z <= -ds) { primed = false; Vt = 0; Qout = 0; Qtrans = 0; breakT = t; }
+        if (z <= -ds) { Qbrk = Qout; tBrk = t; primed = false; Vt = 0; Qout = 0; Qtrans = 0; breakT = t; }
       }
       Vrel += (Qin - Qout) * dt;
       if (Vrel < g.vt[0] + 1e-6) Vrel = g.vt[0] + 1e-6;
@@ -318,6 +335,30 @@
       const vs = om * Rc, dip = vs * vs / (2 * G);
       if (vs > vsPeak) vsPeak = vs; if (z > zPeak) zPeak = z; if (dip > dipPeak) dipPeak = dip;
 
+      // noise indicator. Every source is written as a flow of air into the water (m3/s), weighted by the
+      // sound it makes per unit of air: 1 for fine splash bubbles, wTrap for large air pockets in the trap.
+      // The weighted sum stands for radiated sound power and is only used relative to a reference.
+      // 1 jet films plunging into the pool, speed relative to the swirling pool surface
+      let s1 = 0;
+      if (film.active) for (const e of film.end) s1 += ent(e[0], Math.hypot(e[1] - vs, e[2], e[3]));
+      // 2 water falling from the trap weir into the outlet (free surface flow only)
+      const Qfree = siph && primed ? 0 : Qout;
+      const s2 = Qfree > 0 ? ent(Qfree, Math.sqrt(2 * G * Math.max(z, 0) / 3 + 2 * G * hF)) : 0;
+      // 3 air core: vortex depression at the trap reaches the trap inlet while water flows out
+      const subm = z + ds, dCore = Cv * dip;
+      const core = Qout > 1e-6 && dCore >= subm;
+      if (core) { airDur += dt; if (airT === null) airT = t; }
+      const s3 = core ? p.cCore * Qout : 0;
+      // 4 siphon break: air replaces the water in the trap leg at the rate the siphon was carrying it out,
+      // decaying once the leg's volume has been replaced (time constant Vtrap / Qbrk)
+      const s4 = tBrk !== null && t >= tBrk ? Qbrk * Math.exp(-(t - tBrk) * Qbrk / Math.max(1e-9, Vtrap)) : 0;
+      Wsrc[0] = s1; Wsrc[1] = s2; Wsrc[2] = p.wTrap * s3; Wsrc[3] = p.wTrap * s4;
+      const W = Wsrc[0] + Wsrc[1] + Wsrc[2] + Wsrc[3];
+      for (let k = 0; k < 4; k++) Esrc[k] += Wsrc[k] * dt;
+      Eacc += W * dt;
+      Wf += (W - Wf) * dt / tauF;                      // 'fast' time weighting, 125 ms
+      if (Wf > WfPeak) { WfPeak = Wf; tPeakN = t; }
+
       // waste transport
       const ut = Qtrans / At;
       const Fr = vs * vs / (G * Rc), Cs = Fr / (Fr + p.Fr0);
@@ -332,6 +373,7 @@
         rec.t.push(t); rec.Qin.push(Qin * 1000); rec.Qout.push(Qout * 1000); rec.z.push(z * 1000);
         rec.Vc.push(Vc * 1000); rec.vs.push(vs); rec.phi.push(phi); rec.Ms.push(Ms); rec.Np.push(Np);
         rec.primed.push(primed ? 1 : 0); rec.Vt.push(Vt / Math.max(1e-9, Vtrap));
+        nrec.t.push(t); nrec.L.push(10 * Math.log10(Wf + 1e-12)); nrec.pl.push(Wsrc[0]); nrec.out.push(Wsrc[1]); nrec.air.push(Wsrc[2]); nrec.brk.push(Wsrc[3]); nrec.core.push(core ? 1 : 0);
       }
     }
 
@@ -357,12 +399,16 @@
       primeT, breakT, everPrimed, sealEnd, sealOK: sealEnd >= p.sealMin - 0.5, zEnd: zEnd * 1000,
       tEnd, incomplete, cisternLeft: Vc * 1000, overflow: overflowT !== null, overflowT, spill: Vspill * 1000, valid: overflowT === null && !incomplete,
       cleanPerL: 100 * Aclean / Atot / water,
+      noise: {
+        peak: 10 * Math.log10(WfPeak + 1e-12), energy: 10 * Math.log10(Eacc + 1e-12), tPeak: tPeakN,
+        share: Esrc.map((e) => (Eacc > 0 ? e / Eacc : 0)), airT, airDur, coreFactor: Cv
+      },
       runMs: 0
     };
-    if (!light) Object.assign(out, { J, tWet, tClean, lines, rec, dtu });
+    if (!light) Object.assign(out, { J, tWet, tClean, lines, rec, nrec, dtu });
     out.runMs = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0;
     return out;
   }
 
-  root.FlushModel = { simulate, defaults, PRESETS, COEFFS, buildGeom, geomAt, sAtDepth, NTH, NS };
+  root.FlushModel = { simulate, defaults, PRESETS, COEFFS, buildGeom, geomAt, sAtDepth, coreFactor, NTH, NS };
 })(typeof window !== 'undefined' ? window : globalThis);

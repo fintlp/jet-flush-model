@@ -30,7 +30,7 @@
     $('optFlush').value = 'full'; $('optEffort').value = 'quick';
     $('goalTargets').click();
     const k = A.kpis(); mem.tClean = Math.min(95, Math.round(k.clean) + 3);
-    $('tWater').value = '4.0'; $('tClean').value = String(mem.tClean); $('tSolids').value = '95'; $('tPaper').value = '80'; $('tPick').value = 'score';
+    $('tWater').value = '4.0'; $('tClean').value = String(mem.tClean); $('tSolids').value = '95'; $('tPaper').value = '80'; $('tPick').value = 'score'; if ($('tNoise')) $('tNoise').value = '';
     $('tPaper').dispatchEvent(new Event('input'));
     $('optRun').click();
     await wait(400);

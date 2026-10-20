@@ -32,7 +32,7 @@
   function evalPhysics(base, design, coeff, opts) {
     const q = Object.assign({}, base, design, coeff || {}, { flushMode: 'full' });
     const r = M.simulate(q, opts || SIM);
-    return { clean: r.cleanPct, solids: r.solidsPct, paper: r.paperPct, water: r.water, seal: r.sealEnd, sealOK: r.sealOK, overflow: r.overflow, incomplete: r.incomplete };
+    return { clean: r.cleanPct, solids: r.solidsPct, paper: r.paperPct, water: r.water, seal: r.sealEnd, sealOK: r.sealOK, overflow: r.overflow, incomplete: r.incomplete, noise: r.noise.peak };
   }
   // run a list of jobs in time slices so the page stays responsive
   function slices(step, done, budget = 14) {
@@ -145,7 +145,12 @@
     const a = +$('wClean').value, b = +$('wSolids').value, c = +$('wPaper').value, s = a + b + c || 1;
     return [a / s, b / s, c / s];
   }
-  const targets = () => ({ water: +$('tWater').value, clean: +$('tClean').value, solids: +$('tSolids').value, paper: +$('tPaper').value, pick: $('tPick').value });
+  const targets = () => { const nz = $('tNoise').value.trim(); return { water: +$('tWater').value, clean: +$('tClean').value, solids: +$('tSolids').value, paper: +$('tPaper').value, noise: nz === '' || !isFinite(+nz) ? null : +nz, pick: $('tPick').value }; };
+  // noise relative to the current design (both at full resolution once re-checked)
+  const nRel = (e) => (O.cur && e.noise != null ? e.noise - O.cur.noise : 0);
+  const pickCmp = (t) => (a, b) => t.pick === 'water' ? (a.water - b.water || b.score - a.score)
+    : t.pick === 'noise' ? (nRel(a) - nRel(b) || b.score - a.score) : (b.score - a.score || a.water - b.water);
+  const pickName = (t) => (t.pick === 'water' ? 'lowest water' : t.pick === 'noise' ? 'quietest' : 'highest score');
   const goal = () => ($('goalTargets').getAttribute('aria-pressed') === 'true' ? 'targets' : 'weights');
   // score, and how far a design misses the constraints (0 = meets all)
   function rate(e) {
@@ -158,6 +163,7 @@
       const t = targets();
       if (e.water > t.water + 1e-9) { v += (e.water - t.water) / 0.5; miss.push(`water ${fmt(e.water - t.water, 1)} L over`); }
       [['clean', 'cleaned'], ['solids', 'solids'], ['paper', 'paper']].forEach(([k, lab]) => { if (e[k] < t[k] - 1e-9) { v += (t[k] - e[k]) / 5; miss.push(`${lab} ${fmt(t[k] - e[k], t[k] - e[k] < 1 ? 1 : 0)} points short`); } });
+      if (t.noise != null && O.cur && e !== O.cur) { const over = nRel(e) - t.noise; if (over > 1e-9) { v += over / 3; miss.push(`${fmt(over, 1)} dB too loud`); } }
     }
     e.viol = v; e.miss = miss; return e;
   }
@@ -191,7 +197,7 @@
   function pickBest() {
     if (O.goal !== 'targets') return null;
     const ok = O.all.filter((e) => e.viol === 0), t = targets();
-    if (ok.length) return ok.slice().sort((a, b) => t.pick === 'water' ? (a.water - b.water || b.score - a.score) : (b.score - a.score || a.water - b.water))[0];
+    if (ok.length) return ok.slice().sort(pickCmp(t))[0];
     return null;
   }
   function closest() { return O.all.length ? O.all.slice().sort((a, b) => a.viol - b.viol || b.score - a.score)[0] : null; }
@@ -207,6 +213,7 @@
     $('optRun').disabled = true;
     const ND2 = vars.length;
     const ev = (x) => { const des = desOf(vars, x), e = rate(Object.assign({ x: xOf(vars, des), des }, evalPhysicsMode(base, des, mode))); O.all.push(e); return e; };
+    O.cur = null;
     O.cur = (() => { const des = {}; vars.forEach((d) => { des[d.k] = base[d.k]; }); return rate(Object.assign({ des, full: true }, evalPhysicsMode(base, des, mode, SIM_FULL))); })();
     let pop = [], children = [], gen = 0, queue = lhsN(POP, ND2, r); const t0 = now();
     const tour = () => { const a = pop[Math.floor(r() * pop.length)], b = pop[Math.floor(r() * pop.length)]; return (a.rank < b.rank || (a.rank === b.rank && a.crowd > b.crowd)) ? a : b; };
@@ -236,7 +243,7 @@
       O.front.forEach(add);
       if (O.goal === 'targets') {
         const t = targets(), ok = O.all.filter((e) => e.viol === 0);
-        ok.sort((a, b) => t.pick === 'water' ? (a.water - b.water || b.score - a.score) : (b.score - a.score || a.water - b.water)).slice(0, 12).forEach(add);
+        ok.sort(pickCmp(t)).slice(0, 12).forEach(add);
         if (!ok.length) O.all.slice().sort((a, b) => a.viol - b.viol || b.score - a.score).slice(0, 6).forEach(add);
       }
       $('optStatus').textContent = `Checking ${check.length} best designs at full resolution…`;
@@ -263,19 +270,20 @@
   function evalPhysicsMode(base, des, mode, opts) {
     const q = Object.assign({}, base, des, { flushMode: mode });
     const r = M.simulate(q, opts || SIM);
-    return { clean: r.cleanPct, solids: r.solidsPct, paper: r.paperPct, water: r.water, seal: r.sealEnd, sealOK: r.sealOK, overflow: r.overflow, incomplete: r.incomplete };
+    return { clean: r.cleanPct, solids: r.solidsPct, paper: r.paperPct, water: r.water, seal: r.sealEnd, sealOK: r.sealOK, overflow: r.overflow, incomplete: r.incomplete, noise: r.noise.peak };
   }
   function lhsN(n, nd, r) {
     const cols = Array.from({ length: nd }, () => { const p = Array.from({ length: n }, (_, i) => (i + r()) / n); for (let i = n - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [p[i], p[j]] = [p[j], p[i]]; } return p; });
     return Array.from({ length: n }, (_, i) => cols.map((c) => c[i]));
   }
-  const metricsLine = (e) => `cleaned ${fmt(e.clean, 0)} %, solids ${fmt(e.solids, 0)} %, paper ${fmt(e.paper, 0)} %, ${fmt(e.water, 1)} L`;
+  const sdb = (v) => `${v > 0.05 ? '+' : v < -0.05 ? '−' : '±'}${fmt(Math.abs(v), 1)}`;
+  const metricsLine = (e) => `cleaned ${fmt(e.clean, 0)} %, solids ${fmt(e.solids, 0)} %, paper ${fmt(e.paper, 0)} %, ${fmt(e.water, 1)} L` + (O.cur && e !== O.cur ? `, noise ${sdb(nRel(e))} dB vs now` : '');
   function optSummary() {
     const c = O.cur; if (!c) return;
     const box = $('optBest'); let html = `<p><b>Current design:</b> ${metricsLine(c)}, score ${fmt(c.score, 1)}${c.viol > 0 ? ` (${c.miss.join(', ')})` : ''}.</p>`;
     if (O.goal === 'targets') {
       const b = O.best, t = targets();
-      if (b) html += `<p><b>Best design meeting all targets</b> (${t.pick === 'water' ? 'lowest water' : 'highest score'}): ${metricsLine(b)}, score ${fmt(b.score, 1)}.</p><p><button class="btn primary mini" type="button" id="optLoadBest">Load this design</button></p>`;
+      if (b) html += `<p><b>Best design meeting all targets</b> (${pickName(t)}): ${metricsLine(b)}, score ${fmt(b.score, 1)}.</p><p><button class="btn primary mini" type="button" id="optLoadBest">Load this design</button></p>`;
       else { const cl = closest(); html += `<p><b>No design met all targets.</b>${cl ? ` Closest: ${metricsLine(cl)}; ${cl.miss.join(', ')}.` : ''} Try loosening a target, allowing more settings to change, or the thorough search.</p>` + (cl ? `<p><button class="btn mini" type="button" id="optLoadBest">Load the closest design</button></p>` : ''); }
     } else if (O.front.length) {
       const same = O.front.filter((e) => e.water <= c.water + 1e-9).sort((a, b) => b.score - a.score)[0];
@@ -322,12 +330,12 @@
     let rows, title;
     if (O.goal === 'targets') {
       const t = targets(), ok = O.all.filter((e) => e.viol === 0);
-      rows = ok.sort((a, b) => t.pick === 'water' ? (a.water - b.water || b.score - a.score) : (b.score - a.score || a.water - b.water)).slice(0, 10);
-      title = rows.length ? `Designs meeting all targets, sorted by ${t.pick === 'water' ? 'water' : 'score'}` : 'No design meets all targets yet';
+      rows = ok.sort(pickCmp(t)).slice(0, 10);
+      title = rows.length ? `Designs meeting all targets, sorted by ${t.pick === 'water' ? 'water' : t.pick === 'noise' ? 'noise' : 'score'}` : 'No design meets all targets yet';
     } else { rows = O.front.slice(0, 12); title = rows.length ? 'Best trade-off designs, sorted by water' : ''; }
     $('optTableTitle').textContent = title;
-    $('optTable').innerHTML = rows.length ? `<thead><tr><th></th><th>Water, L</th><th>Score</th><th>Cleaned, %</th><th>Solids, %</th><th>Paper, %</th>${vars.map((d) => `<th>${d.l}${d.u ? ', ' + d.u : ''}</th>`).join('')}</tr></thead><tbody>` +
-      rows.map((e, i) => `<tr${e === O.best ? ' class="best"' : ''}><td><button class="btn mini" type="button" data-opt="${i}">Load</button></td><td class="num">${fmt(e.water, 1)}</td><td class="num">${fmt(e.score, 1)}</td><td class="num">${fmt(e.clean, 0)}</td><td class="num">${fmt(e.solids, 0)}</td><td class="num">${fmt(e.paper, 0)}</td>${vars.map((d) => `<td class="num">${fmt(e.des[d.k], d.int ? 0 : d.dp)}</td>`).join('')}</tr>`).join('') + '</tbody>' : '';
+    $('optTable').innerHTML = rows.length ? `<thead><tr><th></th><th>Water, L</th><th>Score</th><th>Cleaned, %</th><th>Solids, %</th><th>Paper, %</th><th>Noise, dB vs now</th>${vars.map((d) => `<th>${d.l}${d.u ? ', ' + d.u : ''}</th>`).join('')}</tr></thead><tbody>` +
+      rows.map((e, i) => `<tr${e === O.best ? ' class="best"' : ''}><td><button class="btn mini" type="button" data-opt="${i}">Load</button></td><td class="num">${fmt(e.water, 1)}</td><td class="num">${fmt(e.score, 1)}</td><td class="num">${fmt(e.clean, 0)}</td><td class="num">${fmt(e.solids, 0)}</td><td class="num">${fmt(e.paper, 0)}</td><td class="num">${sdb(nRel(e))}</td>${vars.map((d) => `<td class="num">${fmt(e.des[d.k], d.int ? 0 : d.dp)}</td>`).join('')}</tr>`).join('') + '</tbody>' : '';
     $('optTable').querySelectorAll('[data-opt]').forEach((b) => b.addEventListener('click', () => loadOpt(rows[+b.dataset.opt])));
   }
   function loadOpt(e) {
@@ -357,7 +365,7 @@
   ['wClean', 'wSolids', 'wPaper'].forEach((id) => $(id).addEventListener('input', () => {
     const w = weights(); $('wOut').textContent = `Score weights: cleaning ${Math.round(w[0] * 100)} % · solids ${Math.round(w[1] * 100)} % · paper ${Math.round(w[2] * 100)} %`; rerate();
   }));
-  ['tWater', 'tClean', 'tSolids', 'tPaper', 'tPick'].forEach((id) => $(id).addEventListener('input', rerate));
+  ['tWater', 'tClean', 'tSolids', 'tPaper', 'tNoise', 'tPick'].forEach((id) => $(id).addEventListener('input', rerate));
   function setGoal(g) {
     $('goalWeights').setAttribute('aria-pressed', String(g === 'weights')); $('goalTargets').setAttribute('aria-pressed', String(g === 'targets'));
     $('optTargets').hidden = g !== 'targets'; rerate();

@@ -122,8 +122,11 @@ canvas{display:block;width:100%;max-width:100%}
 #play{min-width:96px}
 
 /* KPIs */
-.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+@media (max-width:1320px){ .kpis{grid-template-columns:repeat(2,minmax(0,1fr))} }
 @media (max-width:860px){ .kpis{grid-template-columns:minmax(0,1fr)} }
+.reftag{display:inline-block;padding:0 6px;border-radius:6px;background:color-mix(in srgb, var(--muted) 14%, transparent);color:var(--ink);font-weight:500;white-space:nowrap}
+.reftag.pin{background:color-mix(in srgb, var(--accent) 16%, transparent);color:var(--accent)}
 .kpi{background:var(--raised);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:grid;gap:10px;align-content:start}
 .kpi .head{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .kpi .rank{font-family:var(--f-mono);font-size:11.5px;color:var(--muted)}
@@ -138,8 +141,8 @@ canvas{display:block;width:100%;max-width:100%}
 .strip{display:flex;flex-wrap:wrap;gap:6px 22px;font-size:13px;color:var(--muted);padding:10px 2px 0}
 .strip b{font-family:var(--f-mono);font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums}
 
-#cvChart{aspect-ratio:2.6/1}
-@media (max-width:600px){ #cvChart{aspect-ratio:1.4/1} }
+#cvChart{aspect-ratio:2.15/1}
+@media (max-width:600px){ #cvChart{aspect-ratio:1.1/1} }
 #cvWall{aspect-ratio:2.5/1}
 @media (max-width:600px){ #cvWall{aspect-ratio:1.6/1} }
 
@@ -289,7 +292,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
     <div class="title">
       <span class="eyebrow">Flush simulator · physics model + AI</span>
       <h1>Tangential Jet Flush Model</h1>
-      <p class="lede">A fast model of how a rimless toilet flushes. Rim jets wash the bowl, swirl the pool and carry waste through the trap. Each flush computes in milliseconds, so you can change the design and see the effect on cleaning, waste removal and water use right away. An AI lab searches for better designs and shows how the model would be trained and calibrated with PreonLab. The coefficients are not calibrated yet, so read the results as trends.</p>
+      <p class="lede">A fast model of how a rimless toilet flushes. Rim jets wash the bowl, swirl the pool and carry waste through the trap. Each flush computes in milliseconds, so you can change the design and see the effect on cleaning, waste removal, water use and relative noise right away. An AI lab searches for better designs and shows how the model would be trained and calibrated with PreonLab. The coefficients are not calibrated yet, so read the results as trends.</p>
       <p class="lede-detail">Under the hood: a reduced-order model from cistern to trap, covering jet films on an oval bowl wall, pool swirl, washdown or siphonic outflow and waste transport. One flush takes 5 to 20 ms in the browser; a free-surface CFD case of a flush typically runs for hours. <a href="https://fintlp.github.io/jet-flush-model/method.html" target="_blank" rel="noopener">How the model works</a> · <a href="https://fintlp.github.io/jet-flush-model/why.html" target="_blank" rel="noopener">Why we built this</a> · Slides: <a href="https://fintlp.github.io/jet-flush-model/slides/jet-flush-model.pptx" target="_blank" rel="noopener">PowerPoint</a>, <a href="https://fintlp.github.io/jet-flush-model/slides/jet-flush-model.pdf" target="_blank" rel="noopener">PDF</a></p>
     </div>
     <div class="actions">
@@ -314,7 +317,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
     <span class="eyebrow">Start here</span>
     <ol>
       <li><b>Set up a bowl.</b> Pick a preset, then change the bowl and jets <span class="desk-only">in the panel on the left</span><span class="phone-only">with the Adjust design button</span>.</li>
-      <li><b>Play the flush</b> and read cleaning, waste removal and water use below it. Each change shows how much it helped or hurt.</li>
+      <li><b>Play the flush</b> and read cleaning, waste removal, water use and noise below it. Each change shows how much it helped or hurt.</li>
       <li><b>Let the AI lab</b> search for better settings, or set targets it must meet.</li>
     </ol>
     <button class="btn primary demo" type="button" id="demoBtn">▶ Demo me</button>
@@ -392,14 +395,24 @@ td code{font-family:var(--f-mono);font-size:12.5px}
               <dt>Water seal after flush</dt><dd id="kSeal"></dd>
             </dl>
           </article>
+          <article class="kpi" id="kpiNoise">
+            <div class="head"><span class="eyebrow">Noise <span class="est" title="Relative indicator from an uncalibrated model, not a sound level in dB(A)">· relative</span></span><span class="chip" id="cNoise" title="Display band chosen for this tool, not a standard"></span></div>
+            <div><div class="big" id="kNoise"></div><div class="cap" id="kNoiseCap">peak level vs the preset</div></div>
+            <dl>
+              <dt>Sound energy</dt><dd id="kNoiseE"></dd>
+              <dt>Loudest source</dt><dd id="kNoiseSrc"></dd>
+              <dt>Air core at trap</dt><dd id="kAirCore"></dd>
+              <dt>Siphon gurgle</dt><dd id="kGurgle"></dd>
+            </dl>
+          </article>
         </div>
         <div class="strip" id="strip"></div>
-        <p class="estline">All results are illustrative estimates from a model that is not yet calibrated against CFD or tests. Use them to compare designs, not as product values.</p>
+        <p class="estline">All results are illustrative estimates from a model that is not yet calibrated against CFD or tests. Use them to compare designs, not as product values. Noise is a relative indicator in dB against the reference named on its card: the preset, or your pinned reference. It is not a sound level and covers only the flush in the bowl and trap, not the cistern, pipes or building.</p>
       </section>
 
       <section class="panel" aria-label="Time traces" id="traces">
         <div class="panel-head"><h2>Flush traces</h2><span class="muted" style="font-size:12.5px">Click a trace to jump to that moment</span></div>
-        <canvas id="cvChart" aria-label="Time traces of flow, bowl level, swirl and remaining load"></canvas>
+        <canvas id="cvChart" aria-label="Time traces of flow, bowl level, swirl, remaining load and relative noise level"></canvas>
       </section>
 
       <section class="panel" aria-label="Wall cleaning map" id="wallmap">
@@ -461,7 +474,8 @@ td code{font-family:var(--f-mono);font-size:12.5px}
                 <label class="f" for="tClean">Cleaned at least, %<input type="number" id="tClean" min="0" max="100" step="1" value="90"></label>
                 <label class="f" for="tSolids">Solids at least, %<input type="number" id="tSolids" min="0" max="100" step="1" value="95"></label>
                 <label class="f" for="tPaper">Paper at least, %<input type="number" id="tPaper" min="0" max="100" step="1" value="80"></label>
-                <label class="f" for="tPick">Among those, pick<select id="tPick"><option value="score" selected>highest score</option><option value="water">lowest water</option></select></label>
+                <label class="f" for="tNoise">Noise at most, dB vs now<input type="number" id="tNoise" min="-20" max="20" step="0.5" value="" placeholder="no limit"></label>
+                <label class="f" for="tPick">Among those, pick<select id="tPick"><option value="score" selected>highest score</option><option value="water">lowest water</option><option value="noise">quietest</option></select></label>
               </div>
               <div class="weights">
                 <label class="f" for="wClean">Weight on cleaning<input type="range" id="wClean" min="0" max="100" step="5" value="50"></label>
@@ -563,7 +577,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
       </section>
       <footer class="foot">
         <span class="footlinks"><a href="https://fintlp.github.io/jet-flush-model/why.html" target="_blank" rel="noopener">Why we built this</a><a href="https://fintlp.github.io/jet-flush-model/method.html" target="_blank" rel="noopener">Model details</a><a href="https://fintlp.github.io/jet-flush-model/sources.html" target="_blank" rel="noopener">Sources and references</a><a href="https://fintlp.github.io/jet-flush-model/slides/jet-flush-model.pptx" target="_blank" rel="noopener">Slides, PowerPoint</a><a href="https://fintlp.github.io/jet-flush-model/slides/jet-flush-model.pdf" target="_blank" rel="noopener">Slides, PDF</a></span>
-        <span class="muted">Tangential Jet Flush Model · v1.2.0 · Peter Fintl</span>
+        <span class="muted">Tangential Jet Flush Model · v1.3.0 preview · Peter Fintl</span>
       </footer>
     </div>
   </div>
