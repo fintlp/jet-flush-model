@@ -105,7 +105,7 @@ The coefficients that describe physics the model does not resolve (film friction
 
 ## Change log
 
-### 1.3.0 · preview, not released yet
+### 1.3.0 · 20 October 2026
 
 - Noise indicator, experimental: a fourth result card with the peak noise in dB against the preset, or against the pinned reference when one is set, its range over five assumed coefficients, sound energy, which source makes the peak and which makes most of the energy, when an air core reaches the trap and the siphon break gurgle.
 - Four sources, each written as a flow of air into the water: jet films entering the swirling pool, water falling into the outlet, an air core at the trap (Rankine vortex with the pool's angular momentum) and the siphon break.
