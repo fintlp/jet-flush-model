@@ -881,7 +881,7 @@
     stop: () => { playing = false; setPlay(); },
     setTime: (t) => { T = t; playing = false; setPlay(); draw(); },
     snapshot: () => snapP(),
-    save, noiseRef,
+    save, noiseRef, noise: () => (R ? R.noise : null),
     drawer: (open) => toggleDrawer(open),
     isPhone: () => window.matchMedia('(max-width: 940px)').matches,
     SPECK, readColors, rgba, mix, sizeCanvas, dpr, font

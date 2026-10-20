@@ -8,6 +8,11 @@
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const pct = (v) => Math.round(v);
   const signed = (v, dp = 0) => { const x = +v.toFixed(dp); return (x > 0 ? '+' : x < 0 ? '−' : '±') + Math.abs(x).toFixed(dp); };
+  const noiseSrc = () => {
+    const n = A.noise(); if (!n) return 'comes from the flush';
+    const t = ['comes from the jet films entering the pool', 'comes from water falling into the outlet', 'comes from an air core in the trap', 'comes from the siphon break'];
+    return t[n.share.indexOf(Math.max(...n.share))];
+  };
 
   const ov = document.createElement('div');
   ov.className = 'tour'; ov.hidden = true;
@@ -30,7 +35,7 @@
     $('optFlush').value = 'full'; $('optEffort').value = 'quick';
     $('goalTargets').click();
     const k = A.kpis(); mem.tClean = Math.min(95, Math.round(k.clean) + 3);
-    $('tWater').value = '4.0'; $('tClean').value = String(mem.tClean); $('tSolids').value = '95'; $('tPaper').value = '80'; $('tPick').value = 'score'; if ($('tNoise')) $('tNoise').value = '';
+    $('tWater').value = '4.0'; $('tClean').value = String(mem.tClean); $('tSolids').value = '95'; $('tPaper').value = '80'; $('tPick').value = 'score'; if ($('tNoise')) $('tNoise').value = '0';
     $('tPaper').dispatchEvent(new Event('input'));
     $('optRun').click();
     await wait(400);
@@ -52,7 +57,7 @@
     {
       t: 'Read the results', el: () => $('results'), block: 'center',
       x: async () => { await wait(reduce() ? 0 : 900); A.setTime(10); },
-      h: () => { const k = A.kpis(); return `<p>For this bowl the model gives:</p><ul><li><b>${pct(k.clean)} %</b> of the wall cleaned</li><li><b>${pct(k.solids)} %</b> of the solid test load and <b>${pct(k.paper)} %</b> of the paper removed</li><li><b>${k.water.toFixed(1)} L</b> of water</li></ul><p>These cards update on every change, with a green or red chip showing how much it helped or hurt.</p>`; }
+      h: () => { const k = A.kpis(); return `<p>For this bowl the model gives:</p><ul><li><b>${pct(k.clean)} %</b> of the wall cleaned</li><li><b>${pct(k.solids)} %</b> of the solid test load and <b>${pct(k.paper)} %</b> of the paper removed</li><li><b>${k.water.toFixed(1)} L</b> of water</li><li><b>${signed(k.noise - A.noiseRef().peak, 1)} dB</b> noise against the preset. It reads zero because this is the preset itself; most of its noise ${noiseSrc()}.</li></ul><p>These cards update on every change, with a green or red chip showing how much it helped or hurt. Noise is a relative indicator, not a sound level.</p>`; }
     },
     {
       t: 'Make the bowl oval', el: () => $('results'), block: 'center',
@@ -73,13 +78,13 @@
       x: runOptimiser,
       h: () => {
         const st = $('optStatus').textContent, best = $('optBest').querySelectorAll('p')[1];
-        return `<p>We asked the AI lab for a design that uses <b>at most 4.0 L</b>, less than now, and still cleans at least <b>${mem.tClean} %</b>, with 95 % solids and 80 % paper removed. It may change the nozzles, jet angle and position, valve height and flush volume, but not the bowl.</p><p class="tour-hint">${st}</p>${best ? `<p>${best.innerHTML}</p>` : '<p>No design met every target this time. The closest one is shown in the panel.</p>'}`;
+        return `<p>We asked the AI lab for a design that uses <b>at most 4.0 L</b>, less than now, and still cleans at least <b>${mem.tClean} %</b>, with 95 % solids and 80 % paper removed, and is <b>no louder</b> than now. It may change the nozzles, jet angle and position, valve height and flush volume, but not the bowl.</p><p class="tour-hint">${st}</p>${best ? `<p>${best.innerHTML}</p>` : '<p>No design met every target this time. The closest one is shown in the panel.</p>'}`;
       }
     },
     {
       t: 'Load the winner', el: () => $('results'), block: 'center',
       x: async () => { mem.before3 = A.kpis(); mem.hadBest = !!$('optLoadBest') && /meeting all targets/.test($('optBest').textContent); const b = $('optLoadBest'); if (b) b.click(); await wait(50); },
-      h: () => { const k = A.kpis(), b = mem.before3 || k; return `<p>The ${mem.hadBest ? 'suggested' : 'closest'} design is now loaded in the simulator:</p><ul><li>Cleaning <b>${pct(k.clean)} %</b> (${signed(k.clean - b.clean)})</li><li>Solids <b>${pct(k.solids)} %</b> (${signed(k.solids - b.solids)})</li><li>Water <b>${k.water.toFixed(1)} L</b> (${signed(k.water - b.water, 1)} L)</li></ul><p class="tour-hint">The model is not calibrated yet, so a suggestion like this is a candidate for a CFD or rig check, not a final answer.</p>`; }
+      h: () => { const k = A.kpis(), b = mem.before3 || k; return `<p>The ${mem.hadBest ? 'suggested' : 'closest'} design is now loaded in the simulator:</p><ul><li>Cleaning <b>${pct(k.clean)} %</b> (${signed(k.clean - b.clean)})</li><li>Solids <b>${pct(k.solids)} %</b> (${signed(k.solids - b.solids)})</li><li>Water <b>${k.water.toFixed(1)} L</b> (${signed(k.water - b.water, 1)} L)</li><li>Noise <b>${signed(k.noise - b.noise, 1)} dB</b> against the design before</li></ul><p class="tour-hint">The model is not calibrated yet, so a suggestion like this is a candidate for a CFD or rig check, not a final answer.</p>`; }
     },
     {
       t: 'Your turn', el: () => document.querySelector('.top .actions'), block: 'center', last: true,
