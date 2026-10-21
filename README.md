@@ -47,11 +47,12 @@ On a phone, the sliders open from the **Adjust design** button at the bottom.
 | Flush traces | Flow in and out, bowl level, pool swirl, load left and noise level over time, with air core and siphon events; click to jump to a moment |
 | Wall cleaning map | The bowl wall unrolled, showing dry, wetted and cleaned areas |
 | Design sweep | A 12 × 12 heat map of one result over two settings; click a cell to load that design |
+| Tolerance study | The spread of every result when the design deviates within production and installation tolerances, and which tolerances cause most of it |
 | AI lab | Design optimiser, neural surrogate, hybrid calibration and noise calibration, all running in the browser |
 
 ## AI lab
 
-- **Design optimiser:** an evolutionary multi-objective search (NSGA-II style). You choose which jet, flush and bowl geometry settings may change, then either trade a weighted score against water or set targets it must meet, including an optional noise limit such as "no louder than now". About 540 designs take about 4 to 7 seconds, and every recommendation and table row it reports is re-checked at the simulator's own resolution; the other points in its chart are quick estimates.
+- **Design optimiser:** an evolutionary multi-objective search (NSGA-II style). You choose which jet, flush and bowl geometry settings may change, then either trade a weighted score against water or set targets it must meet, including an optional noise limit such as "no louder than now". An optional robust mode rates each design at the low end of its spread under the tolerances of the tolerance study. About 540 designs take about 4 to 7 seconds, and every recommendation and table row it reports is re-checked at the simulator's own resolution; the other points in its chart are quick estimates.
 - **Neural surrogate:** a small neural network trained in the browser on a few hundred flushes. It answers about 1,000 to 2,000 times faster than the physics model. This stands in for training a network on high-fidelity runs.
 - **Hybrid calibration:** the calibration workflow end to end. Six coefficients are fitted with Nelder-Mead to a few reference runs, a Gaussian process corrects what is left, and all versions are checked on hold-out designs. The reference data is synthetic and labelled as such.
 - **Noise calibration:** fits the noise coefficients to recordings of real flushes: audio files or sound level meter readings for a few designs, plus air core times from video. Audio is A-weighted and analysed in the browser, never uploaded. A demo with synthetic recordings from a hidden reference shows the workflow and checks the fit on designs left out.
@@ -135,6 +136,11 @@ Version 2.0 changes model results. Work in progress on branch `dev-2.0`; this en
 - **Noise computed from recorded flow series.** The simulation now records the flow quantities the four noise sources need, and a separate `noiseEval` turns them into the noise result. The results are bit-identical to before; the calibration can evaluate any coefficients in well under a millisecond without simulating again.
 - Model description: the plunging-jet entrainment law is stated as an extrapolation to wall films; the wetted pool area and Ramanujan's perimeter are written out.
 
+**Tolerances**
+
+- **Tolerance study panel.** Varies the current design within tolerances for 13 settings (nozzles and jets, bowl shape, valve height, supply path loss and flush volume), simulates 40, 100 or 200 copies at full resolution (100 take a few seconds) and shows, for each result, the nominal value, the 10 % and 90 % points, the median and the range, plus which tolerances explain most of the spread (linear fit, with its R²). Deviations are normal with the tolerance as two standard deviations, cut off at the tolerance, drawn by Latin hypercube with a fixed seed. The default tolerances are assumptions and can be edited. For the washdown preset, cleaning spreads by under one point, about as much as the model's own resolution error, which the panel says.
+- **Robust optimiser search.** An option in the design optimiser rates each design at the low end of its spread under these tolerances: six varied copies per design in mirrored pairs, the same for every design, with cleaning, solids and paper at mean minus 1.28 standard deviations and water and noise at mean plus 1.28. A design must restore the seal in all copies. About seven times slower than a normal search.
+
 **Calibration**
 
 - **Not only PreonLab.** Section 13 of the model description now covers high-fidelity free-surface simulation in general: the two families (mesh-based VOF and level set, particle-based SPH), what each does well and badly for thin wall films and wall shear, and eight candidate tools (PreonLab, Ansys Fluent and CFX, Simcenter STAR-CCM+, nanoFluidX, COMSOL, OpenFOAM, FLOW-3D, DualSPHysics). It suggests starting with one preset in one tool of each family against a simple rig check, since two solvers can differ markedly on the same bowl. Texts on the page, the README and the AI lab no longer name PreonLab as the only reference.
@@ -142,6 +148,7 @@ Version 2.0 changes model results. Work in progress on branch `dev-2.0`; this en
 **Checks**
 
 - **New `checks/physics.js`, 59 checks with pass limits:** conservation and balance (energy and angular momentum of a frictionless film, water balance, physical ranges, smoothness of swirl and main results with refinement that tells jumps, steep slopes and time-step jitter apart); closed-form cases (cistern drain, steady weir level, level table, film on a vertical cylinder, paper decay); Runge-Kutta re-integration of pool level and swirl; and the checks proposed by the review (spatial convergence, siphon break, time step down to 1 ms, partial flush head, film front, monotone waste trends, round-bowl symmetry, rim line depth). `--strict` makes known open issues fail. All pass.
+- **`checks/browser.js` now has 45 checks**, adding the noise calibration (A-weighting of test tones, demo fit, WAV file, meter readings), the tolerance study (spread, one tolerance alone, all zero, reset, out-of-date note) and the robust search. All pass.
 
 **Effect on results**, 300 random designs against 1.3.1: cleaning +1.9 points in the median (5 % lose more than 4.8 points, 5 % gain more than 20, mostly short, strong flushes); peak pool swirl +28 % in the median and the vortex dip about 12 mm deeper, mainly from the corrected pool inertia; solids and paper change little in most designs. Presets:
 

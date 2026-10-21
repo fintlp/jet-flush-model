@@ -4,7 +4,7 @@
 //   node checks/browser.js            serves this repository on a free local port and tests it
 //   node checks/browser.js <url>      tests a running copy instead, for example the live site
 // Check names starting with F-numbers or Open refer to the findings of the independent review of 1.3.0, fixed in 1.3.1.
-// Takes about two minutes (the demo, an optimiser search and a surrogate training run). Exits with code 1 on any failure.
+// Takes about four minutes (the demo, a normal and a robust optimiser search, a surrogate training run, a noise fit and two tolerance studies). Exits with code 1 on any failure.
 const http = require('http'), fs = require('fs'), path = require('path');
 const { chromium } = require('playwright');
 const ROOT = path.join(__dirname, '..');
@@ -202,6 +202,36 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
     const kept = await page.evaluate(() => JSON.parse(localStorage.getItem('tfs-noise-v1') || '[]').length);
     ok('Noise recordings: the peak levels are remembered in this browser', kept === 3, kept);
   }
+
+  // Tolerance study (2.0): spread around the nominal design, one tolerance alone explains all of the spread,
+  // all tolerances zero is refused, a changed tolerance marks the result out of date
+  await fresh();
+  const setTol = (k, v) => page.evaluate(([k, v]) => { const i = document.getElementById('tol_' + k); i.value = v; i.dispatchEvent(new Event('change')); }, [k, v]);
+  const tolRun = async () => { await page.click('#tolRun'); await page.waitForFunction(() => FlushTol._test.result() && !document.getElementById('tolRun').disabled, null, { timeout: 120000 }); };
+  await page.selectOption('#tolN', '40'); await tolRun();
+  const T1 = await page.evaluate(() => { const r = FlushTol._test.result(), c = r.stat.clean; return { n: r.n, nom: r.nom.clean, p10: c.p10, p90: c.p90, rows: document.querySelectorAll('#tolTable tbody tr').length }; });
+  ok('Tolerance study: 40 varied designs, cleaning spreads around the nominal design', T1.n === 40 && T1.p10 < T1.p90 && T1.p10 <= T1.nom + 0.5 && T1.p90 >= T1.nom - 0.5 && T1.rows === 7, T1);
+  const keys = await page.evaluate(() => FlushTol.active().map((d) => d.k));
+  for (const k of keys) if (k !== 'Hcr') await setTol(k, 0);
+  ok('Tolerance study: a changed tolerance marks the result out of date', !(await page.evaluate(() => document.getElementById('tolStale').hidden)));
+  await tolRun();
+  const T2 = await page.evaluate(() => { const r = FlushTol._test.result(); return { act: r.act.map((d) => d.k), share: r.stat.clean.drv.share, r2: r.stat.clean.drv.r2, stale: document.getElementById('tolStale').hidden }; });
+  ok('Tolerance study: with only the valve height varied, it explains all of the cleaning spread', T2.act.length === 1 && T2.act[0] === 'Hcr' && T2.share[0] > 0.999 && T2.stale, T2);
+  await setTol('Hcr', 0); await page.click('#tolRun'); await page.waitForTimeout(200);
+  ok('Tolerance study: all tolerances zero is refused', (await page.textContent('#tolStatus')).includes('All tolerances are zero'));
+  await page.click('#tolReset');
+  ok('Tolerance study: Reset restores the default tolerances', (await page.evaluate(() => FlushTol.active().length)) === keys.length);
+
+  // Robust optimiser search (2.0): rated at the low end of each design's spread, labelled, and out of date when a tolerance changes
+  await page.evaluate(() => document.querySelector('[data-aitab="aiOpt"]').click());
+  await page.check('#optRobust');
+  await page.evaluate(() => FlushAI.run());
+  const R = await page.evaluate(() => { const o = FlushAI._test.opt(); return { robust: o.robust, incomplete: o.incomplete, cur: o.cur && { clean: o.cur.clean, nom: o.cur.nom && o.cur.nom.clean, water: o.cur.water, nomW: o.cur.nom && o.cur.nom.water }, best: document.querySelector('#optBest p').innerText, status: document.getElementById('optStatus').innerText }; });
+  ok('Robust search: completes, checked at full resolution and labelled', R.robust && !R.incomplete && R.best.includes('low end of its tolerance spread') && R.status.includes('varied copies'), { status: R.status.slice(0, 160), best: R.best.slice(0, 160) });
+  ok('Robust search: the current design is rated no better than nominal', R.cur && R.cur.clean <= R.cur.nom + 1e-9 && R.cur.water >= R.cur.nomW - 1e-9, R.cur);
+  await setTol('Anoz', 0.6); await page.waitForTimeout(200);
+  ok('Robust search: a changed tolerance marks the search out of date', !(await page.evaluate(() => document.getElementById('optStale').hidden)));
+  await page.click('#tolReset'); await page.uncheck('#optRobust');
 
   ok('No page errors', errs.length === 0, errs.slice(0, 5));
   console.log(out.join('\n'));

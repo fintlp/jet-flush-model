@@ -234,9 +234,11 @@
     if (O.stop) O.stop();   // cancel a search or re-check still running
     const tok = ++O.token, sid = ++O.searchId;
     O.all = []; O.front = []; O.running = true; O.hover = null; O.base = base; O.vars = vars; O.goal = goal(); O.mode = mode; O.best = null; O.final = false; O.incomplete = false; O.checking = false; O.pending = false;
+    O.robust = !!($('optRobust') && $('optRobust').checked && window.FlushTol && window.FlushTol.active().length);
+    O.tolSig = O.robust ? window.FlushTol.signature() : null;
     O.fp = fingerprint(base, vars.map((d) => d.k).concat(['flushMode'])); staleNote('optStale', false);
     // every design carries the context of its search, so it can only be loaded the way it was computed
-    const ctx = { sid, mode, fp: O.fp, keys: vars.map((d) => d.k) };
+    const ctx = { sid, mode, fp: O.fp, keys: vars.map((d) => d.k), robust: O.robust };
     $('optRun').disabled = true;
     $('optBest').innerHTML = '<p class="ai-note">Searching. Results appear here when the search and its full-resolution check are finished.</p>';
     $('optHover').textContent = 'Hover a point to read it, click to load that design.';
@@ -247,11 +249,11 @@
     const ev = (x) => {
       const des = desOf(vars, x), key = JSON.stringify(vars.map((d) => des[d.k])), hit = seenDes.get(key);
       if (hit) return Object.assign({}, hit);   // a copy for the population; the results list keeps one entry
-      const e = rate(Object.assign({ x: xOf(vars, des), des, ctx }, evalPhysicsMode(base, des, mode)));
+      const e = rate(Object.assign({ x: xOf(vars, des), des, ctx }, evalAny(base, des, mode, SIM, false)));
       seenDes.set(key, e); O.all.push(e); return e;
     };
     O.cur = null;
-    O.cur = (() => { const des = {}; vars.forEach((d) => { des[d.k] = base[d.k]; }); return Object.assign({ des, ctx, full: true }, evalPhysicsMode(base, des, mode, SIM_FULL)); })();
+    O.cur = (() => { const des = {}; vars.forEach((d) => { des[d.k] = base[d.k]; }); return Object.assign({ des, ctx, full: true }, evalAny(base, des, mode, SIM_FULL, true)); })();
     rate(O.cur);   // rated once O.cur is set, so its own noise target check applies
     let pop = [], children = [], gen = 0, queue = lhsN(POP, ND2, r); const t0 = now();
     const tour = () => { const a = pop[Math.floor(r() * pop.length)], b = pop[Math.floor(r() * pop.length)]; return (a.rank < b.rank || (a.rank === b.rank && a.crowd > b.crowd)) ? a : b; };
@@ -269,7 +271,7 @@
       if (gen > 0) { const merged = pop.concat(children); ndSort(merged); merged.sort((a, b) => a.rank - b.rank || b.crowd - a.crowd); pop = merged.slice(0, POP); children = []; }
       else ndSort(pop);
       O.front = paretoOf(O.all); O.best = pickBest();
-      $('optStatus').textContent = `Generation ${gen + 1} of ${GENS + 1} · ${O.all.length} designs evaluated · ${((now() - t0) / 1000).toFixed(1)} s`;
+      $('optStatus').textContent = `Generation ${gen + 1} of ${GENS + 1} · ${O.all.length} designs evaluated${O.robust ? `, each with ${RK} varied copies` : ''} · ${((now() - t0) / 1000).toFixed(1)} s`;
       drawOpt(); fillOptTable();
       if (gen >= GENS) return false;
       gen++; queue = breed(); return true;
@@ -279,7 +281,7 @@
       $('optRun').disabled = false;   // a new search may start while the check runs; it cancels the check
       confirmReported(() => {
         O.running = false;
-        $('optStatus').textContent = `Done: ${nSearch} different designs simulated in ${(tSearch / 1000).toFixed(1)} s, ${(tSearch / nSearch).toFixed(1)} ms each. ${checkedLine()}`;
+        $('optStatus').textContent = `Done: ${nSearch} different designs simulated${O.robust ? `, each nominally and with ${RK} varied copies,` : ''} in ${(tSearch / 1000).toFixed(1)} s, ${(tSearch / nSearch).toFixed(1)} ms each. ${checkedLine()}${O.robust ? ` Robust: cleaning, solids and paper are the low end, water and noise the high end, of each design's spread under the tolerances. The full-resolution check uses the same copies.` : ''}`;
       });
     });
     return sid;
@@ -329,7 +331,7 @@
         e = check.shift(); if (!e) return false;
       }
       if (nChecked >= (O.cap || 150)) { O.incomplete = true; return false; }   // stop; only checked designs are reported
-      Object.assign(e, evalPhysicsMode(base, e.des, mode, SIM_FULL), { full: true }); rate(e); nChecked++; O.nChecked = nChecked;
+      Object.assign(e, evalAny(base, e.des, mode, SIM_FULL, true), { full: true }); rate(e); nChecked++; O.nChecked = nChecked;
       return true;
     }, () => {
       if (tok !== O.token) return;
@@ -344,12 +346,35 @@
     const r = M.simulate(q, opts || SIM);
     return { clean: r.cleanPct, solids: r.solidsPct, paper: r.paperPct, water: r.water, seal: r.sealEnd, sealOK: r.sealOK, overflow: r.overflow, incomplete: r.incomplete, noise: r.noise.peak, noiseV: r.noise.peakV };
   }
+  /* Robust rating: a design is simulated nominally and under K varied copies drawn from the tolerances of the
+     tolerance study (window.FlushTol), in antithetic pairs and with the same random numbers for every design, so
+     designs are compared under the same deviations. Cleaning, solids and paper are rated at the low end of their
+     spread and water and noise at the high end, estimated as mean ∓ 1.28 standard deviations (the 10 % and 90 %
+     points of a normal distribution). A design only counts as restoring the seal, not overflowing and finishing if
+     all its copies do. */
+  const RK = 6, RKF = 6, RSEED = 909, Z10 = 1.2816;
+  function evalRobust(base, des, mode, opts, K) {
+    const nom = evalPhysicsMode(base, des, mode, opts), T = window.FlushTol;
+    const keep = { clean: nom.clean, solids: nom.solids, paper: nom.paper, water: nom.water, noise: nom.noise };
+    if (!T || !T.active().length) return Object.assign(nom, { nom: keep, robust: true, nVar: 0 });
+    const q = Object.assign({}, base, des, { flushMode: mode });
+    const ss = T.samples(q, K, RSEED, true).map((sm) => { const r = M.simulate(sm.q, opts || SIM); return { clean: r.cleanPct, solids: r.solidsPct, paper: r.paperPct, water: r.water, noise: r.noise.peak, sealOK: r.sealOK, overflow: r.overflow, incomplete: r.incomplete }; });
+    const st = (k) => { const v = ss.map((x) => x[k]), m = v.reduce((a, b) => a + b, 0) / v.length; return { m, sd: Math.sqrt(v.reduce((a, b) => a + (b - m) ** 2, 0) / Math.max(1, v.length - 1)) }; };
+    const lo = (k) => { const x = st(k); return Math.max(0, x.m - Z10 * x.sd); }, hi = (k) => { const x = st(k); return x.m + Z10 * x.sd; };
+    const nz = hi('noise');
+    return {
+      clean: lo('clean'), solids: lo('solids'), paper: lo('paper'), water: hi('water'), noise: nz, noiseV: nom.noiseV.map((v) => v + nz - nom.noise),
+      seal: nom.seal, sealOK: nom.sealOK && ss.every((x) => x.sealOK), overflow: nom.overflow || ss.some((x) => x.overflow), incomplete: nom.incomplete || ss.some((x) => x.incomplete),
+      nom: keep, robust: true, nVar: K
+    };
+  }
+  const evalAny = (base, des, mode, opts, full) => (O.robust ? evalRobust(base, des, mode, opts, full ? RKF : RK) : evalPhysicsMode(base, des, mode, opts));
   function lhsN(n, nd, r) {
     const cols = Array.from({ length: nd }, () => { const p = Array.from({ length: n }, (_, i) => (i + r()) / n); for (let i = n - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [p[i], p[j]] = [p[j], p[i]]; } return p; });
     return Array.from({ length: n }, (_, i) => cols.map((c) => c[i]));
   }
   const sdb = (v) => `${v > 0.05 ? '+' : v < -0.05 ? '−' : '±'}${fmt(Math.abs(v), 1)}`;
-  const metricsLine = (e) => { const g = nRng(e); return `cleaned ${fmt(e.clean, 0)} %, solids ${fmt(e.solids, 0)} %, paper ${fmt(e.paper, 0)} %, ${fmt(e.water, 1)} L` + (O.cur && e !== O.cur ? `, noise ${sdb(nRel(e))} dB vs now (range ${sdb(g.lo)} to ${sdb(g.hi)})` : ''); };
+  const metricsLine = (e) => { const g = nRng(e); return (e.robust ? 'at the low end of its tolerance spread: ' : '') + `cleaned ${fmt(e.clean, 0)} %, solids ${fmt(e.solids, 0)} %, paper ${fmt(e.paper, 0)} %, ${fmt(e.water, 1)} L` + (O.cur && e !== O.cur ? `, noise ${sdb(nRel(e))} dB vs now (range ${sdb(g.lo)} to ${sdb(g.hi)})` : '') + (e.robust && e.nom ? ` (nominal: cleaned ${fmt(e.nom.clean, 0)} %, solids ${fmt(e.nom.solids, 0)} %, paper ${fmt(e.nom.paper, 0)} %, ${fmt(e.nom.water, 1)} L)` : ''); };
   function optSummary() {
     const c = O.cur; if (!c) return;
     let shown = null;   // the Load button always loads exactly the design described here
@@ -406,6 +431,7 @@
       rows = ok.sort(pickCmp(t)).slice(0, 10);
       title = rows.length ? `Designs meeting all targets, sorted by ${t.pick === 'water' ? 'water' : t.pick === 'noise' ? 'noise' : 'score'}` : 'No design meets all targets yet';
     } else { rows = O.front.slice(0, 12); title = rows.length ? 'Best trade-off designs, sorted by water' : ''; }
+    if (O.robust && rows.length) title = 'Robust, rated at the low end of the tolerance spread. ' + title;
     if (!O.final && rows.length) title = 'Search running, quick estimates: ' + title.charAt(0).toLowerCase() + title.slice(1);
     $('optTableTitle').textContent = title;
     $('optTable').innerHTML = rows.length ? `<thead><tr><th></th><th>Water, L</th><th>Score</th><th>Cleaned, %</th><th>Solids, %</th><th>Paper, %</th><th>Noise, dB vs now</th>${vars.map((d) => `<th>${d.l}${d.u ? ', ' + d.u : ''}</th>`).join('')}</tr></thead><tbody>` +
@@ -1046,7 +1072,8 @@
   }));
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(redraw);
   nzRender(); redraw();
-  function optStaleCheck() { if (O.fp && O.all.length && !O.running) staleNote('optStale', fingerprint(A.getP(), O.vars.map((d) => d.k).concat(['flushMode'])) !== O.fp, 'search'); }
+  function optStaleCheck() { if (O.fp && O.all.length && !O.running) staleNote('optStale', fingerprint(A.getP(), O.vars.map((d) => d.k).concat(['flushMode'])) !== O.fp || (O.robust && window.FlushTol && window.FlushTol.signature() !== O.tolSig), 'search'); }
+  document.addEventListener('flushtolchange', () => optStaleCheck());
   window.FlushAI = {
     busy: () => O.running || !!O.checking,
     // start a fresh search (cancelling any other) and resolve when it and its check are finished

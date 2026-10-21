@@ -280,6 +280,12 @@ tr.best td{background:color-mix(in srgb, var(--clean) 12%, transparent)}
 .nz-fit label{display:inline-flex;gap:5px;align-items:center;color:var(--ink)}
 #nzTable input{width:5.5em}
 #nzRealBox input[type=file]{max-width:100%}
+.tol-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
+.tol-grp{border:1px solid var(--line);border-radius:8px;padding:6px 10px 8px;margin:0;display:grid;gap:4px}
+.tol-grp legend{font-size:12.5px;color:var(--muted);padding:0 4px}
+.tol-f{display:flex;justify-content:space-between;gap:10px;align-items:center;font-size:13px}
+.tol-in{white-space:nowrap;color:var(--muted);font-size:12.5px}
+.tol-in input{width:5.2em}
 /* method */
 .method{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px 24px}
 .method p{max-width:65ch;color:var(--ink)}
@@ -334,7 +340,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
   </section>
 
   <nav class="jump" aria-label="Page sections">
-    <a href="#sim">Simulate</a><a href="#results">Results</a><a href="#traces">Traces</a><a href="#wallmap">Wall map</a><a href="#sweep">Sweep</a><a href="#ai-lab">AI lab</a><a href="#how">How it works</a><a href="why.html" target="_blank" rel="noopener">Why</a>
+    <a href="#sim">Simulate</a><a href="#results">Results</a><a href="#traces">Traces</a><a href="#wallmap">Wall map</a><a href="#sweep">Sweep</a><a href="#tolerance">Tolerances</a><a href="#ai-lab">AI lab</a><a href="#how">How it works</a><a href="why.html" target="_blank" rel="noopener">Why</a>
     <button type="button" class="jump-demo" id="demoBtn2">Demo me</button>
   </nav>
 
@@ -456,6 +462,26 @@ td code{font-family:var(--f-mono);font-size:12.5px}
         </div>
       </section>
 
+      <section class="panel" aria-label="Tolerance study" id="tolerance">
+        <div class="panel-head"><h2>Tolerance study</h2><span class="muted" style="font-size:12.5px">How much the results of this design spread in production</span></div>
+        <p class="validity" id="tolStale" role="status" hidden></p>
+        <p class="ai-lede">Ceramic bowls shrink unevenly in the kiln, nozzles and jets come out slightly different, and cisterns are installed and set differently. The study varies the current design within the tolerances below, simulates every variant, and shows the spread of the results and which tolerances cause most of it. The tolerances are assumptions; set your own, or zero to leave a setting fixed.</p>
+        <div id="tolList" class="tol-list"></div>
+        <div class="sweep-ctl" style="margin-top:12px">
+          <label class="f" for="tolN">Varied designs<select id="tolN"><option value="40">40</option><option value="100" selected>100</option><option value="200">200</option></select></label>
+          <button class="btn primary" type="button" id="tolRun">Run tolerance study</button>
+          <button class="btn" type="button" id="tolReset">Reset tolerances</button>
+          <label class="f" for="tolM">Result to plot<select id="tolM"></select></label>
+        </div>
+        <p class="ai-status" id="tolStatus" role="status">About 30 to 40 ms per varied design. The optimiser in the AI lab can use these tolerances to look for designs that stay good under them.</p>
+        <div class="ai-two">
+          <canvas id="cvTolHist" aria-label="Distribution of the chosen result over the varied designs, with the nominal value and the 10 and 90 percent marks"></canvas>
+          <canvas id="cvTolDrv" aria-label="Share of the spread of the chosen result caused by each tolerance"></canvas>
+        </div>
+        <div class="tablewrap"><table id="tolTable" class="compact"></table></div>
+        <div class="ai-results" id="tolSum"></div>
+      </section>
+
       <section class="panel" aria-label="AI lab" id="ai-lab">
         <div class="panel-head"><h2>AI lab</h2><span class="muted" style="font-size:12.5px">Four ways AI and data work with the physics model. Everything runs in your browser.</span></div>
         <div class="seg ai-tabs" role="tablist" aria-label="AI tools">
@@ -499,6 +525,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
             <fieldset class="opt-box run">
               <legend>3 · Run</legend>
               <label class="f" for="optEffort">Search effort<select id="optEffort"><option value="quick" selected>Quick, about 540 designs</option><option value="thorough">Thorough, about 1,500 designs</option></select></label>
+              <label class="chk" for="optRobust"><input type="checkbox" id="optRobust"> <span>Robust: rate each design at the low end of its spread under the tolerances of the <a href="#tolerance">tolerance study</a>. About seven times slower.</span></label>
               <button class="btn primary" type="button" id="optRun">Start search</button>
             </fieldset>
           </div>
@@ -642,9 +669,10 @@ td code{font-family:var(--f-mono);font-size:12.5px}
     <button type="button" class="btn primary" id="mobarBtn" aria-expanded="false" aria-controls="rail">Adjust design</button>
   </div>
 </div>
-<script src="model.js?v=11"></script>
-<script src="app.js?v=11"></script>
-<script src="ai.js?v=11"></script>
-<script src="tour.js?v=11"></script>
+<script src="model.js?v=20"></script>
+<script src="app.js?v=20"></script>
+<script src="tolerance.js?v=20"></script>
+<script src="ai.js?v=20"></script>
+<script src="tour.js?v=20"></script>
 </body>
 </html>
