@@ -1,7 +1,7 @@
 #!/bin/bash
 # Job runner for the Jet Flush OpenFOAM reference case.
 #
-# Start it inside the OpenFOAM shell:   bash ~/Downloads/jetflush-cfd/runner.sh
+# Start it inside the OpenFOAM shell:   /bin/bash ~/Downloads/jetflush-cfd/runner.sh
 # Stop it with Ctrl-C, or by closing the Terminal window.
 #
 # What it does: every 5 seconds it looks for job files in ~/Downloads/jetflush-cfd/jobs/ (written by Claude),
@@ -34,7 +34,8 @@ ok_line() {
 }
 echo "Runner is waiting for jobs in $JOBS (Ctrl-C to stop). Log: $LOGS/runner.log"
 while true; do
-  for J in "$JOBS"/*.job; do
+  # job files in name order (find instead of a shell glob: some bash builds crash on globs here)
+  for J in $(find "$JOBS" -maxdepth 1 -type f -name "*.job" | sort); do
     [ -f "$J" ] || continue
     N=$(basename "$J" .job); L="$LOGS/$N.log"; ST="$LOGS/$N.status"
     CASE=$(head -1 "$J" | awk '$1=="case"{print $2}')
@@ -50,7 +51,7 @@ while true; do
       S=$(date +%s)
       set -- $line
       if [ "$1" = rmtimes ]; then
-        (cd "$CASES/$CASE" && for d in [0-9]*; do case "$d" in 0|*[!0-9.e+-]*) continue;; esac; [ -d "$d" ] && rm -rf "$d"; done; rm -rf processor* postProcessing) >> "$L" 2>&1; RC=$?
+        (cd "$CASES/$CASE" && for d in $(find . -maxdepth 1 -type d -name "[0-9]*" | sed "s|^./||"); do case "$d" in 0|*[!0-9.e+-]*) continue;; esac; rm -rf "$d"; done; find . -maxdepth 1 -type d -name "processor*" -exec rm -rf {} + ; rm -rf postProcessing) >> "$L" 2>&1; RC=$?
       elif [ "$1" = fetch ]; then
         mkdir -p "$TOOLS/$(dirname "$2")"
         curl -fsSL "$BASE/$2" -o "$TOOLS/$2" >> "$L" 2>&1; RC=$?; ls -l "$TOOLS/$2" >> "$L" 2>&1
