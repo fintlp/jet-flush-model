@@ -183,7 +183,7 @@
     if (O.goal === 'targets') {
       const t = targets();
       if (e.water > t.water + 1e-9) { v += (e.water - t.water) / 0.5; miss.push(`water ${fmt(e.water - t.water, 1)} L over`); }
-      [['clean', 'cleaned'], ['solids', 'solids'], ['paper', 'paper']].forEach(([k, lab]) => { if (e[k] < t[k] - 1e-9) { v += (t[k] - e[k]) / 5; miss.push(`${lab} ${fmt(t[k] - e[k], t[k] - e[k] < 1 ? 1 : 0)} points short`); } });
+      [['clean', 'cleaned'], ['solids', 'solids'], ['paper', 'paper']].forEach(([k, lab]) => { if (e[k] < t[k] - 1e-9) { v += (t[k] - e[k]) / 5; const d = fmt(t[k] - e[k], t[k] - e[k] < 1 ? 1 : 0); miss.push(`${lab} ${d} point${d === '1' ? '' : 's'} short`); } });
       // a noise limit must hold over the whole uncertainty range, so the upper end counts
       if (t.noise != null && O.cur) {   // the current design counts too: against itself it reads 0 dB
         const over = nRng(e).hi - t.noise; if (over > 1e-9) { v += over / 3; miss.push(`${fmt(over, 1)} dB too loud at the upper end of the sampled noise range`); } }

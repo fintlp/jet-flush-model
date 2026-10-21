@@ -35,7 +35,7 @@
     document.querySelectorAll('#optVarsJets input, #optVarsBowl input').forEach((c) => { c.checked = ['ov_Anoz', 'ov_alpha', 'ov_jetPhase', 'ov_hNoz', 'ov_Hcr', 'ov_VOL'].includes(c.id); });
     $('optFlush').value = 'full'; $('optEffort').value = 'quick'; if ($('optRobust')) $('optRobust').checked = false;
     $('goalTargets').click();
-    const k = A.kpis(); mem.tClean = Math.min(95, Math.round(k.clean) + 2);
+    const k = A.kpis(); mem.tClean = Math.min(95, Math.round(k.clean) + 1);
     $('tWater').value = '4.0'; $('tClean').value = String(mem.tClean); $('tSolids').value = '95'; $('tPaper').value = '80'; $('tPick').value = 'score'; if ($('tNoise')) $('tNoise').value = '0';
     $('tPaper').dispatchEvent(new Event('input'));
     // start the demo's own search, cancelling any other, and wait for it and its full-resolution check

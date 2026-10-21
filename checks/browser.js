@@ -100,6 +100,8 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   await page.waitForFunction(() => !document.getElementById('tourNext').disabled, null, { timeout: 60000 });
   const step7 = await page.evaluate(() => document.getElementById('tourText').innerText);
   ok('Demo still loads a winner', /Cleaning \d+ %/.test(step7), step7.replace(/\s+/g, ' ').slice(0, 400));
+  const demoBest = await page.evaluate(() => (document.getElementById('optBest') || {}).innerText || '');
+  ok('Demo me: the AI search finds a design that meets every target (not only the closest one)', /meeting all targets/.test(demoBest) && !/No design met/.test(demoBest), demoBest.replace(/\s+/g, ' ').slice(0, 300));
   await next(); await page.waitForFunction(() => !document.getElementById('tourNext').disabled, null, { timeout: 60000 });
   ok('Demo me: the last step offers part 2 of the story, the CFD check', await page.evaluate(() => (document.getElementById('tourNextTour') || {}).textContent === 'Continue with part 2: Checked against CFD'));
   await page.click('#tourNext'); await page.waitForTimeout(300);   // Finish
