@@ -186,9 +186,16 @@
         return `<p>Green: where the water's shear was strong enough for long enough to clean, by ${n.t.toFixed(1)} s. CFD <b>${Math.round(S.cClean)} %</b>, fast model <b>${Math.round(S.mClean)} %</b>${Math.abs(dC) >= 2 ? `, the fast model about <b>${Math.round(Math.abs(dC))} points ${dC > 0 ? 'more optimistic' : 'more cautious'}</b>` : ''}.</p><p>The patterns differ more than the totals: the CFD leaves streaks behind each jet, and it also counts the swirling pool washing the wall near the waterline, which the fast model does not.</p><p class="tour-hint">This is a second simulation, not a measurement of a real bowl, and thin films are smoothed at this mesh size. Agreement shows consistency, not truth.</p>`; }
     },
     {
-      t: 'Where they differ', el: () => $('cfdDiff'), block: 'center', last: true, keepsDesign: true,
+      t: 'Where they differ', el: () => $('cfdDiff'), block: 'center',
       h: () => { const n = cfdNum(); if (!n) return '<p>No CFD data.</p>'; const S = n.S, first = S.arr && S.arr.arrivalTimes ? S.arr.arrivalTimes.first_1mLs : null;
-        return `<p>So: close on the totals, different in the details.${first != null ? ` The first water reaches the pool after <b>${first.toFixed(2)} s</b> in the CFD, but only after <b>${S.mod.firstArr.toFixed(2)} s</b> in the fast model.` : ''} The CFD film runs down sooner, its pool spins faster and washes the lower wall.</p><p>That is what a fast model is: <b>right on the trends, off in places</b>. Part 3 shows how a few expensive runs correct exactly that, and how much engineering time it saves.</p>`; }
+        return `<p>So: close on the totals, different in the details.${first != null ? ` The first water reaches the pool after <b>${first.toFixed(2)} s</b> in the CFD, but only after <b>${S.mod.firstArr.toFixed(2)} s</b> in the fast model.` : ''} The CFD film runs down sooner, its pool spins faster and washes the lower wall.</p><p>That is what a fast model is: <b>right on the trends, off in places</b>. Two ways to correct that: calibrate the model from measurements of a real flush, next, or let a few expensive runs correct it during the design, in part 3.</p>`; }
+    },
+    {
+      t: 'From a phone video to the model', el: () => $('aiPinn'), block: 'start', last: true, keepsDesign: true,
+      during: '<p>A physics-informed neural network reads the pool level of one flush, as from a phone video of a ruler in the bowl, and learns the level curve and two model coefficients at the same time.</p><p class="tour-hint">Training live, one to three seconds.</p>',
+      x: async () => { const P = window.FlushPinnUI; if (!P) return; P.show(); $('aiPinn').scrollIntoView({ behavior: reduce() ? 'auto' : 'smooth', block: 'start' }); $('pnData').value = 'dense'; await wait(400); await P.run(); },
+      h: () => { const P = window.FlushPinnUI, S = P && P.result(); if (!S || !S.pinn) return '<p>The network could not be trained here.</p>';
+        return `<p>The "measured" flush had a weir coefficient of <b>${S.D.Cw.toFixed(2)}</b>, hidden from the network; the model assumes ${S.D.CwModel.toFixed(1)}. From ${S.D.obs.length} noisy readings the network found <b>${S.pinn.Cw.toFixed(2)}</b>, and estimated the unmeasured water on the wall.</p><p class="tour-hint">For an equation this small, least squares is quicker (${S.ls.Cw.toFixed(2)}). PINNs pay off for expensive or partly unknown equations; for a full 3D flush, CFD plus surrogates is the realistic route.</p>`; }
     }
   ];
   const PARTS = [
@@ -237,6 +244,8 @@
     if (target) target.scrollIntoView({ behavior: reduce() ? 'auto' : 'smooth', block: A.isPhone() && KIND !== 'demo' ? 'start' : (s.block || 'center') });
     $('tourText').innerHTML = s.slow ? '<p class="tour-hint" id="tourProgTxt">The AI lab searches about 540 designs and then checks the best ones at full resolution. This takes about 10 to 15 seconds.</p><div class="prog"><div class="prog-bar" role="progressbar" aria-label="Progress of the search" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="prog-fill" id="tourProgFill"></span></div></div>' : (s.during || '<p class="tour-hint">…</p>');
     if (s.x && !(fromBack && s.slow)) { try { await s.x(); } catch (e) { } }
+    // the step may have revealed or moved its target (a tab shown, a panel filled): bring it into view again
+    if (target && active) { const r = target.getBoundingClientRect(); if (r.height === 0 || r.top > window.innerHeight * 0.6 || r.bottom < 60) target.scrollIntoView({ behavior: reduce() ? 'auto' : 'smooth', block: A.isPhone() && KIND !== 'demo' ? 'start' : (s.block || 'center') }); }
     await wait(reduce() ? 0 : 350);
     if (ses !== session || idx !== i || !active) return;   // closed, or closed and reopened, meanwhile
     $('tourText').innerHTML = s.h();

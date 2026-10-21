@@ -272,12 +272,19 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   ok('CFD check: the cleaning view disables the time slider', await page.evaluate(() => document.getElementById('cfdT').disabled && document.getElementById('cfdLegend').innerText.includes('cleaned')));
   await page.evaluate(() => document.getElementById('cfdTour').click());
   const t2 = [];
-  for (let i = 0; i < 4; i++) { await page.waitForFunction(() => !document.getElementById('tourNext').disabled, null, { timeout: 60000 }); t2.push(await page.textContent('#tourStep')); if (i < 3) await page.click('#tourNext'); }
+  for (let i = 0; i < 5; i++) { await page.waitForFunction(() => !document.getElementById('tourNext').disabled, null, { timeout: 60000 }); t2.push(await page.textContent('#tourStep')); if (i < 4) await page.click('#tourNext'); }
   const cont = await page.evaluate(() => (document.getElementById('tourNextTour') || {}).textContent || '');
-  ok('Story part 2: four steps about the CFD check, then an offer to continue with part 3', t2[0].startsWith('Part 2 of 3') && t2[3].includes('Step 4 of 4') && cont.includes('part 3'), { t2, cont });
+  ok('Story part 2: five steps, the CFD check and the physics-informed network, then an offer to continue with part 3', t2[0].startsWith('Part 2 of 3') && t2[4].includes('Step 5 of 5') && cont.includes('part 3') && (await page.evaluate(() => !!FlushPinnUI.result().pinn)), { t2, cont });
   await page.click('#tourNextTour'); await page.waitForTimeout(800);
   ok('Story: continuing starts part 3, the engineering challenge', (await page.textContent('#tourStep')).startsWith('Part 3 of 3'));
   await page.click('#tourX');
+
+  // Physics-informed network (2.0): trains in the browser and finds the hidden weir coefficient
+  await fresh();
+  await page.evaluate(() => FlushPinnUI.show()); await page.selectOption('#pnData', 'sparse');
+  await page.evaluate(() => FlushPinnUI.run());
+  const pn = await page.evaluate(() => { const S = FlushPinnUI.result(); return { cw: S.pinn.Cw, ls: S.ls.Cw, n: S.D.obs.length, rows: document.querySelectorAll('#pnTable tbody tr').length, sum: document.getElementById('pnSum').innerText.slice(0, 120) }; });
+  ok('Physics-informed network: from 13 readings it finds the hidden weir coefficient within 6 %, next to least squares', pn.n === 13 && Math.abs(pn.cw - 1.45) / 1.45 < 0.06 && pn.rows === 4 && pn.sum.includes('found a weir coefficient'), pn);
 
   // Engineering challenge (2.0): eight stored races on one clock, a chosen race, live recomputation, your turn, guided tour
   await fresh();

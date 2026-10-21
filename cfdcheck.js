@@ -117,7 +117,7 @@
     ctx.textAlign = 'right'; ctx.font = A.font(10.5, 600); ctx.fillText(cmp, padL + w, padT - 6 * d);
   }
   function draw() {
-    if (!S.cfd || !S.mod) return;
+    if (!S.cfd || !S.mod || !S.cWet) return;
     const c = S.cfd.map, m = S.mod, t = S.t;
     const cmpC = S.mode === 'wet' ? `${fmt(S.cWet(t), 0)} % wetted` : `${fmt(S.cClean, 0)} % cleaned`, cmpM = S.mode === 'wet' ? `${fmt(S.mWet(t), 0)} % wetted` : `${fmt(S.mClean, 0)} % cleaned`;
     drawMap($('cvCfdC'), `CFD, OpenFOAM (${S.cfd.case.mesh} mesh)`, c.J, c.tWet, Infinity, S.cfd.Jcrit, cmpC);
@@ -128,7 +128,7 @@
   }
   // ---- curves over time ----
   function curves() {
-    const cv = $('cvCfdCurves'); if (!cv || !S.cfd) return;
+    const cv = $('cvCfdCurves'); if (!cv || !S.cfd || !S.cWet) return;
     A.sizeCanvas(cv);
     const ctx = cv.getContext('2d'), W = cv.width, H = cv.height, d = A.dpr(), C = A.readColors(); ctx.clearRect(0, 0, W, H);
     const padL = 44 * d, padR = 44 * d, padT = 26 * d, padB = 34 * d, w = W - padL - padR, h = H - padT - padB, tEnd = S.cfd.case.end;

@@ -218,7 +218,7 @@ section[id],.panel[id]{scroll-margin-top:64px}
 /* Demo me walkthrough */
 .tour{position:fixed;inset:0;z-index:60;pointer-events:none}
 .tour-spot{position:fixed;border-radius:14px;box-shadow:0 0 0 9999px rgba(8,16,24,.5);outline:2px solid var(--accent);outline-offset:0;transition:left .3s ease,top .3s ease,width .3s ease,height .3s ease}
-.tour-card{position:fixed;pointer-events:auto;width:min(380px, calc(100vw - 28px));background:var(--raised);color:var(--ink);border:1px solid var(--line-strong);border-radius:14px;box-shadow:0 18px 50px rgba(8,16,24,.35);padding:14px 16px 12px;display:grid;gap:8px;font-size:14px}
+.tour-card{position:fixed;pointer-events:auto;width:min(380px, calc(100vw - 28px));background:var(--raised);color:var(--ink);border:1px solid var(--line-strong);border-radius:14px;box-shadow:0 18px 50px rgba(8,16,24,.35);padding:14px 16px 12px;display:grid;gap:8px;font-size:14px;max-height:calc(100vh - 28px);overflow-y:auto}
 .tour-card.dock{left:max(12px, env(safe-area-inset-left, 0px))!important;right:max(12px, env(safe-area-inset-right, 0px));width:auto;bottom:calc(68px + env(safe-area-inset-bottom, 0px));top:auto!important;max-height:52vh;overflow:auto}
 .tour-card:focus{outline:none}
 .tour-top{display:flex;justify-content:space-between;align-items:center}
@@ -583,12 +583,13 @@ td code{font-family:var(--f-mono);font-size:12.5px}
       </section>
 
       <section class="panel" aria-label="AI lab" id="ai-lab">
-        <div class="panel-head"><h2>AI lab</h2><span class="muted" style="font-size:12.5px">Four ways AI and data work with the physics model. Everything runs in your browser.</span></div>
+        <div class="panel-head"><h2>AI lab</h2><span class="muted" style="font-size:12.5px">Five ways AI and data work with the physics model. Everything runs in your browser.</span></div>
         <div class="seg ai-tabs" role="tablist" aria-label="AI tools">
           <button type="button" role="tab" data-aitab="aiOpt" aria-selected="true" aria-pressed="true">Design optimiser</button>
           <button type="button" role="tab" data-aitab="aiSur" aria-selected="false" aria-pressed="false">Neural surrogate</button>
           <button type="button" role="tab" data-aitab="aiHyb" aria-selected="false" aria-pressed="false">Hybrid calibration</button>
           <button type="button" role="tab" data-aitab="aiNoise" aria-selected="false" aria-pressed="false">Noise calibration</button>
+          <button type="button" role="tab" data-aitab="aiPinn" aria-selected="false" aria-pressed="false">Physics-informed network</button>
         </div>
 
         <div id="aiOpt" role="tabpanel" class="ai-pane">
@@ -720,6 +721,22 @@ td code{font-family:var(--f-mono);font-size:12.5px}
             <div class="tablewrap"><table id="nzCoefTable" class="compact"></table></div>
           </div>
         </div>
+
+        <div id="aiPinn" role="tabpanel" class="ai-pane" hidden>
+          <p class="ai-lede">A physics-informed neural network (PINN) learns from measurements and from the equations at the same time. Here it reads the pool level of one flush, as you would from a phone video of a ruler in the bowl, and finds two numbers the model needs: how fast the trap drains (the weir coefficient) and how long the water stays on the wall. The network describes the level over time; its training penalises both the misfit to the readings and any breach of the model's pool balance, and the two coefficients are learned with it.</p>
+          <p class="ch-label"><b>The measured flush is simulated:</b> the full flush model with a weir coefficient of 1.45 instead of the model's 1.7, read every 0.1 s with 1.5 mm of reading noise. The network does not know these numbers.</p>
+          <div class="sweep-ctl">
+            <label class="f" for="pnData">Readings<select id="pnData"><option value="dense" selected>Whole flush, 10 readings a second</option><option value="sparse">Whole flush, 13 readings</option><option value="cut">Video stops after 3 s</option></select></label>
+            <button class="btn primary" type="button" id="pnRun">Train the network</button>
+          </div>
+          <div class="prog" id="pnProg" hidden><div class="prog-bar" role="progressbar" aria-label="Training progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="prog-fill"></span></div><span class="prog-txt"></span></div>
+          <div class="ai-two">
+            <canvas id="cvPnLevel" aria-label="Pool level over time: readings, the hidden truth, the physics-informed network, the network without physics, and the least-squares fit"></canvas>
+            <canvas id="cvPnCoef" aria-label="Weir coefficient and wall time found by the network during training"></canvas>
+          </div>
+          <div class="ai-results" id="pnSum"><p class="muted">Train the network to see what it finds. It takes one to three seconds.</p></div>
+          <div class="tablewrap"><table id="pnTable" class="compact"></table></div>
+        </div>
       </section>
 
       <section class="panel" aria-label="How the model works" id="how">
@@ -774,10 +791,12 @@ td code{font-family:var(--f-mono);font-size:12.5px}
 <script src="app.js?v=21"></script>
 <script src="tolerance.js?v=21"></script>
 <script src="cfdcheck.js?v=21"></script>
+<script src="pinn-core.js?v=21"></script>
 <script src="challenge-core.js?v=21"></script>
 <script src="challenge-data.js?v=21"></script>
 <script src="challenge.js?v=21"></script>
 <script src="ai.js?v=21"></script>
+<script src="pinn.js?v=21"></script>
 <script src="tour.js?v=21"></script>
 </body>
 </html>

@@ -64,7 +64,8 @@
   const tabs = document.querySelectorAll('[data-aitab]');
   tabs.forEach((b) => b.addEventListener('click', () => {
     tabs.forEach((x) => { x.setAttribute('aria-selected', String(x === b)); x.setAttribute('aria-pressed', String(x === b)); });
-    ['aiOpt', 'aiSur', 'aiHyb', 'aiNoise'].forEach((id) => { $(id).hidden = id !== b.dataset.aitab; });
+    ['aiOpt', 'aiSur', 'aiHyb', 'aiNoise', 'aiPinn'].forEach((id) => { if ($(id)) $(id).hidden = id !== b.dataset.aitab; });
+    document.dispatchEvent(new CustomEvent('flushaitab', { detail: b.dataset.aitab }));
     redraw();
   }));
 
