@@ -116,11 +116,11 @@
     {
       t: 'An engineering problem', el: () => $('chTask'), block: 'center',
       x: async () => { U().reveal(false); U().select(0); },
-      h: () => `<p>A bowl that works in the lab, made oval for a new product, now misses its targets: <b>74.5 %</b> of the wall cleaned with 4.5 L. It should reach <b>87 %</b> with at most <b>4.0 L</b>, without losing waste removal.</p><p>Every design candidate is checked with a high-fidelity simulation, and every such run costs <b>8 hours</b> of computing. So the question is: <b>how many runs until the design is done?</b></p>`
+      h: () => `<p>A bowl that works in the lab, made oval for a new product, now misses its targets: <b>74.5 %</b> of the wall cleaned with 4.5 L. It should reach <b>87 %</b> with at most <b>4.0 L</b>, without losing waste removal.</p><p>Every design candidate is checked with a high-fidelity simulation, and every such run costs <b>8 hours</b> of computing. Here a synthetic reference model plays that simulation, so the numbers that follow show the workflow, not results of real projects. The question is: <b>how many runs until the design is done?</b></p>`
     },
     {
       t: 'Three ways to work', el: () => document.querySelector('.ch-routes'), block: 'center',
-      h: () => `<p><b>Classic:</b> an experienced engineer changes one setting per run and keeps what helps.</p><p><b>Fast model alone:</b> our flush model screens hundreds of designs in seconds, and the best ones are sent to the expensive simulation.</p><p><b>AI route:</b> the same fast model, plus a correction that is learned from every expensive run, so the next run goes where success is most likely. The fast model is right on trends but off in places, as the CFD check showed; the correction learns where.</p>`
+      h: () => `<p><b>Classic:</b> an automated one-change-at-a-time search, the way an engineer works without a model: change one setting per run, keep what helps, in a sensible order.</p><p><b>Fast model alone:</b> our flush model screens hundreds of designs in seconds, and the best ones are sent to the expensive simulation.</p><p><b>AI route:</b> the same fast model, plus a correction that is learned from every expensive run, so the next run goes where success is most likely. Here the fast model is close to the reference but off in places, as the synthetic reference is built to be; the correction learns where.</p>`
     },
     {
       t: 'Eight projects, one clock', el: () => $('cvChAll'), block: 'center',
@@ -156,7 +156,7 @@
     },
     {
       t: 'What this means', el: () => $('chHead'), block: 'center', last: true,
-      h: () => `<p>A physics model you can trust for the trends, a few expensive runs, and a correction learned from each of them: that is how AI shortens engineering loops. Not by replacing simulation, but by <b>deciding where the next expensive run is worth it</b>.</p>${(() => { const S = U().stats(); if (!S) return ''; const f = (v) => (v % 1 ? v.toFixed(1) : String(v)); return `<p>At one working day per iteration, as Geberit reported for its bowl development, the median project takes <b>${f(S.ai.med)} days instead of ${f(S.classic.med)}</b>; over the eight projects, <b>${S.classic.sum - S.ai.sum} working days</b> of iterations are saved. <a href="why.html#loop" target="_blank" rel="noopener">The timeline</a>.</p>`; })()}<p class="tour-hint">The reference here is synthetic and the task has five settings, so the numbers illustrate the principle. With real CFD at hours per run and more settings to change, every run saved counts more.</p><p>Do you want your own design back, or keep this one? <b>Finish</b> brings your own design back.</p>`
+      h: () => `<p>A fast physics model, a few expensive runs, and a correction learned from each of them: that is how AI shortens engineering loops. Not by replacing simulation, but by <b>deciding where the next expensive run is worth it</b>.</p>${(() => { const S = U().stats(); if (!S) return ''; const f = (v) => (v % 1 ? v.toFixed(1) : String(v)); return `<p>At one working day per iteration, as Geberit reported for its bowl development, the median project takes <b>${f(S.ai.med)} days instead of ${f(S.classic.med)}</b>; over the eight projects, <b>${S.classic.sum - S.ai.sum} working days</b> of iterations are saved. <a href="why.html#loop" target="_blank" rel="noopener">The timeline</a>.</p>`; })()}<p class="tour-hint">The reference here is synthetic and the task has five settings, so the numbers illustrate the principle. With real CFD at hours per run and more settings to change, every run saved counts more.</p><p>Do you want your own design back, or keep this one? <b>Finish</b> brings your own design back.</p>`
     }
   ];
   // ---- part 2: the check against CFD ----
@@ -165,10 +165,10 @@
   const waitCfd = async () => { for (let k = 0; k < 100 && !(F() && F().ready()); k++) await wait(100); };
   const CFD = [
     {
-      t: 'Can we trust the fast model?', el: () => $('cfdHead'), block: 'center',
+      t: 'How far can we trust the fast model?', el: () => $('cfdHead'), block: 'center',
       x: async () => { await waitCfd(); F().setMode('wet'); },
       h: () => { const n = cfdNum(); if (!n) return '<p>The CFD results could not be loaded here, so this part cannot be shown.</p>';
-        return `<p>The fast model simplifies to answer in milliseconds. To see what that costs, we simulated the same bowl with the same jets in <b>OpenFOAM</b>, a full CFD code that resolves water and air in ${n.cells ? `about ${(Math.round(n.cells / 10000) * 10000).toLocaleString('en')}` : 'hundreds of thousands of'} cells.</p><p>For ${n.t.toFixed(1)} s of flush, the CFD needed ${n.wc ? `<b>about ${n.wc < 5400 ? Math.round(n.wc / 60) + ' minutes' : (Math.round(n.wc / 1800) / 2) + ' hours'} on ${n.cores} processor cores</b>` : 'hours'}. The fast model: <b>${Math.round(n.ms)} ms</b>.</p>`; }
+        return `<p>The fast model simplifies to answer in milliseconds. To see what that costs, we simulated the same bowl with the same jets in <b>OpenFOAM</b>, a full CFD code that simulates water and air in ${n.cells ? `about ${(Math.round(n.cells / 10000) * 10000).toLocaleString('en')}` : 'hundreds of thousands of'} cells.</p><p>For ${n.t.toFixed(1)} s of flush, the CFD needed ${n.wc ? `<b>about ${n.wc < 5400 ? Math.round(n.wc / 60) + ' minutes' : (Math.round(n.wc / 1800) / 2) + ' hours'} on ${n.cores} processor cores</b>` : 'hours'}. The fast model: <b>${Math.round(n.ms)} ms</b>.</p>`; }
     },
     {
       t: 'When the water gets there', el: () => document.querySelector('.cfd-maps'), block: 'center',
@@ -188,14 +188,14 @@
     {
       t: 'Where they differ', el: () => $('cfdDiff'), block: 'center',
       h: () => { const n = cfdNum(); if (!n) return '<p>No CFD data.</p>'; const S = n.S, first = S.arr && S.arr.arrivalTimes ? S.arr.arrivalTimes.first_1mLs : null;
-        return `<p>So: close on the totals, different in the details.${first != null ? ` The first water reaches the pool after <b>${first.toFixed(2)} s</b> in the CFD, but only after <b>${S.mod.firstArr.toFixed(2)} s</b> in the fast model.` : ''} The CFD wets the lower wall sooner, its pool spins faster and washes the wall near the waterline.${S.sens ? ` On a coarser CFD mesh these differences stay the same; only single film paths move.` : ''}</p><p>That is what a fast model is: <b>right on the trends, off in places</b>. Two ways to correct that: calibrate the model from measurements of a real flush, next, or let a few expensive runs correct it during the design, in part 3.</p>`; }
+        return `<p>So: close on the totals, different in the details.${first != null ? ` The first water reaches the pool after <b>${first.toFixed(2)} s</b> in the CFD, but only after <b>${S.mod.firstArr.toFixed(2)} s</b> in the fast model.` : ''} The CFD wets the lower wall sooner, its pool spins faster and washes the wall near the waterline.${S.sens ? ` On a coarser CFD mesh these differences stay the same; where the wall stays uncleaned changes with the mesh.` : ''}</p><p>For this one design the fast model is <b>close on the totals, off in places</b>. Whether it gets the effect of a design change right is not shown yet: that needs CFD runs of several designs. Two ways to correct a fast model: calibrate the model from measurements of a real flush, next, or let a few expensive runs correct it during the design, in part 3.</p>`; }
     },
     {
       t: 'From a phone video to the model', el: () => $('aiPinn'), block: 'start', last: true, keepsDesign: true,
       during: '<p>A physics-informed neural network reads the pool level of one flush, as from a phone video of a ruler in the bowl, and learns the level curve and two model coefficients at the same time.</p><p class="tour-hint">Training live, one to three seconds.</p>',
       x: async () => { const P = window.FlushPinnUI; if (!P) return; P.show(); $('aiPinn').scrollIntoView({ behavior: reduce() ? 'auto' : 'smooth', block: 'start' }); $('pnData').value = 'dense'; await wait(400); await P.run(); },
       h: () => { const P = window.FlushPinnUI, S = P && P.result(); if (!S || !S.pinn) return '<p>The network could not be trained here.</p>';
-        return `<p>The "measured" flush had a weir coefficient of <b>${S.D.Cw.toFixed(2)}</b>, hidden from the network; the model assumes ${S.D.CwModel.toFixed(1)}. From ${S.D.obs.length} noisy readings the network found <b>${S.pinn.Cw.toFixed(2)}</b>, and estimated the unmeasured water on the wall.</p><p class="tour-hint">For an equation this small, least squares is quicker (${S.ls.Cw.toFixed(2)}). PINNs pay off for expensive or partly unknown equations; for a full 3D flush, CFD plus surrogates is the realistic route.</p>`; }
+        return `<p>The "measured" flush is simulated: the full model with a weir coefficient of <b>${S.D.Cw.toFixed(2)}</b>, hidden from the network; the model assumes ${S.D.CwModel.toFixed(1)}. From ${S.D.obs.length} noisy readings the network found <b>${S.pinn.Cw.toFixed(2)}</b>, and estimated the unmeasured water on the wall.</p><p class="tour-hint">For an equation this small, least squares is quicker (${S.ls.Cw.toFixed(2)}). PINNs pay off for expensive or partly unknown equations; for a full 3D flush, CFD plus surrogates is the realistic route.</p>`; }
     }
   ];
   const PARTS = [
@@ -216,9 +216,11 @@
         card.classList.remove('dock');
         const cw = card.offsetWidth, ch = card.offsetHeight, m = 14;
         let left = Math.min(Math.max(m, r.left), vw - cw - m), top;
-        if (r.bottom + ch + 2 * m < vh) top = r.bottom + m + pad;
+        if (r.bottom + pad + ch + 2 * m < vh) top = r.bottom + m + pad;
         else if (r.top - ch - 2 * m > 0) top = r.top - ch - m - pad;
         else { top = vh - ch - m; left = vw - cw - m; }
+        // never past the bottom edge, also when the card grows after it was placed (its text arrives when the step is done)
+        top = Math.min(top, vh - ch - m);
         card.style.left = `${left}px`; card.style.top = `${Math.max(m, top)}px`;
       }
     } else spot.style.display = 'none';

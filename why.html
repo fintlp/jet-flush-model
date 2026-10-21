@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="description" content="Why build a fast physics model with AI on top: faster loops from idea to engineering to manufacturing, with high-fidelity tools used where they decide.">
 <title>Why This Model</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Ccircle cx=%2216%22 cy=%2216%22 r=%2215%22 fill=%22%230070ad%22/%3E%3Cpath d=%22M9 13a7 7 0 0 0 14 0%22 fill=%22none%22 stroke=%22%23fff%22 stroke-width=%223%22 stroke-linecap=%22round%22/%3E%3C/svg%3E">
 <link rel="preload" href="fonts/ubuntu-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/ubuntu-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="fonts/fonts.css">
@@ -12,7 +13,7 @@
 /* Layout: technical report. Narrow reading column with a sticky contents rail on wide screens; equations and tables sit in their own blocks. */
 :root{
   --bg:#f3f5f8; --surface:#f9fafc; --raised:#ffffff; --ink:#0f2538; --muted:#52667a; --line:#d8e0e8; --line-strong:#a2b2c2;
-  --accent:#0070ad; --water:#3a8db6; --water-soft:#d6e9f2; --clean:#17876c; --solid:#8a5a2b; --warn:#a86b0c;
+  --accent:#0070ad; --water:#3a8db6; --water-soft:#d6e9f2; --clean:#17876c; --solid:#8a5a2b; --warn:#8f5b08;
   --f-display:"Ubuntu",system-ui,-apple-system,"Segoe UI",sans-serif;
   --f-body:"Ubuntu",system-ui,-apple-system,"Segoe UI",sans-serif;
   --f-mono:"Ubuntu Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
@@ -171,18 +172,18 @@ h1,h2,h3,h4{letter-spacing:0}
 
     <section id="loop">
       <h2>One design loop, two clocks</h2>
-      <p>The <a href="./#challenge">engineering challenge</a> on the simulator page plays out a design project: an oval bowl misses its targets, and every candidate design has to be checked with an expensive, high-fidelity run. Eight such projects were run with two ways of working. Counting one working day per iteration, as Geberit reported for its CFD-led bowl development, the median project looks like this:</p>
-      <div class="loop" id="loopFig" role="img" aria-label="Timeline of a median design project: the classic route needs 12 iterations of about a day, the AI-assisted route 4 to 5">
-        <div class="loop-row"><span class="loop-l">Classic: one change at a time</span><span class="loop-bar" data-route="classic"></span><span class="loop-v" data-v="classic">12 days</span></div>
+      <p>The <a href="./#challenge">engineering challenge</a> on the simulator page plays out a design project: an oval bowl misses its targets, and every candidate design has to be checked with an expensive, high-fidelity run. Eight such projects were simulated with two ways of working, against a synthetic reference that stands in for CFD. Counting one working day per iteration, as Geberit reported for its CFD-led bowl development, the median project looks like this:</p>
+      <div class="loop" id="loopFig" role="img" aria-label="Timeline of a median design project: the classic route needs 10.5 iterations of about a day, the AI-assisted route 4.5">
+        <div class="loop-row"><span class="loop-l">Classic: one change at a time (automated)</span><span class="loop-bar" data-route="classic"></span><span class="loop-v" data-v="classic">10.5 days</span></div>
         <div class="loop-row"><span class="loop-l">AI-assisted: fast model + learned correction</span><span class="loop-bar ai" data-route="ai"></span><span class="loop-v" data-v="ai">4.5 days</span></div>
         <div class="loop-scale"><span>each block: one high-fidelity iteration, about a working day</span><span>the fast model's screening: seconds, too small to draw</span></div>
       </div>
       <div class="statrow">
-        <div class="stat"><span class="v" data-v="sum">110 → 43</span><span class="l">high-fidelity iterations for all eight projects, classic against AI-assisted</span></div>
-        <div class="stat"><span class="v" data-v="saved">≈ 3 months</span><span class="l">of iterations saved over the eight projects, at one working day each</span></div>
-        <div class="stat"><span class="v" data-v="miss">3 of 8</span><span class="l">projects in which the fast model alone, without learning from the expensive runs, never met the targets</span></div>
+        <div class="stat"><span class="v" data-v="sum">97 → 43</span><span class="l">high-fidelity iterations for all eight synthetic projects, classic against AI-assisted</span></div>
+        <div class="stat"><span class="v" data-v="saved">≈ 2.5 months</span><span class="l">of iterations saved over the eight synthetic projects, at an assumed working day each</span></div>
+        <div class="stat"><span class="v" data-v="miss">3 of 8</span><span class="l">synthetic projects in which the fast model alone, without learning from the expensive runs, never met the targets</span></div>
       </div>
-      <p class="note">How these numbers come about: the iteration counts are measured in the challenge (eight projects, <code>checks/challenge.js</code>); the day per iteration is Geberit's figure and is an assumption here. The expensive runs in the challenge come from a synthetic reference, the flush model with other coefficients and effects it does not have, and the task has five settings to change; with more settings to change, the classic route would typically need more iterations. The point is the mechanism: a fast physics model, a few expensive runs, and a correction learned from each of them decide where the next expensive run is worth it.</p>
+      <p class="note">How these numbers come about: the iteration counts are measured in the challenge (eight starts of the same synthetic design task, <code>checks/challenge.js</code>); the day per iteration is Geberit's figure and is an assumption here. The challenge panel on the simulator page uses a second clock: computing time only, 8 hours per run. Here a whole iteration counts, from setting up a run to deciding on the next design, which Geberit put at about a working day. The classic route is a simple automated one-change-at-a-time search; a team using design of experiments would need fewer runs than it does. The expensive runs in the challenge come from a synthetic reference, the flush model with other coefficients and effects it does not have, and the task has five settings to change; with more settings to change, the classic route would typically need more iterations. The point is the mechanism: a fast physics model, a few expensive runs, and a correction learned from each of them decide where the next expensive run is worth it.</p>
     </section>
 
     <section id="approach">
@@ -228,14 +229,14 @@ h1,h2,h3,h4{letter-spacing:0}
         <li><b>Evolutionary optimisation</b> instead of one-at-a-time parameter studies.</li>
         <li><b>Neural surrogates</b> that answer in microseconds once trained on solver results.</li>
         <li><b>Hybrid calibration</b> that keeps the physics and lets data correct what it misses, with an uncertainty that grows away from known designs.</li>
-        <li><b>Calibration against simple measurements:</b> phone recordings of a few flushes are enough to fit the noise coefficients, because only the differences between designs matter.</li>
+        <li><b>Calibration against simple measurements:</b> phone recordings of a few flushes should be enough to fit the noise coefficients, because only the differences between designs matter. The page shows this with synthetic recordings; no real recording has been fitted yet.</li>
         <li><b>Multi-fidelity optimisation:</b> a fast model plus a correction learned from every expensive run decides where the next run is worth it, as in the <a href="./#challenge">engineering challenge</a>.</li>
         <li><b>A physics-informed network</b> that learns a model coefficient from a level record and the model's own equation, and a <b>field surrogate</b> that predicts whole cleaning maps from expensive runs. Both are shown with an honest comparison: for a problem this small a classic fit is quicker, and a pure data surrogate needs many runs to approach a good physics model.</li>
         <li><b>A check against full CFD:</b> the same bowl in OpenFOAM, side by side with the fast model, including where they differ.</li>
       </ul>
       <div class="box">
         <h4>What this does not do</h4>
-        <p>It does not replace validation. The model on this page is not calibrated yet, so its numbers show trends between designs, not certified values. AI suggestions are candidates for a CFD or rig check, never the final answer.</p><p>Some things are out of scope: splashing, jets hitting each other and spill-over are not modelled, so the page cannot say whether a design splashes. The expensive runs of the engineering challenge, the field surrogate and the calibration demos come from synthetic references, and the CFD reference is a second simulation, not a measurement. The presets are generic bowls, not any manufacturer's product.</p><p>The gain is in how quickly a team gets to the right few questions.</p>
+        <p>It does not replace validation. The model on this page is not calibrated yet, and neither its numbers nor the effect of a design change have been checked against real bowls. Use it to compare designs and decide what to test, not as certified values. AI suggestions are candidates for a CFD or rig check, never the final answer.</p><p>Some things are out of scope: splashing, jets hitting each other and spill-over are not modelled, so the page cannot say whether a design splashes. The expensive runs of the engineering challenge, the field surrogate and the calibration demos come from synthetic references, and the CFD reference is a second simulation, not a measurement. The presets are generic bowls, not any manufacturer's product.</p><p>The gain is in how quickly a team gets to the right few questions.</p>
       </div>
     </section>
 
@@ -280,7 +281,7 @@ h1,h2,h3,h4{letter-spacing:0}
     </footer>
   </div>
 </div>
-<script src="challenge-data.js?v=23"></script>
+<script src="challenge-data.js?v=25"></script>
 <script>
 /* The timeline figures from the eight stored races of the engineering challenge (challenge-data.js), so they stay
    in step with the simulator page. Without the data, the numbers written into the page above stay as they are. */
@@ -298,7 +299,7 @@ h1,h2,h3,h4{letter-spacing:0}
   document.querySelectorAll('.loop-bar i').forEach((i) => { i.style.width = `calc((100% - ${3 * (Math.ceil(scale) - 1)}px) / ${Math.ceil(scale)}${i.classList.contains('half') ? ' / 2' : ''})`; });
   const set = (k, t) => { const el = document.querySelector(`[data-v="${k}"]`); if (el) el.textContent = t; };
   set('classic', fmtd(mc)); set('ai', fmtd(ma)); set('sum', `${sc} → ${sa}`);
-  set('saved', saved >= 40 ? `≈ ${Math.round(saved / 21)} months` : `${saved} days`); set('miss', `${fa.filter((v) => v == null).length} of ${fa.length}`);
+  set('saved', saved >= 40 ? `≈ ${Math.round(saved / 21 * 2) / 2} months` : `${saved} days`);   // 21 working days a month, to the half month set('miss', `${fa.filter((v) => v == null).length} of ${fa.length}`);
   const fig = document.getElementById('loopFig'); if (fig) fig.setAttribute('aria-label', `Timeline of a median design project: the classic route needs ${mc} iterations of about a day, the AI-assisted route ${ma}`);
 })();
 </script>

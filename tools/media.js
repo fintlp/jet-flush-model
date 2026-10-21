@@ -41,7 +41,7 @@ async function stills(browser, base) {
   await done(() => window.FlushCFD && FlushCFD.ready(), 60000);
   await page.evaluate(() => FlushCFD.setMode('clean'));
   await shot('.cfd-maps', 'cfd-maps.png');
-  fig.cfd = await page.evaluate(() => { const S = FlushCFD.data(); return { mesh: S.cfd.case.mesh, cells: S.cfd.case.cells, wallClock_s: S.cfd.case.wallClock_s, cores: S.cfd.case.cores, end: S.cfd.case.end, msModel: S.msModel, cClean: S.cClean, mClean: S.mClean, cWet: S.cWet(S.cfd.case.end), mWet: S.mWet(S.cfd.case.end), firstCfd: S.arr && S.arr.arrivalTimes ? S.arr.arrivalTimes.first_1mLs : null, firstModel: S.mod.firstArr, sens: S.sens, coarseWallClock_s: S.cfd2 ? S.cfd2.case.wallClock_s : null }; });
+  fig.cfd = await page.evaluate(() => { const S = FlushCFD.data(); return { mesh: S.cfd.case.mesh, cells: S.cfd.case.cells, wallClock_s: S.cfd.case.wallClock_s, cores: S.cfd.case.cores, end: S.cfd.case.end, msModel: S.msModel, cClean: S.cClean, mClean: S.mClean, cWet: S.cWet(S.cfd.case.end), mWet: S.mWet(S.cfd.case.end), firstCfd: S.arr && S.arr.arrivalTimes ? S.arr.arrivalTimes.first_1mLs : null, firstModel: S.mod.firstArr, sens: S.sens, iouCM: S.iouCM, coarseWallClock_s: S.cfd2 ? S.cfd2.case.wallClock_s : null }; });
   // engineering challenge: play the clock to the end
   await page.evaluate(() => FlushChallengeUI.play()); await done(() => !FlushChallengeUI.playing());
   await page.waitForTimeout(500); await shot('#cvChAll', 'challenge.png');

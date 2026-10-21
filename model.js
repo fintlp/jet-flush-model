@@ -176,7 +176,8 @@
     const tr = opts.trace ? { t: [], L: [], pl: [], out: [], air: [], brk: [], core: [], Lv: Array.from({ length: NV }, () => []) } : null;
     for (let n = 0; n < ser.n; n++) {
       const t = n * dt, Qs = ser.Qs[n], Qfree = ser.Qfree[n], z = ser.z[n], Qout = ser.Qout[n], dip = ser.dip[n], s4 = ser.s4[n];
-      for (let k = 0; k < nU; k++) s1L[k] = Qs > 0 ? ent(Qs, ser.ur[n], UeL[k]) : 0;
+      // source 1: summed over the entering film parcels, each at its own speed relative to the pool
+      for (let k = 0; k < nU; k++) { let s = 0; if (Qs > 0) for (let j = ser.pOff[n], e = j + ser.pN[n]; j < e; j++) s += ent(Qs * ser.pw[j], ser.pu[j], UeL[k]); s1L[k] = s; }
       for (let k = 0; k < nU; k++) for (let h = 0; h < nH; h++) s2L[k][h] = Qfree > 0 ? ent(Qfree, Math.sqrt(2 * G * Math.max(z, 0) / 3 + 2 * G * hFL[h]), UeL[k]) : 0;
       const subm = z + ds;
       for (let k = 0; k < nC; k++) { coreL[k] = Qout > 1e-6 && CvL[k] * dip >= subm; if (coreL[k]) coreV[k] = true; }
@@ -528,7 +529,7 @@
        pool before the film front has got there. When the pool rises and the paths get shorter, the store drains
        faster; when the cistern stops, it drains out. What arrives carries the current mean angular momentum and
        entry velocity of the films. */
-    let Vtransit = 0, tauM = 0, tauMin = 0, Lm = 0, sShare = 0, mVx = 0, mVy = 0, mVz = 0, mX = 0, mY = 0;
+    let Vtransit = 0, tauM = 0, tauMin = 0, Lm = 0, sShare = 0, splP = [];   // splP: the entering film parcels, as shares of the splash flow
     let Ms = p.Ms, Np = p.Np, capS = 0, Vin = 0;
     let tEmpty = null, Qpeak = 0, vsPeak = 0, zPeak = 0, dipPeak = 0;
     const rec = light ? null : { t: [], Qin: [], Qout: [], z: [], Vc: [], vs: [], phi: [], Ms: [], Np: [], primed: [], Vt: [] };
@@ -537,7 +538,7 @@
     // noise indicator: the flow quantities the four sources need are recorded at every step; noiseEval() turns them
     // into the noise result after the run (they do not feed back into the flow)
     const NSER = Math.floor(Tmax / dt) + 3;
-    const ser = { n: 0, dt, ds, Qs: new Float64Array(NSER), ur: new Float64Array(NSER), Qfree: new Float64Array(NSER), z: new Float64Array(NSER), Qout: new Float64Array(NSER), dip: new Float64Array(NSER), s4: new Float64Array(NSER) };
+    const ser = { n: 0, dt, ds, Qs: new Float64Array(NSER), ur: new Float64Array(NSER), pOff: new Int32Array(NSER), pN: new Int32Array(NSER), pu: [], pw: [], Qfree: new Float64Array(NSER), z: new Float64Array(NSER), Qout: new Float64Array(NSER), dip: new Float64Array(NSER), s4: new Float64Array(NSER) };
     let tBrk = null, Qbrk = 0;
     for (let n = 0; ; n++) {
       const t = n * dt; tEnd = t;
@@ -564,13 +565,12 @@
       if (film.active) { film.allQ += Qin * dt; film.lostQ += Qin * Math.max(0, 1 - film.reach) * dt; }
       // mean properties of the current films (kept from the last trace once the jets have stopped)
       if (film.active && film.tR === t) {
-        let sq = 0, st = 0, sl = 0, ss = 0, vx_ = 0, vy_ = 0, vz_ = 0, x_ = 0, y_ = 0, tmin = Infinity;
-        for (const pc of film.parcels) {
-          sq += pc.q; st += pc.q * pc.tau; sl += pc.q * pc.L; if (pc.tau < tmin) tmin = pc.tau;
-          if (pc.splash) { ss += pc.q; vx_ += pc.q * pc.vx; vy_ += pc.q * pc.vy; vz_ += pc.q * pc.vz; x_ += pc.q * pc.x; y_ += pc.q * pc.y; }
-        }
+        let sq = 0, st = 0, sl = 0, ss = 0, tmin = Infinity;
+        for (const pc of film.parcels) { sq += pc.q; st += pc.q * pc.tau; sl += pc.q * pc.L; if (pc.tau < tmin) tmin = pc.tau; if (pc.splash) ss += pc.q; }
         if (sq > 0) { tauM = st / sq; tauMin = tmin; Lm = sl / sq; sShare = ss / sq; }
-        if (ss > 0) { mVx = vx_ / ss; mVy = vy_ / ss; mVz = vz_ / ss; mX = x_ / ss; mY = y_ / ss; }
+        // each entering parcel keeps its own velocity and position: the films of different jets enter at different
+        // places in different directions, and the splash law is not linear in speed, so they are not averaged
+        if (ss > 0) splP = film.parcels.filter((pc) => pc.splash).map((pc) => ({ w: pc.q / ss, vx: pc.vx, vy: pc.vy, vz: pc.vz, x: pc.x, y: pc.y }));
       }
       let Qarr;
       if (!film.active && film.tR < 0) Qarr = Qin;                     // no film traced yet
@@ -581,7 +581,7 @@
       }
       if (!film.active && Qin > 0 && film.tR >= 0 && tauM === 0) Qarr = Qin;   // a film too weak to trace delivers directly
       Vtransit = Math.max(0, Vtransit + (Qin - Qarr) * dt);
-      const Larr = Qarr * Lm, Qs = Qarr * sShare, aVx = mVx, aVy = mVy, aVz = mVz, aX = mX, aY = mY;
+      const Larr = Qarr * Lm, Qs = Qarr * sShare;
       const Qpin = Qarr + Qref;   // flow reaching the pool this step
 
       // outflow, pool level and swirl. When a large share of the pool would leave within one step (a primed siphon
@@ -639,7 +639,11 @@
       // noise indicator inputs (see noiseEval)
       {
         const i = n; ser.n = n + 1;
-        ser.Qs[i] = Qs; ser.ur[i] = Qs > 0 ? Math.hypot(aVx + om * aY, aVy - om * aX, aVz) : 0;   // film speed relative to the pool surface (om x r)
+        // splash: each entering parcel's speed relative to the pool surface (om x r) and its share of the splash flow;
+        // ur is their flow-weighted mean speed, kept for display only
+        ser.Qs[i] = Qs; ser.pOff[i] = ser.pu.length; let um = 0;
+        if (Qs > 0) for (const pc of splP) { const u = Math.hypot(pc.vx + om * pc.y, pc.vy - om * pc.x, pc.vz); ser.pu.push(u); ser.pw.push(pc.w); um += pc.w * u; }
+        ser.pN[i] = ser.pu.length - ser.pOff[i]; ser.ur[i] = um;
         ser.Qfree[i] = siph && primed ? 0 : Qout;   // water falling into the outlet: free-surface trap flow only
         ser.z[i] = z; ser.Qout[i] = Qout; ser.dip[i] = dip;
         // siphon break: air replaces the water in the trap leg at the rate the siphon was carrying it out,
@@ -699,7 +703,7 @@
     const NZ = noiseEval(ser, p, { corners: true, trace: !light });
     out.noise = NZ.noise;
     if (opts.noiseSeries) out.noiseSeries = ser;
-    if (!light) Object.assign(out, { J, tWet, tClean, lines, rec, nrec: NZ.trace });
+    if (!light) Object.assign(out, { J, tWet, tClean, lines, rec, nrec: NZ.trace, cellA });   // cellA: true surface area of each wall cell, m2
     out.runMs = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0;
     return out;
   }

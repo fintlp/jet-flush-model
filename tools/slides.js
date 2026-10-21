@@ -65,11 +65,11 @@ const card = (sl, x, y, w, h, name, dark) => sl.addShape(pres.shapes.ROUNDED_REC
   const v = fit(M('playback.png'), 5.0, 3.6);
   video(sl, { type: 'video', path: M('flush-playback.mp4'), cover: b64(M('playback.png')), x: 12.73 - v.w, y: 0.6, w: v.w, h: v.h, objectName: 'Flush playback video' });
   sl.addText('Flush playback from the page: films on the wall, pool swirl, waste. Washdown preset.', { x: 12.73 - v.w, y: 0.65 + v.h, w: v.w, h: 0.5, fontSize: 10.5, color: '8FA3B5', margin: 0, isTextBox: true, objectName: 'Video caption' });
-  const st = [['20–40 ms', 'per flush with the fast model, in the browser'], [`≈ ${hours} hours`, `for ${C.end} s of the same flush in OpenFOAM CFD, on ${C.cores} cores`], [`${CH.ai.med} vs ${CH.classic.med}`, 'expensive runs to reach the targets, AI-assisted vs one change at a time (median)']];
+  const st = [['20–40 ms', 'per flush with the fast model, in the browser'], [`≈ ${hours} hours`, `for ${C.end} s of the same flush in OpenFOAM CFD, on ${C.cores} cores`], [`${CH.ai.med} vs ${CH.classic.med}`, 'expensive runs to reach the targets, AI-assisted vs automated one change at a time (median of 8 synthetic projects)']];
   st.forEach(([v2, l], i) => stat(sl, i + 1, 0.6 + i * 2.4, 3.55, 2.2, v2, l, { color: CYAN, lc: WHITE, lh: 1.0, size: 28 }));
   card(sl, 0.6, 5.55, 6.9, 0.75, 'Live link card', true);
   sl.addText([{ text: 'Try it live   ', options: { bold: true, color: WHITE } }, { text: 'fintlp.github.io/jet-flush-model', options: { color: CYAN, hyperlink: { url: 'https://fintlp.github.io/jet-flush-model/' } } }], { x: 0.85, y: 5.55, w: 6.5, h: 0.75, fontSize: 16, valign: 'middle', margin: 0, isTextBox: true, objectName: 'Live link' });
-  caveat(sl, 'Reduced-order model, coefficients not yet calibrated: results show trends between designs, not validated values. The CFD is a second simulation, not a measurement.', 6.45, true);
+  caveat(sl, 'Reduced-order model, not yet calibrated or validated: results are for comparing designs, not measured values. The CFD is a second simulation of one design, not a measurement.', 6.45, true);
 }
 
 // 2 · part 1, the fast model
@@ -100,9 +100,9 @@ const card = (sl, x, y, w, h, name, dark) => sl.addShape(pres.shapes.ROUNDED_REC
   sl.addText('CFD water surface at 1.0 s, front half removed.', { x: 12.73 - s2.w, y: 2.0 + s2.h, w: s2.w, h: 0.4, fontSize: 10.5, color: MUTED, margin: 0, isTextBox: true, objectName: 'Still caption' });
   const st = [[`${pct(C.cClean)} vs ${pct(C.mClean)}`, 'of the wall cleaned, CFD vs fast model: close totals, different patterns'],
     [`${C.firstCfd.toFixed(2)} s vs ${C.firstModel.toFixed(2)} s`, 'first water in the pool, CFD vs fast model: in the model it arrives later and all at once'],
-    [pct(C.sens.same), 'of the wall gets the same cleaned verdict on two CFD meshes (2 and 3 mm cells)']];
+    [pct(C.iouCM), 'overlap of the uncleaned areas, CFD vs fast model: the model gets the total, not where the gaps are']];
   st.forEach(([v, l], i) => stat(sl, i + 1, 0.6 + i * 4.1, 4.75, 3.8, v, l, { size: 26, lh: 0.65 }));
-  caveat(sl, 'A second simulation, not a measurement or a validation. The trap outflow is taken from the model; after 1.3 s the CFD outlet draws air and its bowl holds more water. Two meshes show a sensitivity, not mesh independence.');
+  caveat(sl, `A second simulation of one design, not a measurement or a validation. Trap outflow taken from the model; after 1.3 s the CFD outlet draws air. On two CFD meshes the totals agree, the uncleaned areas overlap ${pct(C.sens.iouU)}: a sensitivity, not mesh independence.`);
 }
 
 // 4 · part 3, AI in the engineering loop
@@ -114,7 +114,7 @@ const card = (sl, x, y, w, h, name, dark) => sl.addShape(pres.shapes.ROUNDED_REC
   sl.addImage({ path: img, x: 0.6, y: 1.95, w: s.w, h: s.h, objectName: 'Projects chart' });
   sl.addText('Projects that met the targets over virtual days, for the three routes.', { x: 0.6, y: 2.0 + s.h, w: s.w, h: 0.4, fontSize: 10.5, color: MUTED, margin: 0, isTextBox: true, objectName: 'Chart caption' });
   const x = 8.75;
-  stat(sl, 1, x, 1.95, 4.0, `${CH.ai.med} vs ${CH.classic.med}`, 'expensive runs per project (median): fast model + learned correction vs one change at a time', { lh: 0.7 });
+  stat(sl, 1, x, 1.95, 4.0, `${CH.ai.med} vs ${CH.classic.med}`, 'expensive runs per project (median): fast model + learned correction vs automated one change at a time', { lh: 0.7 });
   stat(sl, 2, x, 3.45, 4.0, `${CH.ai.sum} vs ${CH.classic.sum}`, 'runs for all eight projects', { lh: 0.4 });
   stat(sl, 3, x, 4.65, 4.0, `${CH.fast.miss} of 8`, 'projects the fast model alone never finished: it cannot learn from the expensive runs', { color: BROWN, lh: 0.7 });
   caveat(sl, 'The expensive runs come from a synthetic reference (the model with other coefficients and extra effects), labelled as such on the page. It shows the workflow, not real accuracy.');
@@ -124,23 +124,24 @@ const card = (sl, x, y, w, h, name, dark) => sl.addShape(pres.shapes.ROUNDED_REC
 {
   const sl = pres.addSlide({ masterName: 'Content plain' });
   sl.addText('One design loop, two clocks', { placeholder: 'title' });
-  lead(sl, 'The median project of the challenge at one working day per expensive iteration, a figure Geberit reported for its bowl development (an assumption here).', 0.6);
-  const days = [['One change at a time', CH.classic.med, BROWN], ['AI-assisted', CH.ai.med, BLUE]], X0 = 0.6, W = 6.4, scale = W / 13;
+  lead(sl, 'The median synthetic project of the challenge, counting each expensive iteration as a working day (set up, run, evaluate), as Geberit reported; the challenge itself counts 8 hours of computing per run.', 0.6);
+  const days = [['One change at a time (automated)', CH.classic.med, BROWN], ['AI-assisted', CH.ai.med, BLUE]], X0 = 0.6, W = 6.4, scale = W / 13;
   days.forEach(([l, d, col], i) => {
     const y = 2.2 + i * 1.15;
     sl.addText(l, { x: X0, y, w: 3.5, h: 0.35, fontSize: 14, bold: true, color: NAVY, margin: 0, isTextBox: true, objectName: `Clock ${i + 1} label` });
     sl.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: X0, y: y + 0.42, w: d * scale, h: 0.42, rectRadius: 0.08, fill: { color: col }, line: { color: col }, objectName: `Clock ${i + 1} bar` });
     sl.addText(`${d} days`, { x: X0 + d * scale + 0.15, y: y + 0.42, w: 1.6, h: 0.42, fontSize: 16, bold: true, color: col, valign: 'middle', margin: 0, isTextBox: true, objectName: `Clock ${i + 1} value` });
   });
-  stat(sl, 1, X0, 4.6, 3.0, '≈ 3 months', 'of iterations saved over the eight projects', { lh: 0.5 });
+  const saved = CH.classic.sum - CH.ai.sum;   // assumed working days, 21 a month, to the half month
+  stat(sl, 1, X0, 4.6, 3.0, `≈ ${Math.round(saved / 21 * 2) / 2} months`, `${saved} assumed working days of iterations, over eight synthetic projects`, { lh: 0.5 });
   stat(sl, 2, X0 + 3.3, 4.6, 3.1, `${CH.classic.sum} → ${CH.ai.sum}`, 'expensive iterations in total', { lh: 0.5 });
   // the six AI lab tools
   card(sl, 7.55, 1.95, 5.18, 4.3, 'AI lab card');
   sl.addText('Also in the AI lab, all in the browser', { x: 7.8, y: 2.1, w: 4.8, h: 0.4, fontSize: 14, bold: true, color: NAVY, margin: 0, isTextBox: true, objectName: 'AI lab heading' });
-  const tools = [['Design optimiser', 'about 540 designs in about 10 s, checked at full resolution'], ['Neural surrogate', 'a few thousand times faster than the physics model'], ['Hybrid calibration', 'fit plus a learned correction, tested on unseen designs'], ['Noise calibration', 'fits the noise model to phone recordings'], ['Physics-informed network', 'finds a model coefficient from a level record'], ['Field surrogate', 'whole cleaning maps from expensive runs, shown honestly']];
+  const tools = [['Design optimiser', 'about 540 quick estimates in about 10 s, then the recommended designs checked at full resolution'], ['Neural surrogate', 'a few thousand times faster than the physics model'], ['Hybrid calibration', 'fit plus a learned correction, tested on unseen designs'], ['Noise calibration', 'fits the noise model to recordings (shown with synthetic ones)'], ['Physics-informed network', 'finds a model coefficient from a level record'], ['Field surrogate', 'whole cleaning maps from expensive runs, shown honestly']];
   const runs = []; tools.forEach(([t, d], i) => { runs.push({ text: `${t}: `, options: { bold: true, color: BLUE } }); runs.push({ text: d, options: { color: NAVY, breakLine: i < tools.length - 1 } }); });
   sl.addText(runs, { x: 7.8, y: 2.55, w: 4.75, h: 3.55, fontSize: 13, margin: 0, valign: 'top', paraSpaceAfter: 7, isTextBox: true, objectName: 'AI lab tools' });
-  caveat(sl, 'Iteration counts measured in the challenge (checks/challenge.js); one day per iteration is an assumption from the Geberit report by CADFEM. Sources on the page.');
+  caveat(sl, 'Iteration counts from the challenge against a synthetic reference (checks/challenge.js), not from real projects; one day per iteration is an assumption from the Geberit report by CADFEM. Sources on the page.');
 }
 
 // 6 · the whole story
@@ -157,8 +158,8 @@ const card = (sl, x, y, w, h, name, dark) => sl.addShape(pres.shapes.ROUNDED_REC
   });
   const v = fit(M('demo-poster.png'), 6.6, 4.1);
   video(sl, { type: 'video', path: M('demo-walkthrough.mp4'), cover: b64(M('demo-poster.png')), x: 12.73 - v.w, y: 1.75, w: v.w, h: v.h, objectName: 'Guided story video' });
-  sl.addText(`Recorded from the live page (${VERSION}) on ${DATE}: all three parts, at reading pace.`, { x: 12.73 - v.w, y: 1.8 + v.h, w: v.w, h: 0.4, fontSize: 10.5, color: '8FA3B5', margin: 0, isTextBox: true, objectName: 'Video caption' });
-  caveat(sl, 'Physics model, uncalibrated: trends between designs, not validated values. Synthetic references are labelled on the page; the CFD is a second simulation, not a measurement.', 6.45, true);
+  sl.addText(`Recorded from the page (${VERSION}) on ${DATE}: all three parts, at reading pace.`, { x: 12.73 - v.w, y: 1.8 + v.h, w: v.w, h: 0.4, fontSize: 10.5, color: '8FA3B5', margin: 0, isTextBox: true, objectName: 'Video caption' });
+  caveat(sl, 'Physics model, not yet calibrated or validated. Synthetic references are labelled on the page; the CFD is a second simulation of one design, not a measurement.', 6.45, true);
 }
 
 (async () => {

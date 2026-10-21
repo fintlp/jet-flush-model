@@ -77,7 +77,7 @@
     const dAI = days(ST.ai.max), cl = ST.classic;
     $('chHead').innerHTML = `<p class="ch-big">Across ${RACES.length} design projects, the AI route reached the targets in <b>${medTxt(ST.ai.med)} runs</b> typically (${ST.ai.min} to ${ST.ai.max}), the classic route in <b>${medTxt(cl.med)}</b> (${cl.min} to ${cl.max}). The AI route finished all ${RACES.length} within ${daysTxt(ST.ai.max)}; by then the classic route had finished ${doneBy('classic', ST.ai.max)}. The fast model alone was sometimes quickest, but missed the targets within ${C.MAXR} runs in ${ST.fast.miss} of ${RACES.length}.</p>` +
       `<p>In total the AI route used ${ST.ai.sum} high-fidelity runs for the ${RACES.length} projects, the classic route ${cl.sum}: ${cl.sum - ST.ai.sum} runs or about ${Math.round(days(cl.sum - ST.ai.sum))} days of computing less.</p>`;
-    $('chWhy').innerHTML = `<p class="muted">Why: the fast model is quick but off in places, here by about 3 points of cleaning on average and more at high valve heights, where the reference loses cleaning to splash. When its best designs lie where it is right, it wins; when not, it keeps sending the reference to designs that only look good in the fast model. The AI route learns that difference from every expensive run and corrects the fast model before choosing the next one. The classic route needs no model, but tests one change per run. The reference is synthetic and the task has five settings, so these numbers illustrate the principle; they are not a benchmark.</p>`;
+    $('chWhy').innerHTML = `<p class="muted">Why: the fast model is quick but off in places, here by about 6 points of cleaning on average, spread about 5 points, and more at high valve heights, where the reference loses cleaning to splash. When its best designs lie where it is right, it wins; when not, it keeps sending the reference to designs that only look good in the fast model. The AI route learns that difference from every expensive run and corrects the fast model before choosing the next one. The classic route needs no model, but tests one change per run. The reference is synthetic and the task has five settings, so these numbers illustrate the principle; they are not a benchmark.</p>`;
   }
   function repTable() {
     if (!ST) return;
@@ -112,11 +112,11 @@
     return new Promise((resolve) => {
       const finish = (res, ms, sims) => { S.verifying = null; S.verified[i] = { same: JSON.stringify(res) === want, ms, sims }; verifyLine(); resolve(S.verified[i]); };
       let w = null;
-      try { w = new Worker('challenge-worker.js?v=23'); } catch (e) { w = null; }
+      try { w = new Worker('challenge-worker.js?v=25'); } catch (e) { w = null; }
       if (w) {
         w.onmessage = (ev) => { const d = ev.data; if (d.progress) { S.verifying.n = d.progress; if (S.sel === i) verifyLine(); } else if (d.done) { w.terminate(); finish(d.done, d.ms, d.sims); } else if (d.error) { w.terminate(); slicesVerify(i, finish); } };
         w.onerror = () => { w.terminate(); slicesVerify(i, finish); };
-        w.postMessage({ race: i, v: '23' });
+        w.postMessage({ race: i, v: '25' });
       } else slicesVerify(i, finish);
     });
   }

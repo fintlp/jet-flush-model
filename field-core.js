@@ -6,8 +6,8 @@
                  the idea behind field surrogates such as SimAI or Simcenter PhysicsAI, which learn from CFD runs alone.
      corrected:  the fast model's map plus a learned correction: POD and Gaussian processes on the difference
                  between reference and fast model maps.
-   The field is the shear dose over the cleaning threshold, J / Jcrit, capped at 3; a cell counts as cleaned at 1.
-   Scores on unseen designs, area-weighted: the overlap of the cleaned areas (intersection over union) and the error
+   The field is the shear dose over the run's own cleaning dose, J / Jcrit (1.6 Pa s in the reference, 1.5 in the fast
+   model), capped at 3; a cell counts as cleaned at 1. Scores on unseen designs, weighted with the simulator's cell areas: the overlap of the cleaned areas (intersection over union) and the error
    of the cleaned share. */
 (function (root) {
   function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
@@ -46,10 +46,11 @@
   function make(M, C, o) {
     o = Object.assign({ nTrain: 80, nTest: 20, modes: 10, seed: 5 }, o || {});
     const NTH = M.NTH, NS = M.NS, n = NTH * NS, CAP = 3;
-    const g = M.buildGeom(C.base), rowA = [];
-    for (let k = 0; k < NS; k++) { const f = (k + 0.5) / NS * (g.ur.length - 1), i = Math.floor(f), w = f - i, rr = g.ur[i] * (1 - w) + g.ur[Math.min(g.ur.length - 1, i + 1)] * w; rowA.push(2 * Math.PI * rr * (g.S / NS) / NTH); }
-    const cellA = Float64Array.from({ length: n }, (_, j) => rowA[Math.floor(j / NTH)]), Atot = cellA.reduce((a, b) => a + b, 0);
-    const field = (x, coef) => { const r = M.simulate(Object.assign({}, C.base, C.toDesign(x), coef || {}), { Tend: 12 }); return Float64Array.from(r.J, (v) => Math.min(v / C.base.Jcrit, CAP)); };
+    // cell areas: the simulator's own surface area of each wall cell on the oval bowl (the bowl shape is the same
+    // for every design here, only jets and flush change)
+    const cellA = Float64Array.from(M.simulate(Object.assign({}, C.base), { Tend: 12 }).cellA), Atot = cellA.reduce((a, b) => a + b, 0);
+    // the field of a run is its dose over that run's own cleaning dose: the reference cleans at 1.6 Pa s, the fast model at 1.5
+    const field = (x, coef) => { const q = Object.assign({}, C.base, C.toDesign(x), coef || {}), r = M.simulate(q, { Tend: 12 }); return Float64Array.from(r.J, (v) => Math.min(v / q.Jcrit, CAP)); };
     const share = (f) => { let a = 0; for (let j = 0; j < n; j++) if (f[j] >= 1) a += cellA[j]; return 100 * a / Atot; };
     const overlap = (a, b) => { let I = 0, U = 0; for (let j = 0; j < n; j++) { const p = a[j] >= 1, q = b[j] >= 1; if (p && q) I += cellA[j]; if (p || q) U += cellA[j]; } return U ? I / U : 1; };
     const D = { Xtr: lhs(o.nTrain, 6, rng(o.seed)).map(C.snapX), Xte: lhs(o.nTest, 6, rng(o.seed + 1)).map(C.snapX), Rtr: [], Ftr: [], Rte: [], Fte: [] };

@@ -33,12 +33,10 @@
     const HID = { cf: 0.010, tauC: 3.3, Jcrit: 1.6, ucS: 0.38, cmax: 0.11 };
     const SIM = { light: true, Tend: 12 };
     const xMaxV = (T.water - DV[IV].min) / (DV[IV].max - DV[IV].min);
-    // the classic engineer's order of settings after the volume: on an oval bowl the jet position first (the lesson of
-    // Demo me), then valve height, nozzle area, jet angle and nozzle height; repeats with seed > 0 use a random order
-    const classicOrder = opts.classicOrder || (() => {
-      const o = [2, 4, 0, 1, 3]; if (SEED > 0) { const r = rng(500 + SEED); for (let i = o.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; } }
-      return o;
-    })();
+    // the classic route's order of settings after the volume, the same in every race: on an oval bowl the jet position
+    // first (the lesson of Demo me), then valve height, nozzle area, jet angle and nozzle height. Until review R-07 the
+    // races after the first used a random order, which made the baseline weaker than it needs to be.
+    const classicOrder = opts.classicOrder || [2, 4, 0, 1, 3];
 
     function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
     function gauss(r) { let u = 0; while (u === 0) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * r()); }
@@ -227,10 +225,11 @@
   // run a generator to its end (for the checks)
   function runAll(gen) { let s = gen.next(); while (!s.done) s = gen.next(); return s.value; }
   // The repeat: N races, race i with seed i; race 0 starts from the page's start design with the informed classic
-  // order, races 1 to N-1 from starts(N-1) with random screening, refinement and classic order. The page shows all of
+  // order, races 1 to N-1 from starts(N-1) with random screening and refinement. The page shows all of
   // them from challenge-data.js, written by checks/challenge.js --write, and can recompute any one live in a worker.
   const REPEATS = 8, ROUTES = ['classic', 'fast', 'ai'];
-  function startOf(M, i) { const C0 = make(M); return i === 0 ? C0.start : C0.starts(REPEATS - 1)[i - 1]; }
+  // races 8 to 15 are the hold-out set (checks/challenge.js --holdout): their starts continue the same sequence
+  function startOf(M, i) { const C0 = make(M); return i === 0 ? C0.start : C0.starts(Math.max(REPEATS - 1, i))[i - 1]; }
   // rounded copy of a race result, the form stored in challenge-data.js and compared by the checks and the page
   const r2 = (v) => Math.round(v * 100) / 100;
   function pack(C, i, res) {

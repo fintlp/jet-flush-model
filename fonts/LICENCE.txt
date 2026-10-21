@@ -1,3 +1,7 @@
+Ubuntu and Ubuntu Mono fonts: Copyright 2011 Canonical Ltd. Licensed under the Ubuntu Font Licence 1.0 (below).
+The files in this folder are the unmodified Latin, Latin Extended and Greek subset files distributed by Fontsource
+(@fontsource/ubuntu and @fontsource/ubuntu-mono 5.3.0, https://fontsource.org), the same subsets Google Fonts serves.
+
 -------------------------------
 UBUNTU FONT LICENCE Version 1.0
 -------------------------------

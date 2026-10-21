@@ -267,7 +267,7 @@ for (const kind of ['washdown', 'siphonic']) {
 {
   let first = null, vin = 0, varr = 0;
   sim(design('washdown'), { probe: (s) => { if (first === null && s.Qarr > 0) first = s.t; vin += s.Qin * s.dt; varr += s.Qarr * s.dt; } });
-  check('D5 washdown preset: first water reaches the pool no earlier than 0.3 s after the valve opens', Math.max(0, 0.3 - first), 0, 's', `first arrival at ${first.toFixed(2)} s`);
+  check('D5 washdown preset: the model delivers no water to the pool before its film front, 0.3 s or later (internal consistency only: the CFD shows a thin leading edge at 0.14 s, method section 13)', Math.max(0, 0.3 - first), 0, 's', `first arrival at ${first.toFixed(2)} s`);
   check('D5 washdown preset: water released at the nozzles minus water arrived in the pool', Math.abs(vin - varr) * 1e6, 1, 'mL');
 }
 // D6 monotone trends: more flush volume, valve height or nozzle area never removes less waste (washdown bowl)
@@ -306,6 +306,30 @@ for (const kind of ['washdown', 'siphonic']) {
     worst = Math.max(worst, Math.abs(e.peak - r.noise.peak), Math.abs(e.energy - r.noise.energy), (e.airT == null) !== (r.noise.airT == null) ? 99 : 0);
   }
   check('D9 noise from recorded flow series against the simulator, peak and energy, 20 random designs', worst, 1e-9, 'dB');
+}
+
+// D10 splash noise (review finding R-01): each entering film parcel counts at its own speed relative to the rotating
+// pool, so two opposite jets must not cancel. (a) In the round washdown preset the two jets enter in pairs of equal
+// speed at every step. (b) Source 1 recomputed here from the parcels with the documented law,
+// nK * Q * (u - nUe)^nExp summed over parcels, equals the simulator's source 1.
+{
+  const p = M.defaults('washdown'), r = sim(p, { noiseSeries: true }), s = r.noiseSeries;
+  let worstPair = 0, steps = 0;
+  for (let n = 0; n < s.n; n++) {
+    if (!(s.Qs[n] > 0) || s.pN[n] < 2) continue; steps++;
+    const u = s.pu.slice(s.pOff[n], s.pOff[n] + s.pN[n]).sort((x, y) => x - y);
+    for (let j = 0; j + 1 < u.length; j += 2) worstPair = Math.max(worstPair, Math.abs(u[j] - u[j + 1]));
+  }
+  check('D10a splash: the two jets of the round washdown preset enter at equal speeds, step by step', steps > 50 ? worstPair : 99, 1e-9, 'm/s', `${steps} steps with entering film`);
+  const r1 = rng(31); let worst = 0;
+  for (let i = 0; i < 20; i++) {
+    const q = fullDesign(M, r1), rr = sim(q, { noiseSeries: true }), ss = rr.noiseSeries, c = Object.assign(M.defaults(q.type), q);
+    let E1 = 0;
+    for (let n = 0; n < ss.n; n++) for (let j = ss.pOff[n]; j < ss.pOff[n] + ss.pN[n]; j++) { const du = ss.pu[j] - c.nUe; if (du > 0) E1 += c.nK * ss.Qs[n] * ss.pw[j] * Math.pow(du, c.nExp) * ss.dt; }
+    const e = M.noiseEval(ss, c).noise, Etot = Math.pow(10, e.energy / 10) - 1e-12, E1sim = e.share[0] * Etot;
+    worst = Math.max(worst, Math.abs(E1sim - E1) / Math.max(1e-30, Math.abs(E1), Math.abs(E1sim)));
+  }
+  check('D10b splash: source 1 equals the per-parcel sum of the documented law, 20 random designs', worst, 1e-6, '(relative)');
 }
 
 const failed = results.filter((x) => !x).length;
