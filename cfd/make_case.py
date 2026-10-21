@@ -21,6 +21,9 @@ ap.add_argument('--out', required=True)
 ap.add_argument('--mesh', default='coarse', choices=['coarse', 'medium', 'fine'])
 ap.add_argument('--end', type=float, default=5.0)
 ap.add_argument('--procs', type=int, default=0, help='number of subdomains (0: set by the run script)')
+ap.add_argument('--outlet', default='pressure', choices=['pressure', 'model'],
+                help="pressure: total-pressure outlet at crest level (orifice law; blocked by a strong swirl, see cfd-status); "
+                     "model: the model's trap outflow Qout(t) prescribed at the outlet")
 a = ap.parse_args()
 if not os.path.exists(a.series):   # also look relative to this script's folder (the runner keeps both in tools/)
     a.series = os.path.join(os.path.dirname(os.path.abspath(__file__)), a.series)
@@ -263,13 +266,25 @@ jetU = '\n'.join(f'''    {J['name']}
         value           uniform (0 0 0);
     }}''' for J in jets)
 JETS = '|'.join(J['name'] for J in jets)
+if a.outlet == 'model':
+    if 'Qout' not in S: raise SystemExit('--outlet model needs Qout in the series file')
+    qrows = [(t, q) for t, q in zip(S['tq'], S['Qout']) if t <= a.end + 0.05]
+    OUTLET_U = ('        type            flowRateOutletVelocity;\n        volumetricFlowRate table\n        (\n'
+                + '\n'.join(f'            ({t:.3f} {q:.8f})' for t, q in qrows) + '\n        );\n        value           uniform (0 0 0);')
+    OUTLET_P = 'type fixedFluxPressure; value uniform 0;'
+else:
+    OUTLET_U = '        type            pressureInletOutletVelocity;\n        value           uniform (0 0 0);'
+    OUTLET_P = 'type totalPressure; p0 uniform 0; value uniform 0;'
 write('0.orig/U', 'volVectorField', 'U', f'''dimensions [0 1 -1 0 0 0 0];
 internalField uniform (0 0 0);
 boundaryField
 {{
     "(wall|lid)" {{ type noSlip; }}
 {jetU}
-    outlet {{ type pressureInletOutletVelocity; value uniform (0 0 0); }}
+    outlet
+    {{
+{OUTLET_U}
+    }}
     atmosphere {{ type pressureInletOutletVelocity; value uniform (0 0 0); }}
 }}
 ''')
@@ -288,7 +303,7 @@ internalField uniform 0;
 boundaryField
 {{
     "(wall|lid|{JETS})" {{ type fixedFluxPressure; value uniform 0; }}
-    outlet {{ type totalPressure; p0 uniform 0; value uniform 0; }}
+    outlet {{ {OUTLET_P} }}
     atmosphere {{ type totalPressure; p0 uniform 0; value uniform 0; }}
 }}
 ''')
