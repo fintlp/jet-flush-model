@@ -125,9 +125,9 @@ The coefficients that describe physics the model does not resolve (film friction
 
 ## Change log
 
-### 2.0.0 · in preparation
+### 2.0.0 · 21 October 2026
 
-Version 2.0 changes model results. Work in progress on branch `dev-2.0`; this entry grows with each phase. Many of the changes come from an independent physics review of the branch.
+Version 2.0 changes model results. Many of the changes come from independent reviews: a physics review of the development branch and three external reviews of the release candidate; [reviews/](reviews/) has the findings and what was done about each.
 
 **Wall film**
 
