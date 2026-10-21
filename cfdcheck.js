@@ -15,7 +15,9 @@
   // added at the top. Wall-clock times come from the run file when it has them (case.wallClock_s, case.cores),
   // otherwise from the CFD status notes given here.
   const RUNS = [
-    { file: 'coarse-modelout-1.5s.json', label: 'coarse mesh, 3 mm cells at the wall, 157,596 cells', wallClock_s: 14 * 60, cores: 12, validTo: 1.3,
+    { file: 'coarse-full-3.2s.json', label: 'coarse mesh, 3 mm cells at the wall, 157,596 cells',
+      note: 'Pool and trap flow match the fast model up to 1.3 s; after that the trap outlet of this run draws air from the swirling pool, so the bowl holds more water than in the fast model. The wall data run to 3.2 s.' },
+    { file: 'coarse-modelout-1.5s.json', label: 'coarse mesh, 3 mm cells at the wall, 157,596 cells',
       note: 'Pool and trap flow are valid to 1.3 s; after that the vortex air core reaches the outlet. The wall data run to 1.5 s.' }
   ];
   const ARRIVAL = 'coarse-arrival-1s.json';
@@ -35,14 +37,15 @@
   // ---- stills and video of the CFD run, when the CFD work has rendered them ----
   // cfd/washdown/media/manifest.json: { "video": { "file", "poster", "caption" }, "stills": [ { "file", "caption" } ] },
   // file names relative to cfd/washdown/media/. MEDIA is switched on once the manifest is in the repository.
-  const MEDIA = false;
+  const MEDIA = true;
   async function media() {
     const box = $('cfdMedia'); if (!box || !MEDIA) return;
     let m = null; try { const res = await fetch('cfd/washdown/media/manifest.json', { cache: 'no-cache' }); if (res.ok) m = await res.json(); } catch (e) { m = null; }
     if (!m) return;
     const P = 'cfd/washdown/media/', esc = (t) => String(t || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-    box.innerHTML = (m.video ? `<figure class="cfd-fig"><video controls muted playsinline preload="none" ${m.video.poster ? `poster="${P + esc(m.video.poster)}"` : ''} src="${P + esc(m.video.file)}"></video><figcaption>${esc(m.video.caption)} Simulation, not a measurement.</figcaption></figure>` : '') +
-      (m.stills || []).map((q) => `<figure class="cfd-fig"><img loading="lazy" src="${P + esc(q.file)}" alt="${esc(q.caption)}"><figcaption>${esc(q.caption)} Simulation, not a measurement.</figcaption></figure>`).join('');
+    const short = (q) => `${q.view === 'top' ? 'From above' : 'Front half removed'}, ${fmt(q.t, 1)} s`;
+    box.innerHTML = (m.video ? `<figure class="cfd-fig cfd-video"><video controls muted playsinline preload="none" ${m.video.poster ? `poster="${P + esc(m.video.poster)}"` : ''} src="${P + esc(m.video.file)}"></video><figcaption>${esc(m.video.caption)} Simulation, not a measurement.</figcaption></figure>` : '') +
+      (m.stills && m.stills.length ? `<div class="cfd-stills">${m.stills.map((q) => `<figure class="cfd-fig"><a href="${P + esc(q.file)}" target="_blank" rel="noopener"><img loading="lazy" src="${P + esc(q.file)}" alt="${esc(q.caption)}"></a><figcaption>${esc(short(q))}</figcaption></figure>`).join('')}</div><p class="ai-note">Stills of the same CFD run: the water surface, coloured by water speed. Simulation, not a measurement.</p>` : '');
     box.hidden = false;
   }
 
@@ -85,8 +88,8 @@
     $('cfdDiff').innerHTML = `<p><b>Where they differ.</b></p><ul>` +
       (first != null ? `<li><b>First water in the pool:</b> CFD after <b>${fmt(first, 2)} s</b>, as a thin edge running down the steep upper wall; the fast model after <b>${fmt(S.mod.firstArr, 2)} s</b>, when its film front arrives, and then all at once. A real arrival is more gradual than the model's jump.</li>` : '') +
       (cs && ms ? `<li><b>Pool swirl at ${fmt(tq, 1)} s:</b> CFD <b>${fmt(cs.uTheta, 2)} m/s</b>, fast model <b>${fmt(ms.uMean, 2)} m/s</b>. The CFD pool spins faster and forms a deep air core. The two numbers are not defined in quite the same way, so compare the trend.</li>` : '') +
-      `<li><b>Film paths:</b> in the CFD the water runs down the wall soon after each jet, in diagonal bands; in the fast model the films first circle near the rim and reach the lower wall later. The wetted totals end up close, the paths do not.</li>` +
-      `<li><b>Near the waterline:</b> the CFD also counts the swirling pool washing the wall as it rises; the fast model cleans only with the films, so it leaves the band just above the waterline. Higher up, the CFD leaves streaks behind each jet that are wetted but not cleaned. The cleaned totals (${fmt(S.cClean, 0)} % against ${fmt(S.mClean, 0)} %) hide these different patterns.</li></ul>` +
+      `<li><b>Wetting:</b> the CFD wets most of the wall within half a second; the fast model reaches the lower wall later. The wetted totals end up close.</li>` +
+      `<li><b>Near the waterline:</b> the CFD also counts the swirling pool washing the wall as it rises; the fast model cleans only with the films, so it leaves the band just above the waterline. Higher up, the CFD leaves streaks behind each jet that are wetted but not cleaned. The cleaned totals (${fmt(S.cClean, 0)} % against ${fmt(S.mClean, 0)} %) hide these different patterns.${(S.cfd.case.validTo || S.run.validTo) && (S.cfd.case.validTo || S.run.validTo) < S.cfd.case.end - 1e-9 ? ` From ${fmt(S.cfd.case.validTo || S.run.validTo, 1)} s on, the CFD bowl holds more water than the fast model's, which adds to its cleaning near the waterline.` : ''}</li></ul>` +
       `<p class="muted">That is what a fast model is: right on the trends, off in places. The next part, the engineering challenge, shows how a few expensive runs can correct exactly such differences.</p>`;
   }
 
@@ -102,7 +105,7 @@
       if (S.mode === 'wet') {
         const tw = tWet[j];
         if (tw == null || tw >= never || tw > tt + 1e-9) col = C.dry;
-        else col = A.mix(C.seq1, C.seq0, Math.min(1, tw / tEnd) * 0.85);
+        else col = A.mix(C.seq1, C.seq0, Math.min(1, tw / Math.min(1.5, tEnd)) * 0.85);
       } else col = J[j] >= Jcrit ? C.clean : (tWet[j] != null && tWet[j] < never ? C.wet : C.dry);
       ctx.fillStyle = A.rgba(col); ctx.fillRect(padL + i * cw, padT + k * chh, Math.ceil(cw) + 0.5, Math.ceil(chh) + 0.5);
     }
@@ -153,7 +156,7 @@
   function play() {
     if (!S.cfd || S.playing) return Promise.resolve();
     S.mode = 'wet'; modeButtons(); S.playing = true; $('cfdPlay').disabled = true;
-    const tEnd = S.cfd.case.end, dur = reduce() ? 0 : 6000, T0 = now();
+    const tEnd = Math.min(1.5, S.cfd.case.end), dur = reduce() ? 0 : 6000, T0 = now();   // the wetting happens in the first second or so
     return new Promise((res) => { (function tick() { const f = dur ? Math.min(1, (now() - T0) / dur) : 1; setT(f * tEnd); if (f < 1) requestAnimationFrame(tick); else { S.playing = false; $('cfdPlay').disabled = false; res(); } })(); });
   }
   function setMode(m) { S.mode = m; modeButtons(); draw(); }

@@ -267,7 +267,7 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   ok('CFD check: the caveat names the mesh and says it is not a measurement', cf0.cav.includes('mm cells at the wall') && cf0.cav.includes('not a measurement'), cf0.cav.slice(0, 160));
   await page.evaluate(() => FlushCFD.play());
   const cf1 = await page.evaluate(() => { const S = FlushCFD.data(); return { t: S.t, end: S.cfd.case.end, cw: S.cWet(S.cfd.case.end), mw: S.mWet(S.cfd.case.end), out: document.getElementById('cfdTOut').textContent }; });
-  ok('CFD check: playback runs the wall maps to the end of the CFD run', Math.abs(cf1.t - cf1.end) < 1e-9 && cf1.cw > 50 && cf1.mw > 50 && cf1.out.startsWith('t ='), cf1);
+  ok('CFD check: playback runs the wall maps through the first 1.5 s of the CFD run', Math.abs(cf1.t - Math.min(1.5, cf1.end)) < 1e-9 && cf1.cw > 50 && cf1.mw > 50 && cf1.out.startsWith('t ='), cf1);
   await page.click('[data-cfdmode="clean"]'); await page.waitForTimeout(100);
   ok('CFD check: the cleaning view disables the time slider', await page.evaluate(() => document.getElementById('cfdT').disabled && document.getElementById('cfdLegend').innerText.includes('cleaned')));
   await page.evaluate(() => document.getElementById('cfdTour').click());
