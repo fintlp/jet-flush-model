@@ -1,6 +1,6 @@
 # Tangential Jet Flush Model
 
-A fast model of how a rimless toilet flushes. Rim jets wash the bowl, swirl the pool and carry waste through the trap. Each flush computes in milliseconds in the browser, so you can change the design and see the effect on cleaning, waste removal, water use and relative noise right away. An AI lab searches for better designs and shows how the model would be trained and calibrated with PreonLab.
+A fast model of how a rimless toilet flushes. Rim jets wash the bowl, swirl the pool and carry waste through the trap. Each flush computes in milliseconds in the browser, so you can change the design and see the effect on cleaning, waste removal, water use and relative noise right away. An AI lab searches for better designs and shows how the model would be trained and calibrated with high-fidelity simulation, such as PreonLab, Ansys Fluent, Simcenter STAR-CCM+ or OpenFOAM.
 
 - **Live simulator:** https://fintlp.github.io/jet-flush-model/
 - **Guided demo:** https://fintlp.github.io/jet-flush-model/#demo
@@ -52,7 +52,7 @@ On a phone, the sliders open from the **Adjust design** button at the bottom.
 ## AI lab
 
 - **Design optimiser:** an evolutionary multi-objective search (NSGA-II style). You choose which jet, flush and bowl geometry settings may change, then either trade a weighted score against water or set targets it must meet, including an optional noise limit such as "no louder than now". About 540 designs take about 4 to 7 seconds, and every recommendation and table row it reports is re-checked at the simulator's own resolution; the other points in its chart are quick estimates.
-- **Neural surrogate:** a small neural network trained in the browser on a few hundred flushes. It answers about 1,000 to 2,000 times faster than the physics model. This stands in for training a network on PreonLab runs.
+- **Neural surrogate:** a small neural network trained in the browser on a few hundred flushes. It answers about 1,000 to 2,000 times faster than the physics model. This stands in for training a network on high-fidelity runs.
 - **Hybrid calibration:** the calibration workflow end to end. Six coefficients are fitted with Nelder-Mead to a few reference runs, a Gaussian process corrects what is left, and all versions are checked on hold-out designs. The reference data is synthetic and labelled as such.
 - **Noise calibration:** fits the noise coefficients to recordings of real flushes: audio files or sound level meter readings for a few designs, plus air core times from video. Audio is A-weighted and analysed in the browser, never uploaded. A demo with synthetic recordings from a hidden reference shows the workflow and checks the fit on designs left out.
 
@@ -102,7 +102,7 @@ console.log(r.cleanPct, r.solidsPct, r.paperPct, r.water);
 
 ## Calibration
 
-The coefficients that describe physics the model does not resolve (film friction, spreading, soil shear threshold, swirl transfer, transport thresholds and others) are fitted to a few reference runs. The procedure, the order of fitting and which measurement or CFD output to use for each coefficient are in [section 13 of the model description](https://fintlp.github.io/jet-flush-model/method.html#calibration). PreonLab is a good candidate for the reference runs; its fit for paper and other flexible media should be checked in a benchmark first.
+The coefficients that describe physics the model does not resolve (film friction, spreading, soil shear threshold, swirl transfer, transport thresholds and others) are fitted to a few reference runs. The procedure, the order of fitting and which measurement or CFD output to use for each coefficient are in [section 13 of the model description](https://fintlp.github.io/jet-flush-model/method.html#calibration). The reference runs can come from any high-fidelity free-surface solver: particle-based (SPH) such as PreonLab, nanoFluidX or the SPH solver of Simcenter STAR-CCM+, or mesh-based (VOF) such as Ansys Fluent or CFX, Simcenter STAR-CCM+, OpenFOAM or FLOW-3D. Section 13 compares them for this job. A good start is one preset in one tool of each family, checked against a simple rig measurement; paper removal is best calibrated against physical tests.
 
 ## Change log
 
@@ -134,6 +134,10 @@ Version 2.0 changes model results. Work in progress on branch `dev-2.0`; this en
 - **Noise calibration tab in the AI lab.** Fits the five noise coefficients to recordings of real flushes: audio files (A-weighted per IEC 61672-1 and turned into a fast 125 ms level in the browser) or sound level meter readings, for a few designs set up in the simulator, plus optional air core times from video. Only the differences between designs count, so microphone, room and distance cancel. A leave-one-design-out test says whether the fit carries over. The demo makes synthetic recordings from a hidden reference with a valve click, fill valve noise, scatter and a low-pitched gurgle the model does not know; the fit lowers the error on left-out designs from about 0.9 to about 0.3 dB. Recordings stay in the browser; only peak levels are remembered.
 - **Noise computed from recorded flow series.** The simulation now records the flow quantities the four noise sources need, and a separate `noiseEval` turns them into the noise result. The results are bit-identical to before; the calibration can evaluate any coefficients in well under a millisecond without simulating again.
 - Model description: the plunging-jet entrainment law is stated as an extrapolation to wall films; the wetted pool area and Ramanujan's perimeter are written out.
+
+**Calibration**
+
+- **Not only PreonLab.** Section 13 of the model description now covers high-fidelity free-surface simulation in general: the two families (mesh-based VOF and level set, particle-based SPH), what each does well and badly for thin wall films and wall shear, and eight candidate tools (PreonLab, Ansys Fluent and CFX, Simcenter STAR-CCM+, nanoFluidX, COMSOL, OpenFOAM, FLOW-3D, DualSPHysics). It suggests starting with one preset in one tool of each family against a simple rig check, since two solvers can differ markedly on the same bowl. Texts on the page, the README and the AI lab no longer name PreonLab as the only reference.
 
 **Checks**
 

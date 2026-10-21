@@ -302,7 +302,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
     <div class="title">
       <span class="eyebrow">Flush simulator · physics model + AI</span>
       <h1>Tangential Jet Flush Model</h1>
-      <p class="lede">A fast model of how a rimless toilet flushes. Rim jets wash the bowl, swirl the pool and carry waste through the trap. Each flush computes in milliseconds, so you can change the design and see the effect on cleaning, waste removal, water use and relative noise right away. An AI lab searches for better designs and shows how the model would be trained and calibrated with PreonLab. The coefficients are not calibrated yet, so read the results as trends.</p>
+      <p class="lede">A fast model of how a rimless toilet flushes. Rim jets wash the bowl, swirl the pool and carry waste through the trap. Each flush computes in milliseconds, so you can change the design and see the effect on cleaning, waste removal, water use and relative noise right away. An AI lab searches for better designs and shows how the model would be trained and calibrated with high-fidelity simulation such as PreonLab, Ansys Fluent, Simcenter STAR-CCM+ or OpenFOAM. The coefficients are not calibrated yet, so read the results as trends.</p>
       <p class="lede-detail">Under the hood: a reduced-order model from cistern to trap, covering jet films on an oval bowl wall, pool swirl, washdown or siphonic outflow and waste transport. One flush takes 5 to 20 ms in the browser; a free-surface CFD case of a flush typically runs for hours. <a href="method.html" target="_blank" rel="noopener">How the model works</a> · <a href="why.html" target="_blank" rel="noopener">Why we built this</a> · Slides: <a href="slides/jet-flush-model.pptx" target="_blank" rel="noopener">PowerPoint</a>, <a href="slides/jet-flush-model.pdf" target="_blank" rel="noopener">PDF</a></p>
     </div>
     <div class="actions">
@@ -513,7 +513,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
 
         <div id="aiSur" role="tabpanel" class="ai-pane" hidden>
           <p class="validity" id="surStale" role="status" hidden></p>
-          <p class="ai-lede">A small neural network (6 inputs, two hidden layers of 32, 3 outputs) learns the physics model from a few hundred example flushes, then answers in microseconds. This stands in for the real use case: training the same kind of network on PreonLab runs.</p>
+          <p class="ai-lede">A small neural network (6 inputs, two hidden layers of 32, 3 outputs) learns the physics model from a few hundred example flushes, then answers in microseconds. This stands in for the real use case: training the same kind of network on high-fidelity runs, for example from PreonLab, Fluent, STAR-CCM+ or OpenFOAM.</p>
           <div class="ai-ctl">
             <label class="f" for="surN">Training flushes<select id="surN"><option value="100">100</option><option value="300" selected>300</option><option value="800">800</option></select></label>
             <button class="btn primary" type="button" id="surRun">Generate data and train</button>
@@ -532,12 +532,12 @@ td code{font-family:var(--f-mono);font-size:12.5px}
 
         <div id="aiHyb" role="tabpanel" class="ai-pane" hidden>
           <p class="validity" id="hybStale" role="status" hidden></p>
-          <p class="ai-lede">The calibration workflow from the model description, end to end. A hidden reference model plays the role of PreonLab: it uses different coefficients and adds effects the physics model cannot represent. The tool fits six coefficients to a few reference runs with Nelder-Mead, adds a Gaussian-process correction for what is left, and checks all three versions on designs it never saw.</p>
+          <p class="ai-lede">The calibration workflow from the model description, end to end. A hidden reference model plays the role of a high-fidelity solver: it uses different coefficients and adds effects the physics model cannot represent. The tool fits six coefficients to a few reference runs with Nelder-Mead, adds a Gaussian-process correction for what is left, and checks all three versions on designs it never saw.</p>
           <div class="ai-ctl">
             <label class="f" for="hybN">Reference runs<select id="hybN"><option value="4">4</option><option value="6" selected>6</option><option value="10">10</option></select></label>
             <button class="btn primary" type="button" id="hybRun">Run calibration</button>
           </div>
-          <p class="ai-status" id="hybStatus">The reference data is synthetic. With real PreonLab runs the steps are the same.</p>
+          <p class="ai-status" id="hybStatus">The reference data is synthetic. With real high-fidelity runs, from any solver, the steps are the same.</p>
           <div class="ai-two">
             <canvas id="cvHybBars" aria-label="Mean error of uncalibrated, calibrated and hybrid model on hold-out designs"></canvas>
             <canvas id="cvHybPar" aria-label="Model prediction against reference on hold-out designs"></canvas>

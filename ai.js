@@ -2,7 +2,7 @@
    1. Evolutionary multi-objective design search (NSGA-II style)
    2. Neural surrogate trained in the browser on physics-model runs
    3. Hybrid calibration: Nelder-Mead coefficient fit plus a Gaussian-process correction,
-      against synthetic reference data that stands in for PreonLab runs
+      against synthetic reference data that stands in for high-fidelity solver runs
    4. Noise calibration: the five noise coefficients fitted to recorded flushes (or synthetic demo recordings) */
 (function () {
   const A = window.FlushApp, M = window.FlushModel;
@@ -546,7 +546,7 @@
     $('surStatus').textContent = `Trained in ${secs.toFixed(1)} s on ${S.data.Xtr.length} physics runs, tested on ${Xte.length} unseen designs.`;
     $('surTable').innerHTML = `<thead><tr><th>Output</th><th>Mean abs. error</th><th>R² on unseen designs</th></tr></thead><tbody>` +
       OUT.map(([, lab], j) => `<tr><td>${lab}</td><td class="num">${fmt(m[j].mae, 1)} points</td><td class="num">${fmt(m[j].r2, 3)}</td></tr>`).join('') + '</tbody>';
-    $('surSpeed').innerHTML = `<p><b>${fmt(S.simMs, 1)} ms</b> per flush with the physics model, <b>${fmt(nnUs, 1)} µs</b> with the network: about <b>${Math.round(speed).toLocaleString('en')} times faster</b>.</p><p class="muted">Both timings are measured in this browser. A PreonLab or CFD run of a flush takes minutes to hours, so a network trained on such runs could be faster still by a much larger factor. That is a rough expectation, not a benchmark, and the training runs would have to be paid for first.</p>`;
+    $('surSpeed').innerHTML = `<p><b>${fmt(S.simMs, 1)} ms</b> per flush with the physics model, <b>${fmt(nnUs, 1)} µs</b> with the network: about <b>${Math.round(speed).toLocaleString('en')} times faster</b>.</p><p class="muted">Both timings are measured in this browser. A high-fidelity run of a flush, SPH or VOF, takes minutes to hours, so a network trained on such runs could be faster still by a much larger factor. That is a rough expectation, not a benchmark, and the training runs would have to be paid for first.</p>`;
     surCurrent(); drawSurLoss(); drawSurParity();
   }
   function surCurrent() {
@@ -646,7 +646,7 @@
       refD.forEach((des, i) => { const e = evalPhysics(base, des, coef); s += (e.clean - refT[i].clean) ** 2 + (e.solids - refT[i].solids) ** 2; });
       return s / refD.length;
     };
-    say(`Generated ${nRef} reference runs and ${nHold} hold-out runs from the hidden reference model (stands in for PreonLab).`);
+    say(`Generated ${nRef} reference runs and ${nHold} hold-out runs from the hidden reference model (stands in for high-fidelity solver runs).`);
     H.stop = slices(() => {
       if (step === 'truth') { refT = refD.map((d) => truth(base, d, r)); holdT = holdD.map((d) => truth(base, d, r)); step = 'fit'; gen = nelderMead(obj, coefToTheta(defaults), 60); $('hybStatus').textContent = 'Fitting coefficients with Nelder-Mead…'; return true; }
       if (step === 'fit') {

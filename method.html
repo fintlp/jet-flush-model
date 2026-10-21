@@ -113,7 +113,7 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
         <li><a href="#noise"><span class="n">10</span>Noise indicator</a></li>
         <li><a href="#numerics"><span class="n">11</span>Numerics and speed</a></li>
         <li><a href="#coefficients"><span class="n">12</span>Parameters and coefficients</a></li>
-        <li><a href="#calibration"><span class="n">13</span>Calibration with PreonLab</a></li>
+        <li><a href="#calibration"><span class="n">13</span>Calibration with high-fidelity simulation</a></li>
         <li><a href="#ailab"><span class="n">14</span>AI lab</a></li>
         <li><a href="#approaches"><span class="n">15</span>Comparison with other approaches</a></li>
         <li><a href="#limits"><span class="n">16</span>Assumptions and limits</a></li>
@@ -544,21 +544,36 @@ F(a) = (2/a² − 1)(1 − a²) + ½ + 2 ln a + 1 − a²
       </section>
 
       <section id="calibration">
-        <h2>13 · Calibration with PreonLab</h2>
-        <h3>Why PreonLab fits this job</h3>
-        <p>PreonLab is a particle-based (SPH) flow solver from FIFTY2. It needs no volume mesh and handles free surfaces, splashing and thin films naturally, which suits a flush better than many mesh-based tools. For the media in a flush it offers:</p>
+        <h2>13 · Calibration with high-fidelity simulation</h2>
+        <p>The coefficients of this model are calibrated against a few reference runs of a high-fidelity free-surface solver, ideally backed by a few rig measurements. The workflow below does not depend on the tool: any solver that can export the quantities listed in step 2 will do. The choice of tool matters for how well it captures the thin wall films and the wall shear, how much a run costs, and whether it can carry test media.</p>
+        <h3>Two families of solvers</h3>
         <ul>
-          <li><strong>Liquids:</strong> the core strength, including multiphase flows and surface tension.</li>
-          <li><strong>Solids:</strong> two-way coupled rigid bodies, with the rigid body solver running on GPUs in version 6.2. Suitable for balls and other rigid test media.</li>
-          <li><strong>Flexibles:</strong> a linear elastic solver for fluid-structure interaction, added as an experimental feature in version 6.2. Suitable for elastic objects. Toilet paper is harder: it is very thin, loses strength when wet and tears, which a linear elastic model does not capture.</li>
-          <li><strong>Paste-like solids:</strong> non-Newtonian fluid models such as Carreau-Yasuda are available and could stand in for soft solid media.</li>
+          <li><strong>Mesh-based, with an interface-capturing method</strong> such as volume of fluid (VOF) or level set: the bowl is filled with a volume mesh, and a field marks where the water is. Mature, widely validated and the method of every published toilet study found for this page. A thin wall film needs several cells across its few millimetres, so the mesh near the wall must be fine, and splashing droplets smaller than the cells are lost.</li>
+          <li><strong>Particle-based, smoothed particle hydrodynamics (SPH)</strong>: the water is a cloud of particles and no volume mesh is needed. Free surfaces, splashing and fast-changing water shapes come naturally, and the methods run well on GPUs. Wall shear in a thin film needs particles much smaller than the film thickness and careful treatment of the wall.</li>
         </ul>
-        <p>I could not find a published PreonLab case for toilet flushing, so its accuracy for this application, and especially for paper, should be checked in a short benchmark with FIFTY2. Published toilet studies more often use mesh-based VOF solvers, for example Ansys Fluent with coupled discrete particles (EDEM) for test balls.</p>
+        <p>For either family, check the wall shear of a thin film on a simple case before trusting the shear map of a flush, for example a film running down an inclined plate, against a known solution or a measurement.</p>
+        <h3>Candidate tools</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Tool</th><th>Maker</th><th>Free-surface method</th><th>Points for a flush</th></tr></thead>
+            <tbody>
+              <tr><td>PreonLab</td><td>FIFTY2</td><td>Implicit incompressible SPH, GPU</td><td>No mesh; splashing and thin films; two-way coupled rigid bodies on GPUs (version 6.2), an experimental linear elastic solver for flexible bodies and non-Newtonian models such as Carreau-Yasuda for paste-like media. No published toilet case found.</td></tr>
+              <tr><td>Ansys Fluent, Ansys CFX</td><td>Ansys, part of Synopsys since July 2025</td><td>VOF on a mesh</td><td>The most used tools in published toilet studies, including Fluent coupled with discrete-element particles (EDEM) for test balls and CFX for bowl wash. The Fluent GPU solver supports VOF as a beta feature since 2025 R1.</td></tr>
+              <tr><td>Simcenter STAR-CCM+</td><td>Siemens</td><td>VOF on a mesh; also an SPH solver since 2402, on GPUs since 2410</td><td>Both families in one tool, with DEM for particles. The SPH solver needs an extra licence and uses one particle size for the whole region.</td></tr>
+              <tr><td>nanoFluidX</td><td>Altair, part of Siemens since March 2025</td><td>Weakly compressible SPH, GPU</td><td>Built for free-surface and multiphase flows with surface tension, such as oiling of gearboxes; suits fast screening of many runs on GPUs.</td></tr>
+              <tr><td>COMSOL Multiphysics, CFD Module</td><td>COMSOL</td><td>Level set or phase field on a fixed mesh; moving mesh without topology changes</td><td>Strong where the flow is coupled with other physics or the interface must be resolved finely. A turbulent flush with splashing and break-up needs a fine mesh everywhere the water goes; no toilet study found.</td></tr>
+              <tr><td>OpenFOAM</td><td>Open source (openfoam.com, openfoam.org)</td><td>VOF: interFoam, and interIsoFoam with the sharper isoAdvector scheme</td><td>No licence cost and fully scriptable, so many reference runs can go on a cluster. Takes more setup effort. A 2025 preprint ran the same 4.8 L bowl in OpenFOAM and Fluent and found peak velocities of 3.0 and 4.8 m/s, a reminder that solvers need validation too.</td></tr>
+              <tr><td>FLOW-3D</td><td>Flow Science, part of Dr. Flender Holding since December 2021</td><td>TruVOF on a structured mesh</td><td>A free-surface specialist from hydraulic engineering and casting; the VOF method itself goes back to its founder.</td></tr>
+              <tr><td>DualSPHysics</td><td>Open source (LGPL), universities of Vigo, Manchester and others</td><td>Weakly compressible SPH, GPU</td><td>Free, with couplings for floating and articulated bodies; developed for coastal engineering, so a bowl case needs its own validation.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>A sensible start is one preset run in two tools of different families, one VOF and one SPH, compared with a simple rig check: a video of the film reach from above and a timed pool level. Where the two solvers agree with each other and with the rig, their runs can calibrate the model; where they disagree, the rig decides. For paper, every tool listed is at its limit: toilet paper is very thin, loses strength when wet and tears, which none of the standard solid or elastic models captures, so paper removal is best calibrated against physical tests.</p>
 
         <h3>Calibration procedure</h3>
         <ol class="steps">
           <li><strong>Choose a small set of reference designs</strong> that span the design space you care about, for example low and high nozzle area, two jet angles and two ovalities.</li>
-          <li><strong>Run them in PreonLab</strong> and export: inflow Q(t) at the nozzles, wall wetting and wall shear maps at fixed times, pool level and outflow over time, pool angular momentum, and the media removed over time.</li>
+          <li><strong>Run them in the reference solver</strong> and export: inflow Q(t) at the nozzles, wall wetting and wall shear maps at fixed times, pool level and outflow over time, pool angular momentum, and the media removed over time.</li>
           <li><strong>Fit hydraulics first:</strong> K and the valve height from Q(t), then the weir and siphon coefficients from level and outflow.</li>
           <li><strong>Fit the film next:</strong> c<sub>f</sub> and k<sub>sp</sub> from the wetted footprint, then τ<sub>c</sub> and J<sub>crit</sub> from the wall shear map combined with a soil threshold or a physical wash test.</li>
           <li><strong>Fit swirl:</strong> η, c<sub>fp</sub> and k<sub>ov</sub> from pool angular momentum.</li>
@@ -568,7 +583,7 @@ F(a) = (2/a² − 1)(1 − a²) + ½ + 2 ln a + 1 − a²
         <p>Each fit is a small least-squares problem over a handful of coefficients. Because one model run takes milliseconds, a standard optimiser such as Nelder-Mead can run thousands of evaluations in seconds.</p>
 
         <h3>Hybrid option</h3>
-        <p>Where the physics-based model stays off after calibration, a small machine-learning correction can be trained on the remaining differences between model and PreonLab, for example a Gaussian process per output. This needs far fewer reference runs than a full neural surrogate, keeps the physical explanation, and gives an uncertainty estimate that grows away from the reference designs.</p>
+        <p>Where the physics-based model stays off after calibration, a small machine-learning correction can be trained on the remaining differences between model and the reference runs, for example a Gaussian process per output. This needs far fewer reference runs than a full neural surrogate, keeps the physical explanation, and gives an uncertainty estimate that grows away from the reference designs.</p>
       </section>
 
       <section id="ailab">
@@ -597,12 +612,12 @@ F(a) = (2/a² − 1)(1 − a²) + ½ + 2 ln a + 1 − a²
           <li><strong>Checks:</strong> mean absolute error and R² on the unseen test designs, and the measured time per prediction against the physics model.</li>
         </ul>
         <p>The surrogate and the hybrid calibration below do not cover the noise indicator yet.</p>
-        <p>With 300 training flushes the network typically reaches an R² around 0.9 to 0.96 on unseen designs and answers in about 5 µs, roughly 1,000 to 2,000 times faster than the physics model. The physics model plays the part that PreonLab runs would play in practice. Trained on PreonLab runs, the same kind of network could be faster than a new PreonLab run by a much larger factor. That is a rough expectation, not a benchmark, and each training run would cost minutes to hours.</p>
+        <p>With 300 training flushes the network typically reaches an R² around 0.9 to 0.96 on unseen designs and answers in about 5 µs, roughly 1,000 to 2,000 times faster than the physics model. The physics model plays the part that high-fidelity runs (section 13) would play in practice. Trained on such runs, the same kind of network could be faster than a new high-fidelity run by a much larger factor. That is a rough expectation, not a benchmark, and each training run would cost minutes to hours.</p>
 
         <h3>Hybrid calibration</h3>
         <p>An end-to-end run of the calibration workflow in <a href="#calibration">section 13</a>, against synthetic reference data.</p>
         <ul>
-          <li><strong>Reference data:</strong> a hidden reference model stands in for PreonLab. It is the physics model with different coefficients, plus two effects the physics model cannot represent (a penalty away from an optimal nozzle size and a dependence on jet position for cleaning, a low-flow penalty for solids), plus measurement noise of 0.7 points.</li>
+          <li><strong>Reference data:</strong> a hidden reference model stands in for high-fidelity runs (section 13). It is the physics model with different coefficients, plus two effects the physics model cannot represent (a penalty away from an optimal nozzle size and a dependence on jet position for cleaning, a low-flow penalty for solids), plus measurement noise of 0.7 points.</li>
           <li><strong>Calibration:</strong> Nelder-Mead fits six coefficients (film friction, spreading, critical shear, shear dose, solids transport threshold, maximum solids concentration) to 4, 6 or 10 reference runs. Coefficients are searched in a bounded log space, for up to 60 iterations.</li>
           <li><strong>Correction:</strong> a Gaussian process with a squared-exponential kernel learns what the calibrated model still gets wrong. The length scale is chosen by leave-one-out error, and the correction is dropped when it would not beat no correction.</li>
           <li><strong>Test:</strong> all three versions, uncalibrated, calibrated and hybrid, are scored on 24 hold-out designs the fit never saw.</li>
@@ -628,13 +643,13 @@ F(a) = (2/a² − 1)(1 − a²) + ½ + 2 ln a + 1 − a²
             <thead><tr><th>Approach</th><th>Time per flush case</th><th>One-off cost</th><th>Fidelity</th></tr></thead>
             <tbody>
               <tr><td>This reduced-order model</td><td class="num">5–20 ms</td><td>A handful of reference runs to calibrate; how many is still open</td><td>Trends; accuracy unknown until calibrated</td></tr>
-              <tr><td>PreonLab (SPH) or VOF CFD</td><td class="num">minutes to hours</td><td>Setup, meshing or particle resolution study</td><td>High</td></tr>
+              <tr><td>High-fidelity free-surface solver, SPH (such as PreonLab, nanoFluidX) or VOF (such as Fluent, STAR-CCM+, OpenFOAM)</td><td class="num">minutes to a day</td><td>Setup, meshing or particle resolution study, validation</td><td>High, once validated; two solvers can still differ markedly on the same bowl</td></tr>
               <tr><td>PINN trained per case</td><td class="num">hours to days of training</td><td>None</td><td>Often unreliable for transient free-surface flows</td></tr>
               <tr><td>Neural surrogate trained on CFD</td><td class="num">milliseconds to seconds</td><td>Tens to hundreds of CFD runs plus training</td><td>Good inside the trained design range</td></tr>
             </tbody>
           </table>
         </div>
-        <p>The PreonLab range is an extrapolation. FIFTY2 reports about 6 minutes on a GPU for a 1.8 million particle single-phase case over 2 s of flow, and about 45 hours for a 2.2 million particle multiphase case over 5 s. A flush lasts 8 to 10 s and involves free surfaces and splashing, so minutes to many hours per case is a realistic range. In an industrial example, Geberit reported about one day per design iteration including geometry changes, using CFD that ran overnight.</p>
+        <p>The time range is an extrapolation. For SPH on GPUs, FIFTY2 reports about 6 minutes for a 1.8 million particle single-phase case over 2 s of flow in PreonLab, and about 45 hours for a 2.2 million particle multiphase case over 5 s. Published VOF studies of toilets use meshes of about one to a few million cells and time steps of about 0.1 to 0.2 ms over a flush of about 10 s. A flush lasts 8 to 10 s and involves free surfaces and splashing, so minutes to a day per case is a realistic range, depending on resolution and hardware. In an industrial example, Geberit reported about one day per design iteration including geometry changes, using CFD that ran overnight.</p>
         <p>Physics-informed neural networks are not a good fit for forward flush simulation. A review of machine learning for fluid equations found that most papers claiming to beat numerical methods compared against weak baselines, and its authors describe PINNs as much slower than standard numerical methods for forward problems and prone to not converging. Data-driven surrogates trained on solver results are the more promising ML route, at the price of generating the training runs.</p>
       </section>
 
@@ -698,8 +713,8 @@ console.log(r.cleanPct, r.solidsPct, r.water, r.noise.peak);</div>
           <li><strong>Washdown:</strong> trap type where water spills over the weir and pushes waste out by momentum. Common in Europe.</li>
           <li><strong>Siphonic:</strong> trap type where the trapway fills, a siphon forms and pulls the pool down. Common in North America.</li>
           <li><strong>Reduced-order model:</strong> a model that keeps the main physical mechanisms in a few equations instead of resolving the full flow field.</li>
-          <li><strong>SPH:</strong> smoothed particle hydrodynamics, the meshless particle method used by PreonLab.</li>
-          <li><strong>VOF:</strong> volume of fluid, the usual free-surface method in mesh-based CFD.</li>
+          <li><strong>SPH:</strong> smoothed particle hydrodynamics, the meshless particle method used by PreonLab, nanoFluidX, DualSPHysics and the SPH solver of Simcenter STAR-CCM+.</li>
+          <li><strong>VOF:</strong> volume of fluid, the mesh-based method that marks the share of water in each cell; used by Ansys Fluent and CFX, Simcenter STAR-CCM+, OpenFOAM and FLOW-3D.</li>
           <li><strong>PINN:</strong> physics-informed neural network, a network trained to satisfy the flow equations directly.</li>
           <li><strong>Air core:</strong> a vortex deep enough that air reaches the outlet through its centre.</li>
           <li><strong>Minnaert frequency:</strong> the natural frequency of a gas bubble in a liquid; it falls as the bubble gets bigger.</li>
