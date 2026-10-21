@@ -4,7 +4,7 @@
 //   node checks/browser.js            serves this repository on a free local port and tests it
 //   node checks/browser.js <url>      tests a running copy instead, for example the live site
 // Check names starting with F-numbers or Open refer to the findings of the independent review of 1.3.0, fixed in 1.3.1.
-// Takes about five minutes (the demo, normal and robust optimiser searches, a surrogate training run, a noise fit and two tolerance studies). Exits with code 1 on any failure.
+// Takes about six minutes (the demo, normal and robust optimiser searches, the engineering challenge, a surrogate training run, a noise fit and two tolerance studies). Exits with code 1 on any failure.
 const http = require('http'), fs = require('fs'), path = require('path');
 const { chromium } = require('playwright');
 const ROOT = path.join(__dirname, '..');
@@ -257,6 +257,27 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   await page.waitForFunction(() => !FlushAI.busy(), null, { timeout: 60000 });
   const pg4 = await page.evaluate(() => ({ st: document.getElementById('optStatus').textContent, inc: FlushAI._test.opt().incomplete, fin: FlushAI._test.opt().final, hidden: document.getElementById('optProg').hidden }));
   ok('Optimiser: Stop during the check reports only checked designs and says so', pg3.txt.startsWith('Step 2 of 2, checking') && pg3.btn.startsWith('Stop check') && pg4.inc && pg4.fin && pg4.hidden && pg4.st.includes('You stopped the full-resolution check'), { pg3, st: pg4.st.slice(0, 120) });
+
+  // Engineering challenge (2.0): the race, its headline and table, the hidden reference, your turn
+  await fresh();
+  await page.evaluate(() => document.getElementById('challenge').scrollIntoView());
+  await page.click('#chRun'); await page.waitForTimeout(3000);
+  const chp = await page.evaluate(() => ({ shown: !document.getElementById('chProg').hidden, txt: document.querySelector('#chProg .prog-txt').textContent }));
+  ok('Challenge: progress bar shows what is computed', chp.shown && chp.txt.length > 10, chp);
+  await page.waitForFunction(() => !FlushChallengeUI.busy() && document.getElementById('chHead').innerText.includes('This race'), null, { timeout: 180000 });
+  const chr = await page.evaluate(() => { const R = FlushChallengeUI.result(); return { ai: R.ai.toTarget, classic: R.classic.toTarget, fast: R.fast.toTarget, rows: document.querySelectorAll('#chTable tbody tr').length, rep: document.querySelectorAll('.ch-rep tbody tr').length, head: document.getElementById('chHead').innerText.slice(0, 120) }; });
+  ok('Challenge: the race finishes with a headline, three routes and the repeat table', chr.rows === 3 && chr.rep === 3 && chr.ai && chr.head.startsWith('This race'), chr);
+  ok('Challenge: the race matches checks/challenge.js (AI 5, classic 11, fast model alone 3)', chr.ai === 5 && chr.classic === 11 && chr.fast === 3, chr);
+  await page.click('#chReveal');
+  ok('Challenge: the hidden reference can be shown', await page.evaluate(() => !document.getElementById('chHidden').hidden && document.getElementById('chHidden').innerText.includes('in the reference')));
+  await page.click('#chLoad'); await page.waitForTimeout(200);
+  const chl = await P();
+  ok('Challenge: Load the start design puts the oval start into the simulator', chl.ovality === 1.35 && chl.jetPhase === 0 && chl.Vfull === 4.5, { ovality: chl.ovality, jetPhase: chl.jetPhase, Vfull: chl.Vfull });
+  await page.click('#chYouRun'); await page.evaluate(() => FlushApp.apply({ Vfull: 4.0, jetPhase: 90 })); await page.click('#chYouRun');
+  const chy = await page.evaluate(() => ({ n: FlushChallengeUI.you().length, items: document.querySelectorAll('#chYouLog li').length, txt: document.getElementById('chYouLog').innerText }));
+  ok('Challenge: your turn counts reference runs and says what each misses', chy.n === 2 && chy.items >= 2 && chy.txt.includes('misses'), chy);
+  await page.click('#chYouReset');
+  ok('Challenge: Start over clears your runs', await page.evaluate(() => FlushChallengeUI.you().length === 0));
 
   ok('No page errors', errs.length === 0, errs.slice(0, 5));
   console.log(out.join('\n'));

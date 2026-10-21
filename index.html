@@ -287,6 +287,16 @@ tr.best td{background:color-mix(in srgb, var(--clean) 12%, transparent)}
 .nz-fit label{display:inline-flex;gap:5px;align-items:center;color:var(--ink)}
 #nzTable input{width:5.5em}
 #nzRealBox input[type=file]{max-width:100%}
+.ch-label{font-size:13px;margin:0 0 8px}
+.linkbtn{background:none;border:0;padding:0;color:var(--accent);text-decoration:underline;cursor:pointer;font:inherit}
+.ch-routes{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px 16px;padding:0;list-style:none;font-size:13px;margin:8px 0}
+.ch-routes li{border-left:3px solid var(--line-strong);padding:2px 0 2px 10px}
+.ch-big{font-size:15px}
+.ch-log summary{cursor:pointer;font-size:13px;margin:6px 0}
+.ch-log tr.ok td{font-weight:600}
+.ch-you{margin-top:14px}
+@media (max-width:560px){ #cvCh{aspect-ratio:1/1} }
+.ch-you-log{font-size:13px;padding-left:20px;display:grid;gap:3px}
 .tol-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
 .tol-grp{border:1px solid var(--line);border-radius:8px;padding:6px 10px 8px;margin:0;display:grid;gap:4px}
 .tol-grp legend{font-size:12.5px;color:var(--muted);padding:0 4px}
@@ -347,7 +357,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
   </section>
 
   <nav class="jump" aria-label="Page sections">
-    <a href="#sim">Simulate</a><a href="#results">Results</a><a href="#traces">Traces</a><a href="#wallmap">Wall map</a><a href="#sweep">Sweep</a><a href="#tolerance">Tolerances</a><a href="#ai-lab">AI lab</a><a href="#how">How it works</a><a href="why.html" target="_blank" rel="noopener">Why</a>
+    <a href="#sim">Simulate</a><a href="#results">Results</a><a href="#traces">Traces</a><a href="#wallmap">Wall map</a><a href="#sweep">Sweep</a><a href="#tolerance">Tolerances</a><a href="#challenge">Challenge</a><a href="#ai-lab">AI lab</a><a href="#how">How it works</a><a href="why.html" target="_blank" rel="noopener">Why</a>
     <button type="button" class="jump-demo" id="demoBtn2">Demo me</button>
   </nav>
 
@@ -488,6 +498,41 @@ td code{font-family:var(--f-mono);font-size:12.5px}
         </div>
         <div class="tablewrap"><table id="tolTable" class="compact"></table></div>
         <div class="ai-results" id="tolSum"></div>
+      </section>
+
+      <section class="panel" aria-label="Engineering challenge" id="challenge">
+        <div class="panel-head"><h2>Engineering challenge</h2><span class="muted" style="font-size:12.5px">How many expensive simulations does it take to reach the targets?</span></div>
+        <p class="ai-lede">In development, each design candidate is checked with a high-fidelity simulation (CFD) or on a rig, and each run takes hours. Here a hidden reference model plays that part, and every run of it costs a virtual 8 hours. Three routes start from the same bowl and must reach the same targets. The fewer reference runs a route needs, the sooner the design is done.</p>
+        <p class="ch-label"><b>Synthetic reference.</b> It stands in for CFD: the flush model with other coefficients and effects the fast model does not have. It is not measured data. <button class="linkbtn" type="button" id="chReveal" aria-expanded="false" aria-controls="chHidden">What is different?</button></p>
+        <div class="ai-results" id="chHidden" hidden></div>
+        <div class="ai-results" id="chTask"></div>
+        <ul class="ch-routes">
+          <li><b>Classic: one change at a time.</b> Set the volume to the water target, then change one setting per run; keep what helps, undo what does not, take smaller steps when nothing helps.</li>
+          <li><b>Fast model alone.</b> The flush model screens a few hundred designs in seconds; the reference then runs its best designs in turn. It does not learn from the reference.</li>
+          <li><b>Fast model + learned correction (AI).</b> After every reference run, a Gaussian process learns where and by how much the fast model is off. The next run goes to the design most likely to meet all targets under the corrected model.</li>
+        </ul>
+        <div class="sweep-ctl" style="margin-top:12px">
+          <button class="btn primary" type="button" id="chRun">Run the race</button>
+          <span class="ai-status" id="chClock" aria-live="off"></span>
+        </div>
+        <div class="prog" id="chProg" hidden><div class="prog-bar" role="progressbar" aria-label="Progress of the race" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="prog-fill"></span></div><span class="prog-txt"></span></div>
+        <p class="ai-status" id="chStatus" role="status">Computes about 700 flushes in your browser, typically 15 to 25 seconds, then plays the race back on the virtual clock.</p>
+        <canvas id="cvCh" class="ai-cv-wide" aria-label="Best cleaning reached so far by each route against virtual days of high-fidelity computing, with the target line"></canvas>
+        <div class="ai-results" id="chHead"></div>
+        <div class="tablewrap"><table id="chTable" class="compact"></table></div>
+        <details class="ch-log" id="chLog"></details>
+        <fieldset class="opt-box ch-you">
+          <legend>Your turn</legend>
+          <p class="ai-note">Use the simulator as your fast model: load the start design, change the six settings, watch the result cards, and send a design to the reference when you think it meets the targets. Each run costs 8 virtual hours.</p>
+          <div class="sweep-ctl">
+            <button class="btn" type="button" id="chLoad">Load the start design</button>
+            <button class="btn primary" type="button" id="chYouRun">Run the reference on my design (8 h)</button>
+            <button class="btn" type="button" id="chYouReset">Start over</button>
+          </div>
+          <p class="ai-status" id="chYouNote" role="status"></p>
+          <ol class="ch-you-log" id="chYouLog"></ol>
+          <div class="ai-results" id="chYouSum"></div>
+        </fieldset>
       </section>
 
       <section class="panel" aria-label="AI lab" id="ai-lab">
@@ -681,6 +726,8 @@ td code{font-family:var(--f-mono);font-size:12.5px}
 <script src="model.js?v=20"></script>
 <script src="app.js?v=20"></script>
 <script src="tolerance.js?v=20"></script>
+<script src="challenge-core.js?v=20"></script>
+<script src="challenge.js?v=20"></script>
 <script src="ai.js?v=20"></script>
 <script src="tour.js?v=20"></script>
 </body>
