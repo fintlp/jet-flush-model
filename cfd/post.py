@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Reduce the output of an OpenFOAM reference run to a small summary that the flush model can be compared with.
 
-    python3 cfd/post.py [CASE]        (run inside the case folder, or give it)
+    python3 cfd/post.py [CASE] [--valid-to T]        (run inside the case folder, or give it)
 
 Writes CASE/summary.json with
   - time series: inflow per jet, water out of the trap, water in the domain, pool level, mean swirl of the pool,
@@ -13,7 +13,10 @@ Standard library only, so it runs on a plain macOS python3.
 """
 import glob, json, math, os, re, sys
 
-case = sys.argv[1] if len(sys.argv) > 1 else '.'
+_args = sys.argv[1:]
+VALID_TO = float(_args[_args.index('--valid-to') + 1]) if '--valid-to' in _args else None   # by hand (pressure-outlet runs)
+_pos = [x for i, x in enumerate(_args) if not x.startswith('--') and (i == 0 or _args[i - 1] != '--valid-to')]
+case = _pos[0] if _pos else '.'
 info = json.load(open(os.path.join(case, 'case-info.json')))
 D, Rr, Rp = info['D'], info['Rr'], info['Rp']
 RHO = 998.0
@@ -245,6 +248,76 @@ if arrival:
     # the plane is no longer above the pool once most of it is covered by water
     sub_t = next((a_['t'] for a_ in arrival if a_['wetArea'] > 0.5 * a_['area']), None)
     arrival_times = {'first_1mLs': first, 't10': t10, 't50': t50, 'planeSubmerged': sub_t}
+
+# ---------- run metadata for the page: wall clock, cores, valid window ----------
+def run_meta(case_dir, log_text=None):
+    """Wall clock (meshing plus solver) and cores from the runner's job log; the runner keeps logs in ../../logs."""
+    meta = {}
+    try:
+        if log_text is None:
+            root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            name = os.path.basename(os.path.abspath(case_dir))
+            jobs = []
+            for ln in open(os.path.join(root, 'logs', 'runner.log')):
+                m = re.match(r'== job (\S+) in cases/([^,]+),', ln)
+                if m and m.group(2) == name: jobs.append(m.group(1))
+            # the newest job of this case that ran the solver (a later job may only have rerun this script)
+            for job in reversed(jobs):
+                lf = os.path.join(root, 'logs', job + '.log')
+                if not os.path.exists(lf): continue
+                txt = open(lf, errors='replace').read()
+                if re.search(r'^== \d\d:\d\d:\d\d (mpirun|interFoam)', txt, re.M): log_text = txt; break
+            if log_text is None: return meta
+        mesh = solver = 0; cores = None; cmd = None
+        for ln in log_text.splitlines():
+            m = re.match(r'== \d\d:\d\d:\d\d (.*)', ln)
+            if m: cmd = m.group(1); continue
+            m = re.match(r'== exit \d+ after (\d+) s', ln)
+            if m and cmd:
+                w = cmd.split()
+                if w[0] == 'mpirun' or w[0] == 'interFoam':
+                    solver += int(m.group(1))
+                    if w[0] == 'mpirun': cores = int(w[2])
+                elif w[0] in ('blockMesh', 'snappyHexMesh', 'checkMesh', 'setFields', 'decomposePar', 'foamDictionary'):
+                    mesh += int(m.group(1))
+                cmd = None
+        meta = {'wallClock_s': mesh + solver, 'solver_s': solver, 'mesh_s': mesh, 'cores': cores or 1}
+    except Exception as e:
+        meta = {'wallClockError': str(e)}
+    return meta
+
+def valid_to(info, outflow, end):
+    """With the model's outflow prescribed: the time from which the water outflow stays below 90 % of the prescribed
+    flow (air at the outlet), rounded down to 0.05 s. Pool level and outflow are comparable with the model up to there."""
+    q = info.get('qout')
+    if not q and info.get('outlet_kind') == 'model':   # cases made before make_case stored the table
+        f = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'washdown', 'inflow.json')
+        if os.path.exists(f):
+            Q = json.load(open(f)); q = [[t, v] for t, v in zip(Q['tq'], Q['Qout'])]
+    if info.get('outlet_kind') != 'model' or not q or not outflow: return None
+    qt = [r_[0] for r_ in q]; qv = [r_[1] for r_ in q]
+    def presc(t):
+        if t <= qt[0]: return qv[0]
+        for i in range(1, len(qt)):
+            if t <= qt[i]: return qv[i - 1] + (qv[i] - qv[i - 1]) * (t - qt[i - 1]) / (qt[i] - qt[i - 1])
+        return qv[-1]
+    bad = None
+    for t, w in outflow:
+        p_ = presc(t)
+        if p_ > 1e-4 and w < 0.9 * p_:
+            if bad is None: bad = t
+            if t - bad >= 0.05: return math.floor(bad * 20 + 1e-9) / 20
+        else:
+            bad = None
+    return end
+
+meta = run_meta(case)
+info.update(meta)
+_vt = VALID_TO if VALID_TO is not None else valid_to(info, dat_series('flowRates'), info.get('end'))
+info['validTo'] = _vt if _vt is not None else info.get('end')
+info['validNote'] = ('pool level and outflow comparable with the model up to validTo; the wall data run to the end, '
+                     'with more water in the bowl than the model after validTo') if _vt is not None and _vt < (info.get('end') or 0) else ''
+info.pop('qout', None)
 
 out = {
     'case': info, 'tauUnit': tau_unit, 'tauDims': tau_dims, 'tauC': TAUC, 'Jcrit': JCRIT,
