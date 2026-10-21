@@ -234,6 +234,7 @@ section[id],.panel[id]{scroll-margin-top:64px}
 .tour-dots i.on{background:var(--accent)}
 .tour-end{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
 .tour .btn:disabled{opacity:.5}
+.btn:disabled{opacity:.5;cursor:default}
 @media (prefers-reduced-motion: reduce){ .tour-spot{transition:none} }
 body.touring .mobar{z-index:59}
 /* AI lab */
@@ -244,6 +245,12 @@ body.touring .mobar{z-index:59}
 .ai-ctl{display:flex;flex-wrap:wrap;gap:12px 18px;align-items:end}
 .ai-ctl .f{display:grid;gap:4px;font-size:12.5px;color:var(--muted);min-width:150px}
 .ai-note,.ai-status{font-size:12.5px;color:var(--muted);font-family:var(--f-mono)}
+.prog{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin:8px 0}
+.prog[hidden]{display:none}
+.prog-bar{flex:1 1 200px;height:8px;border-radius:4px;background:var(--line);overflow:hidden}
+.prog-fill{display:block;height:100%;width:0;background:var(--accent);transition:width .2s linear}
+.prog-txt{flex:1 1 100%;font-size:12.5px;color:var(--ink);font-family:var(--f-mono)}
+@media (prefers-reduced-motion: reduce){ .prog-fill{transition:none} }
 .ai-grid{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:18px;align-items:start}
 @media (max-width:820px){ .ai-grid{grid-template-columns:minmax(0,1fr)} }
 .ai-side{display:grid;gap:8px;font-size:13px}
@@ -473,6 +480,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
           <button class="btn" type="button" id="tolReset">Reset tolerances</button>
           <label class="f" for="tolM">Result to plot<select id="tolM"></select></label>
         </div>
+        <div class="prog" id="tolProg" hidden><div class="prog-bar" role="progressbar" aria-label="Progress of the tolerance study" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="prog-fill"></span></div></div>
         <p class="ai-status" id="tolStatus" role="status">About 30 to 40 ms per varied design. The optimiser in the AI lab can use these tolerances to look for designs that stay good under them.</p>
         <div class="ai-two">
           <canvas id="cvTolHist" aria-label="Distribution of the chosen result over the varied designs, with the nominal value and the 10 and 90 percent marks"></canvas>
@@ -529,6 +537,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
               <button class="btn primary" type="button" id="optRun">Start search</button>
             </fieldset>
           </div>
+          <div class="prog" id="optProg" hidden><div class="prog-bar" role="progressbar" aria-label="Progress of the search" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="prog-fill"></span></div><button class="btn" type="button" id="optStop">Cancel search</button><span class="prog-txt"></span></div>
           <p class="ai-status" id="optStatus">Score = weighted sum of cleaned, solids removed and paper removed, in %. Designs that do not restore the water seal never count as a solution.</p>
           <div class="ai-grid">
             <canvas id="cvOpt" class="ai-cv-wide" aria-label="Scatter of evaluated designs: water per flush against weighted score, with the best trade-off curve"></canvas>

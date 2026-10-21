@@ -222,6 +222,42 @@
   }
   function closest(list) { const L = list || pool(); return L.length ? L.slice().sort((a, b) => a.viol - b.viol || b.score - a.score)[0] : null; }
 
+  /* Progress of the search and its full-resolution check. Shown as a bar with a line of text under the run
+     settings, and sent as a 'flushaiprogress' event so the Demo me card can show the same bar. */
+  const PG = { phase: null };
+  const secs = (ms) => { const s = Math.max(1, Math.round(ms / 1000)); return s < 90 ? `${s} s` : `${Math.round(s / 60)} min`; };
+  function progress(st) {
+    if (!st) PG.phase = null; else Object.assign(PG, st);
+    if (PG.phase) {
+      const el = now() - PG.t0, f = PG.frac;
+      const eta = PG.eta != null ? PG.eta : f > 0.04 && el > 1500 ? `, about ${secs(el * (1 - f) / f)} left` : (PG.etaHint ? `, ${PG.etaHint}` : '');
+      PG.label = PG.text + eta;
+    }
+    const box = $('optProg');
+    if (box) {
+      box.hidden = !PG.phase;
+      if (PG.phase) {
+        const pc = Math.round(100 * Math.max(0, Math.min(1, PG.frac)));
+        box.querySelector('.prog-fill').style.width = pc + '%';
+        box.querySelector('.prog-bar').setAttribute('aria-valuenow', String(pc));
+        box.querySelector('.prog-txt').textContent = PG.label;
+        $('optStop').textContent = PG.phase === 'search' ? 'Cancel search' : 'Stop check, show checked designs';
+      }
+    }
+    document.dispatchEvent(new CustomEvent('flushaiprogress', { detail: Object.assign({}, PG) }));
+  }
+  // Cancel during the search: nothing is reported. Stop during the check: only the designs checked so far are reported.
+  function stopOpt() {
+    if (PG.phase === 'search' && O.running && !O.checking) {
+      if (O.stop) O.stop(); O.token++; O.cancelled = O.searchId;
+      O.running = false; O.all = []; O.front = []; O.best = null; O.hover = null; O.final = false;
+      $('optRun').disabled = false; progress(null);
+      $('optStatus').textContent = 'Search cancelled. Nothing was changed; start a new search when you are ready.';
+      $('optBest').innerHTML = '<p class="ai-note">Search cancelled.</p>';
+      drawOpt(); fillOptTable();
+    } else if (PG.phase === 'check') O.stopCheck = true;
+  }
+
   // force: cancel whatever search or check is running and start a new one (used by the walkthrough)
   function runOpt(force) {
     if (O.running && !O.checking && !force) return null;   // a search is running; a re-check may be interrupted
@@ -235,18 +271,26 @@
     const tok = ++O.token, sid = ++O.searchId;
     O.all = []; O.front = []; O.running = true; O.hover = null; O.base = base; O.vars = vars; O.goal = goal(); O.mode = mode; O.best = null; O.final = false; O.incomplete = false; O.checking = false; O.pending = false;
     O.robust = !!($('optRobust') && $('optRobust').checked && window.FlushTol && window.FlushTol.active().length);
+    O.cancelled = null;
     O.tolSig = O.robust ? window.FlushTol.signature() : null;
     O.fp = fingerprint(base, vars.map((d) => d.k).concat(['flushMode'])); staleNote('optStale', false);
     // every design carries the context of its search, so it can only be loaded the way it was computed
     const ctx = { sid, mode, fp: O.fp, keys: vars.map((d) => d.k), robust: O.robust };
     $('optRun').disabled = true;
     $('optBest').innerHTML = '<p class="ai-note">Searching. Results appear here when the search and its full-resolution check are finished.</p>';
+    const nTot = (GENS + 1) * POP; let nProp = 0;
+    $('optStatus').textContent = O.robust
+      ? `Robust search: each of about ${nTot.toLocaleString('en')} designs is simulated nominally and with ${RK} varied copies, then the best are checked at full resolution. This takes ${POP > 40 ? 'several minutes' : 'about a minute or two'}.`
+      : `Searching about ${nTot.toLocaleString('en')} designs, then checking the best at full resolution.`;
+    const searchText = () => `Step 1 of 2, searching: generation ${Math.min(gen + 1, GENS + 1)} of ${GENS + 1}, ${nProp} of ${nTot.toLocaleString('en')} designs`;
+    let lastPg = 0;
     $('optHover').textContent = 'Hover a point to read it, click to load that design.';
     setPending(false);
     const ND2 = vars.length;
     // identical designs (after snapping to the slider steps) are simulated once and listed once
     const seenDes = new Map();
     const ev = (x) => {
+      nProp++;
       const des = desOf(vars, x), key = JSON.stringify(vars.map((d) => des[d.k])), hit = seenDes.get(key);
       if (hit) return Object.assign({}, hit);   // a copy for the population; the results list keeps one entry
       const e = rate(Object.assign({ x: xOf(vars, des), des, ctx }, evalAny(base, des, mode, SIM, false)));
@@ -256,6 +300,7 @@
     O.cur = (() => { const des = {}; vars.forEach((d) => { des[d.k] = base[d.k]; }); return Object.assign({ des, ctx, full: true }, evalAny(base, des, mode, SIM_FULL, true)); })();
     rate(O.cur);   // rated once O.cur is set, so its own noise target check applies
     let pop = [], children = [], gen = 0, queue = lhsN(POP, ND2, r); const t0 = now();
+    progress({ phase: 'search', t0, frac: 0, text: searchText(), eta: null, etaHint: O.robust ? 'about a minute or more' : 'about 10 seconds' });
     const tour = () => { const a = pop[Math.floor(r() * pop.length)], b = pop[Math.floor(r() * pop.length)]; return (a.rank < b.rank || (a.rank === b.rank && a.crowd > b.crowd)) ? a : b; };
     const breed = () => {
       const kids = [];
@@ -267,11 +312,15 @@
     };
     O.stop = slices(() => {
       if (tok !== O.token) return false;
-      if (queue.length) { (gen === 0 ? pop : children).push(ev(queue.shift())); return true; }
+      if (queue.length) {
+        (gen === 0 ? pop : children).push(ev(queue.shift()));
+        if (now() - lastPg > 150) { lastPg = now(); progress({ frac: nProp / nTot, text: searchText() }); }
+        return true;
+      }
       if (gen > 0) { const merged = pop.concat(children); ndSort(merged); merged.sort((a, b) => a.rank - b.rank || b.crowd - a.crowd); pop = merged.slice(0, POP); children = []; }
       else ndSort(pop);
       O.front = paretoOf(O.all); O.best = pickBest();
-      $('optStatus').textContent = `Generation ${gen + 1} of ${GENS + 1} · ${O.all.length} designs evaluated${O.robust ? `, each with ${RK} varied copies` : ''} · ${((now() - t0) / 1000).toFixed(1)} s`;
+      progress({ frac: nProp / nTot, text: searchText() });
       drawOpt(); fillOptTable();
       if (gen >= GENS) return false;
       gen++; queue = breed(); return true;
@@ -280,7 +329,7 @@
       const tSearch = now() - t0, nSearch = O.all.length;
       $('optRun').disabled = false;   // a new search may start while the check runs; it cancels the check
       confirmReported(() => {
-        O.running = false;
+        O.running = false; progress(null);
         $('optStatus').textContent = `Done: ${nSearch} different designs simulated${O.robust ? `, each nominally and with ${RK} varied copies,` : ''} in ${(tSearch / 1000).toFixed(1)} s, ${(tSearch / nSearch).toFixed(1)} ms each. ${checkedLine()}${O.robust ? ` Robust: cleaning, solids and paper are the low end, water and noise the high end, of each design's spread under the tolerances. The full-resolution check uses the same copies.` : ''}`;
       });
     });
@@ -294,7 +343,7 @@
   }
   function checkedLine() {
     const nOk = pool().filter((e) => e.viol === 0).length;
-    const head = O.incomplete ? `The full-resolution check stopped after ${O.nChecked || 0} designs. The recommendations and table rows use only checked designs, so better ones may exist; the other points in the chart are quick estimates. Search again or tighten the targets.` : 'Every recommendation and table row is checked at full resolution; the other points in the chart are quick estimates.';
+    const head = O.incomplete ? `${O.userStopped ? 'You stopped the full-resolution check' : 'The full-resolution check stopped'} after ${O.nChecked || 0} designs. The recommendations and table rows use only checked designs, so better ones may exist; the other points in the chart are quick estimates. Search again or tighten the targets.` : 'Every recommendation and table row is checked at full resolution; the other points in the chart are quick estimates.';
     return `${head} ${O.goal === 'targets' ? nOk + ' checked designs meet all targets.' : O.front.length + ' designs on the best trade-off curve.'}`;
   }
   // The search runs at coarse wall-film resolution for speed, which can be off by several points of cleaning in
@@ -305,7 +354,18 @@
     if (O.stop) O.stop();
     const tok = ++O.token, base = O.base, mode = O.mode, seen = new Set(), check = [];
     let nChecked = 0;
-    O.incomplete = false;
+    O.incomplete = false; O.stopCheck = false; O.userStopped = false;
+    const tc = now(), within = O.running;   // within: the check that ends a search, otherwise a re-check for new targets or weights
+    const cap = O.cap || 150;
+    // How many designs the check needs is not known in advance: checking can move new designs into the ranking.
+    // The bar runs against the limit of 150 and the time left is given as a range, from the designs waiting
+    // now to the limit.
+    const checkText = () => `${within ? 'Step 2 of 2, checking' : 'Re-checking for the new targets or weights'} at full resolution: ${nChecked} designs checked, ${check.length} waiting, at most ${cap}${O.robust ? `, each with ${RKF} varied copies` : ''}`;
+    const checkEta = () => {
+      if (nChecked < 3 || now() - tc < 1000) return '';
+      const per = (now() - tc) / nChecked, lo = per * check.length, hi = per * Math.max(check.length, cap - nChecked);
+      return hi - lo < 1500 ? `, about ${secs(lo)} left` : `, ${secs(lo)} to ${secs(hi)} left`;
+    };
     // The published results (O.front, O.best, summary, table) stay as they are until the check is finished;
     // candidates are collected from all designs into local lists.
     const add = (e) => { if (e && !e.full && !seen.has(e)) { seen.add(e); check.push(e); } };
@@ -322,7 +382,7 @@
     collect();
     O.checking = true;
     if (O.final) setPending(true);   // results already shown belong to the old targets until this check is done
-    $('optStatus').textContent = `Checking ${check.length} designs at full resolution…`;
+    progress({ phase: 'check', t0: tc, frac: 0, text: checkText(), eta: '' });
     O.stop = slices(() => {
       if (tok !== O.token) return false;
       let e = check.shift();
@@ -330,13 +390,15 @@
         collect();   // the ranking or the targets may have moved: check the newcomers
         e = check.shift(); if (!e) return false;
       }
+      if (O.stopCheck) { O.incomplete = true; O.userStopped = true; return false; }   // stopped by the user
       if (nChecked >= (O.cap || 150)) { O.incomplete = true; return false; }   // stop; only checked designs are reported
       Object.assign(e, evalAny(base, e.des, mode, SIM_FULL, true), { full: true }); rate(e); nChecked++; O.nChecked = nChecked;
+      progress({ frac: nChecked / cap, text: checkText(), eta: checkEta() });
       return true;
     }, () => {
       if (tok !== O.token) return;
       O.final = true; O.goal = goal(); O.all.forEach(rate); if (O.cur) rate(O.cur);
-      O.front = paretoOf(pool()); O.best = pickBest(); O.checking = false; setPending(false);
+      O.front = paretoOf(pool()); O.best = pickBest(); O.checking = false; setPending(false); progress(null);
       drawOpt(); fillOptTable(); optSummary(); if (done) done();
       optStaleCheck();   // settings may have changed while the search ran
     });
@@ -460,7 +522,8 @@
     $('optHover').textContent = e ? `${metricsLine(e)} · score ${fmt(e.score, 1)}${e.viol > 0 ? ' · ' + e.miss.join(', ') : ''}${e.full ? '' : ' · quick estimate, the simulator may differ'}. Click to load.` : 'Hover a point to read it, click to load that design.';
   });
   $('cvOpt').addEventListener('click', (ev) => loadOpt(nearestOpt(ev)));
-  $('optRun').addEventListener('click', runOpt);
+  $('optRun').addEventListener('click', () => runOpt());
+  $('optStop').addEventListener('click', stopOpt);
   // re-rate existing results when weights or targets change, without re-running
   function rerate() {
     // during the search itself the final check re-rates everything with the latest targets
@@ -1080,7 +1143,7 @@
     run: () => new Promise((resolve) => {
       const sid = runOpt(true); if (sid == null) { resolve({ ok: false, sid: null }); return; }
       const t0 = now();
-      (function poll() { if (O.searchId !== sid) { resolve({ ok: false, sid }); return; } if (!O.running && !O.checking) { resolve({ ok: true, sid }); return; } if (now() - t0 > 120000) { resolve({ ok: false, sid }); return; } setTimeout(poll, 200); })();
+      (function poll() { if (O.searchId !== sid || O.cancelled === sid) { resolve({ ok: false, sid }); return; } if (!O.running && !O.checking) { resolve({ ok: true, sid }); return; } if (now() - t0 > 1800000) { resolve({ ok: false, sid }); return; } setTimeout(poll, 200); })();
     }),
     // load the published recommendation of search sid; returns 'best', 'closest' or null
     loadResult: (sid) => {
@@ -1088,6 +1151,7 @@
       const e = O.best || closest(); if (!e) return null;
       return loadOpt(e) ? (O.best ? 'best' : 'closest') : null;
     },
+    progress: () => Object.assign({}, PG),
     _test: { opt: () => O, noise: () => NZ, analyzeSamples }
   };
 })();

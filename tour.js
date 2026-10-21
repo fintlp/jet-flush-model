@@ -127,6 +127,12 @@
     raf = requestAnimationFrame(place);
   }
 
+  // the search step shows the AI lab's progress bar and its text in the card
+  document.addEventListener('flushaiprogress', (e) => {
+    const f = $('tourProgFill'), t = $('tourProgTxt'), d = e.detail; if (!f || !t || !d.phase) return;
+    const pc = Math.round(100 * Math.max(0, Math.min(1, d.frac)));
+    f.style.width = pc + '%'; f.parentNode.setAttribute('aria-valuenow', String(pc)); t.textContent = d.label;
+  });
   async function show(i, fromBack) {
     const s = STEPS[i], ses = session; idx = i; busy = true;
     $('tourStep').textContent = `Step ${i + 1} of ${STEPS.length}`;
@@ -137,7 +143,7 @@
     next.disabled = true; next.textContent = s.last ? 'Finish' : (i === 0 ? 'Start' : 'Next');
     target = s.el ? s.el() : null;
     if (target) target.scrollIntoView({ behavior: reduce() ? 'auto' : 'smooth', block: s.block || 'center' });
-    $('tourText').innerHTML = s.slow ? '<p class="tour-hint">Searching about 540 designs, this takes a few seconds…</p>' : '<p class="tour-hint">…</p>';
+    $('tourText').innerHTML = s.slow ? '<p class="tour-hint" id="tourProgTxt">The AI lab searches about 540 designs and then checks the best ones at full resolution. This takes about 10 to 15 seconds.</p><div class="prog"><div class="prog-bar" role="progressbar" aria-label="Progress of the search" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="prog-fill" id="tourProgFill"></span></div></div>' : '<p class="tour-hint">…</p>';
     if (s.x && !(fromBack && s.slow)) { try { await s.x(); } catch (e) { } }
     await wait(reduce() ? 0 : 350);
     if (ses !== session || idx !== i || !active) return;   // closed, or closed and reopened, meanwhile

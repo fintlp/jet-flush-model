@@ -4,7 +4,7 @@
 //   node checks/browser.js            serves this repository on a free local port and tests it
 //   node checks/browser.js <url>      tests a running copy instead, for example the live site
 // Check names starting with F-numbers or Open refer to the findings of the independent review of 1.3.0, fixed in 1.3.1.
-// Takes about four minutes (the demo, a normal and a robust optimiser search, a surrogate training run, a noise fit and two tolerance studies). Exits with code 1 on any failure.
+// Takes about five minutes (the demo, normal and robust optimiser searches, a surrogate training run, a noise fit and two tolerance studies). Exits with code 1 on any failure.
 const http = require('http'), fs = require('fs'), path = require('path');
 const { chromium } = require('playwright');
 const ROOT = path.join(__dirname, '..');
@@ -115,6 +115,15 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   await page.click('#undoBtn'); await page.waitForTimeout(150);
   ok('F05 keep then undo returns own design', (await P()).ovality === 1);
 
+  // the search step of the demo shows the AI lab's progress
+  await fresh();
+  await page.click('#demoBtn');
+  for (let i = 0; i < 6; i++) await next();   // the sixth Next opens step 7, which starts the search
+  await page.waitForTimeout(2500);
+  const tp = await page.evaluate(() => ({ step: document.getElementById('tourStep').textContent, t: document.getElementById('tourProgTxt') && document.getElementById('tourProgTxt').textContent, w: document.getElementById('tourProgFill') && parseFloat(document.getElementById('tourProgFill').style.width) }));
+  ok('Demo search step shows a progress bar with what is happening', !!tp.t && /Step [12] of 2/.test(tp.t) && tp.w > 0, tp);
+  await page.click('#tourX');
+
   // open item 1: close during step 7 and reopen
   await fresh();
   await page.click('#demoBtn');
@@ -206,8 +215,9 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   // Tolerance study (2.0): spread around the nominal design, one tolerance alone explains all of the spread,
   // all tolerances zero is refused, a changed tolerance marks the result out of date
   await fresh();
+  const tolBar = [];
   const setTol = (k, v) => page.evaluate(([k, v]) => { const i = document.getElementById('tol_' + k); i.value = v; i.dispatchEvent(new Event('change')); }, [k, v]);
-  const tolRun = async () => { await page.click('#tolRun'); await page.waitForFunction(() => FlushTol._test.result() && !document.getElementById('tolRun').disabled, null, { timeout: 120000 }); };
+  const tolRun = async () => { await page.click('#tolRun'); await page.waitForTimeout(150); tolBar.push(await page.evaluate(() => !document.getElementById('tolProg').hidden)); await page.waitForFunction(() => FlushTol._test.result() && !document.getElementById('tolRun').disabled, null, { timeout: 120000 }); };
   await page.selectOption('#tolN', '40'); await tolRun();
   const T1 = await page.evaluate(() => { const r = FlushTol._test.result(), c = r.stat.clean; return { n: r.n, nom: r.nom.clean, p10: c.p10, p90: c.p90, rows: document.querySelectorAll('#tolTable tbody tr').length }; });
   ok('Tolerance study: 40 varied designs, cleaning spreads around the nominal design', T1.n === 40 && T1.p10 < T1.p90 && T1.p10 <= T1.nom + 0.5 && T1.p90 >= T1.nom - 0.5 && T1.rows === 7, T1);
@@ -220,6 +230,7 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   await setTol('Hcr', 0); await page.click('#tolRun'); await page.waitForTimeout(200);
   ok('Tolerance study: all tolerances zero is refused', (await page.textContent('#tolStatus')).includes('All tolerances are zero'));
   await page.click('#tolReset');
+  ok('Tolerance study: a progress bar shows while it runs and hides after', tolBar.length === 2 && tolBar.every(Boolean) && (await page.evaluate(() => document.getElementById('tolProg').hidden)), tolBar);
   ok('Tolerance study: Reset restores the default tolerances', (await page.evaluate(() => FlushTol.active().length)) === keys.length);
 
   // Robust optimiser search (2.0): rated at the low end of each design's spread, labelled, and out of date when a tolerance changes
@@ -232,6 +243,20 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   await setTol('Anoz', 0.6); await page.waitForTimeout(200);
   ok('Robust search: a changed tolerance marks the search out of date', !(await page.evaluate(() => document.getElementById('optStale').hidden)));
   await page.click('#tolReset'); await page.uncheck('#optRobust');
+
+  // Progress, cancel and stop (2.0)
+  await page.click('#optRun'); await page.waitForTimeout(1500);
+  const pg1 = await page.evaluate(() => ({ shown: !document.getElementById('optProg').hidden, txt: document.querySelector('#optProg .prog-txt').textContent, now: +document.querySelector('#optProg .prog-bar').getAttribute('aria-valuenow'), btn: document.getElementById('optStop').textContent }));
+  ok('Optimiser: progress bar shows step, generation and time left while searching', pg1.shown && pg1.txt.startsWith('Step 1 of 2, searching: generation') && pg1.btn === 'Cancel search', pg1);
+  await page.click('#optStop'); await page.waitForTimeout(300);
+  const pg2 = await page.evaluate(() => ({ busy: FlushAI.busy(), n: FlushAI._test.opt().all.length, hidden: document.getElementById('optProg').hidden, st: document.getElementById('optStatus').textContent, run: document.getElementById('optRun').disabled }));
+  ok('Optimiser: Cancel search stops it and reports nothing', !pg2.busy && pg2.n === 0 && pg2.hidden && pg2.st.startsWith('Search cancelled') && !pg2.run, pg2);
+  await page.click('#optRun'); await page.waitForFunction(() => FlushAI.progress().phase === 'check', null, { timeout: 60000 });
+  const pg3 = await page.evaluate(() => ({ txt: document.querySelector('#optProg .prog-txt').textContent, btn: document.getElementById('optStop').textContent }));
+  await page.waitForTimeout(400); await page.click('#optStop');
+  await page.waitForFunction(() => !FlushAI.busy(), null, { timeout: 60000 });
+  const pg4 = await page.evaluate(() => ({ st: document.getElementById('optStatus').textContent, inc: FlushAI._test.opt().incomplete, fin: FlushAI._test.opt().final, hidden: document.getElementById('optProg').hidden }));
+  ok('Optimiser: Stop during the check reports only checked designs and says so', pg3.txt.startsWith('Step 2 of 2, checking') && pg3.btn.startsWith('Stop check') && pg4.inc && pg4.fin && pg4.hidden && pg4.st.includes('You stopped the full-resolution check'), { pg3, st: pg4.st.slice(0, 120) });
 
   ok('No page errors', errs.length === 0, errs.slice(0, 5));
   console.log(out.join('\n'));

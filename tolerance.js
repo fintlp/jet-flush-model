@@ -107,20 +107,26 @@
     return { share: contrib.map((c) => (tot > 0 ? c / tot : 0)), r2: ss > 1e-12 ? 1 - res / ss : 1 };
   }
 
+  function bar(f) {
+    const b = $('tolProg'); if (!b) return;
+    b.hidden = f == null; if (f == null) return;
+    const pc = Math.round(100 * f); b.querySelector('.prog-fill').style.width = pc + '%'; b.querySelector('.prog-bar').setAttribute('aria-valuenow', String(pc));
+  }
   function run() {
     if (S.running) return;
     const act = active();
     if (!act.length) { $('tolStatus').textContent = 'All tolerances are zero: set at least one.'; return; }
     const n = +$('tolN').value, p = A.getP(), smp = samples(p, n, 2027, false, act), t0 = now();
-    S.running = true; $('tolRun').disabled = true; S.fp = fpNow(); $('tolStale').hidden = true;
+    S.running = true; $('tolRun').disabled = true; bar(0); S.fp = fpNow(); $('tolStale').hidden = true;
     const nom = metricsOf(M.simulate(p, { light: true, Tend: 12 })), out = []; let i = 0;
     S.stop = slices(() => {
       if (i >= smp.length) return false;
       out.push(metricsOf(M.simulate(smp[i].q, { light: true, Tend: 12 }))); i++;
-      $('tolStatus').textContent = `Simulating ${i} of ${smp.length} varied designs…`;
+      const el = now() - t0; bar(i / smp.length);
+      $('tolStatus').textContent = `Simulating ${i} of ${smp.length} varied designs${i > 4 && el > 1000 ? `, about ${Math.max(1, Math.round(el * (smp.length - i) / i / 1000))} s left` : ''}…`;
       return true;
     }, () => {
-      S.running = false; $('tolRun').disabled = false;
+      S.running = false; $('tolRun').disabled = false; bar(null);
       out.forEach((m) => { m.noise -= nom.noise; }); nom.noise = 0;
       const Z = smp.map((s) => s.z), stat = {};
       METRICS.forEach((m) => {
