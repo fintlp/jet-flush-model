@@ -164,7 +164,7 @@ h1,h2,h3,h4{letter-spacing:0}
       <p>That is fast by the standards of physical testing. But it means a team can only afford to ask a few questions, so most design decisions are still made on experience before any number exists. And the later a weak decision is found, the more it costs to change: in the tool, the mould, the production line.</p>
       <div class="statrow">
         <div class="stat"><span class="v">≈ 1 day</span><span class="l">per design iteration with overnight CFD, in a published bowl development</span></div>
-        <div class="stat"><span class="v">20–40 ms</span><span class="l">per flush with the physics model on this page, in a browser; a coarse CFD run of the same flush took 23 minutes on 12 cores</span></div>
+        <div class="stat"><span class="v">20–40 ms</span><span class="l">per flush with the physics model on this page, in a browser; an OpenFOAM run of the same flush took about 2 hours on 12 cores</span></div>
         <div class="stat"><span class="v">≈ 540</span><span class="l">designs searched by the AI lab in about 10 seconds, the best ones checked at full resolution</span></div>
       </div>
     </section>
@@ -271,7 +271,7 @@ h1,h2,h3,h4{letter-spacing:0}
         <a class="btn" href="slides/jet-flush-model.pptx" download>Slides, PowerPoint</a>
         <a class="btn" href="slides/jet-flush-model.pdf" target="_blank" rel="noopener">Slides, PDF</a>
       </div>
-      <p class="muted">Sources for the figures on this page are on the <a href="sources.html">sources and references page</a>. The flush times, the 540-design search and the iteration counts were measured with this simulator; the 23-minute CFD run is the coarse-mesh OpenFOAM run of the CFD check; the one-day iteration comes from the Geberit report by CADFEM.</p>
+      <p class="muted">Sources for the figures on this page are on the <a href="sources.html">sources and references page</a>. The flush times, the 540-design search and the iteration counts were measured with this simulator; the 2-hour CFD run is the medium-mesh OpenFOAM run of the CFD check (its computing time, without time the computer was asleep; a coarser mesh took 23 minutes); the one-day iteration comes from the Geberit report by CADFEM.</p>
     </section>
 
     <footer class="foot">
