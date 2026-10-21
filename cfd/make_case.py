@@ -164,8 +164,8 @@ def write(path, cls, obj, body):
     with open(os.path.join(a.out, path), 'w') as f: f.write(HDR % (cls, obj) + body)
 
 h0 = {'coarse': 0.006, 'medium': 0.004, 'fine': 0.004}[a.mesh]
-lvl = {'coarse': 1, 'medium': 2, 'fine': 2}[a.mesh]          # wall level; jets one more on fine
-jl = lvl + (1 if a.mesh == 'fine' else 0)
+lvl = {'coarse': 1, 'medium': 1, 'fine': 2}[a.mesh]          # wall cells: coarse 3 mm, medium 2 mm, fine 1 mm
+jl = lvl
 X = Rr + 0.01
 nx_ = int(math.ceil(2 * X / h0)); nz_ = int(math.ceil((zTop + 0.005 - (zBot - 0.005)) / h0))
 write('system/blockMeshDict', 'dictionary', 'blockMeshDict', f'''scale 1;
