@@ -38,7 +38,7 @@ def merged(src):
     except Exception: return m
 
 try:
-    say('== render v2', case, 'wanted t =', want)
+    say('== render v3', case, 'wanted t =', want)
     foam = os.path.join(cdir, 'case.foam'); open(foam, 'a').close()
     def reader(regions):
         r = OpenFOAMReader(FileName=foam)
