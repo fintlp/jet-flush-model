@@ -222,7 +222,7 @@ This is a second simulation of one design, not a measurement and not a validatio
 {
   const sl = add('Message', 'Three proofs on the page');
   kicker(sl, '3 · AI IN THE ENGINEERING LOOP');
-  sl.addText('Learning from each expensive run more than halves the iterations', { placeholder: 'title' });
+  sl.addText('Learning from each run: less than half the iterations', { placeholder: 'title' });
   text(sl, `The same design task, worked eight times: an oval bowl must reach 4.0 L and 87 % cleaning. Every candidate is checked with an expensive run.`, { x: 0.6, y: 1.55, w: 12.1, h: 0.55, fontSize: 15, color: MUTED, objectName: 'Lead' });
   sl.addChart(pres.charts.BAR, [
     { name: 'Classic: one change at a time', labels: S.classic.map((_, i) => `Race ${i + 1}`), values: S.classic },
@@ -351,14 +351,14 @@ pres.addSection({ title: 'Next steps' });
   const W = 2.78, gap = 0.33;
   steps.forEach(([h, d], i) => {
     const x = 0.6 + i * (W + gap), y = 1.95;
-    card(sl, x, y, W, 2.75, `Step ${i + 1} card`);
+    card(sl, x, y, W, 3.0, `Step ${i + 1} card`);
     dot(sl, x + 0.25, y + 0.25, 0.62, i + 1, { name: `Step ${i + 1}`, size: 18 });
     text(sl, h, { x: x + 0.25, y: y + 1.05, w: W - 0.5, h: 0.45, fontSize: 18, bold: true, objectName: `Step ${i + 1} heading` });
-    text(sl, d, { x: x + 0.25, y: y + 1.55, w: W - 0.5, h: 1.1, fontSize: 14, objectName: `Step ${i + 1} text` });
-    if (i < steps.length - 1) arrow(sl, x + W + 0.04, y + 1.37, x + W + gap - 0.04, y + 1.37, `Step arrow ${i + 1}`, BLUE);
+    text(sl, d, { x: x + 0.25, y: y + 1.6, w: W - 0.5, h: 1.25, fontSize: 15, objectName: `Step ${i + 1} text` });
+    if (i < steps.length - 1) arrow(sl, x + W + 0.04, y + 1.5, x + W + gap - 0.04, y + 1.5, `Step arrow ${i + 1}`, BLUE);
   });
-  card(sl, 0.6, 5.0, 12.13, 1.15, 'Workshop card', { fill: 'D7E8F2', line: BLUE });
-  sl.addText([{ text: 'In a workshop ', options: { bold: true, color: BLUE } }, { text: 'we take one of your design questions through these steps on paper: where the loop waits, which mechanisms a fast model needs, which data you already have to calibrate it, and what it would save with your own figures.', options: { color: NAVY } }], { x: 0.85, y: 5.0, w: 11.65, h: 1.15, fontSize: 15, valign: 'middle', margin: 0, isTextBox: true, objectName: 'Workshop text' });
+  card(sl, 0.6, 5.3, 12.13, 1.2, 'Workshop card', { fill: 'D7E8F2', line: BLUE });
+  sl.addText([{ text: 'In a workshop ', options: { bold: true, color: BLUE } }, { text: 'we take one of your design questions through these steps on paper: where the loop waits, which mechanisms a fast model needs, which data you already have to calibrate it, and what it would save with your own figures.', options: { color: NAVY } }], { x: 0.85, y: 5.3, w: 11.65, h: 1.2, fontSize: 16, valign: 'middle', margin: 0, isTextBox: true, objectName: 'Workshop text' });
   sl.addNotes(`How would a team start? Not with a platform, but with one design question.
 
 One: pick a recurring design question that today waits for CFD or tests. Recurring matters, because the fast model pays off over many questions.
