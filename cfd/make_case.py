@@ -23,6 +23,9 @@ ap.add_argument('--end', type=float, default=5.0)
 ap.add_argument('--procs', type=int, default=0, help='number of subdomains (0: set by the run script)')
 ap.add_argument('--frames', type=float, default=0.0,
                 help='write the free surface (alpha = 0.5) as VTK every FRAMES seconds for visualisation (0: off)')
+ap.add_argument('--outlet-at', default='sump', choices=['sump', 'ring'],
+                help='sump: rear sump wall from the bottom up to the seal depth; ring: rear pool wall 10 to 35 mm below '
+                     'the crest, away from the vortex core (the swirl lets air reach a sump outlet)')
 ap.add_argument('--outlet', default='pressure', choices=['pressure', 'model'],
                 help="pressure: total-pressure outlet at crest level (orifice law; blocked by a strong swirl, see cfd-status); "
                      "model: the model's trap outflow Qout(t) prescribed at the outlet")
@@ -61,13 +64,14 @@ def r_of_z(z):
 
 # profile points, bottom to top, with breaks at the region edges
 jetTop, jetBot = D - 0.001, D - 0.001 - w0     # band from 1 mm below the rim, as the model folds it onto the wall
-outTop = -ds                                   # trap opening from the sump bottom up to the seal depth
+# trap opening: on the rear sump wall from the bottom up to the seal depth, or on the rear pool wall higher up
+outBot, outTop = (zBot, -ds) if a.outlet_at == 'sump' else (-0.035, -0.010)
 zs = set()
 def add_range(z0, z1, dz):
     n = max(1, int(math.ceil((z1 - z0) / dz)))
     for i in range(n + 1): zs.add(round(z0 + (z1 - z0) * i / n, 7))
-add_range(zBot, outTop, 0.002)
-add_range(outTop, 0.0, 0.002)
+_br = sorted({zBot, outBot, outTop, 0.0})
+for z0_, z1_ in zip(_br[:-1], _br[1:]): add_range(z0_, z1_, 0.002)
 add_range(0.0, jetBot, 0.002)
 add_range(jetBot, jetTop, 0.001)
 add_range(jetTop, D, 0.0005)
@@ -87,7 +91,7 @@ def ang_in(t, lo, hi):
     return lo <= t <= hi if lo <= hi else (t >= lo or t <= hi)
 
 def wall_region(tm, zm):
-    if zm < outTop and ang_in(tm, *outlet): return 'outlet'
+    if outBot < zm < outTop and ang_in(tm, *outlet): return 'outlet'
     if jetBot < zm < jetTop:
         for J in jets:
             if ang_in(tm, J['th0'] - J['dth'], J['th0']): return J['name']
@@ -492,6 +496,6 @@ write('system/decomposeParDict', 'dictionary', 'decomposeParDict', f'numberOfSub
 import shutil
 if os.path.isdir(os.path.join(a.out, '0')): shutil.rmtree(os.path.join(a.out, '0'))
 shutil.copytree(os.path.join(a.out, '0.orig'), os.path.join(a.out, '0'))   # setFields then fills the pool in 0/
-json.dump({'mesh': a.mesh, 'h0': h0, 'zLo': zLo, 'Vstatic_model': S.get('Vstatic'), 'arrivalPlane': 0.003, 'rWallArrival': r_of_z(0.003), 'level': lvl, 'end': a.end, 'jets': info, 'outlet_deg': [40, 140], 'zBot': zBot, 'zTop': zTop,
+json.dump({'mesh': a.mesh, 'h0': h0, 'zLo': zLo, 'Vstatic_model': S.get('Vstatic'), 'arrivalPlane': 0.003, 'rWallArrival': r_of_z(0.003), 'level': lvl, 'end': a.end, 'jets': info, 'outlet_deg': [40, 140], 'outlet_z': [outBot, outTop], 'outlet_kind': a.outlet, 'zBot': zBot, 'zTop': zTop,
            'D': D, 'Rr': Rr, 'Rp': Rp, 'ds': ds, 'triangles': {k: len(v) for k, v in tris.items()}}, open(os.path.join(a.out, 'case-info.json'), 'w'), indent=1)
 print(json.dumps(json.load(open(os.path.join(a.out, 'case-info.json')))))
