@@ -583,6 +583,27 @@ F(a) = (2/a² − 1)(1 − a²) + ½ + 2 ln a + 1 − a²
         </ol>
         <p>Each fit is a small least-squares problem over a handful of coefficients. Because one model run takes milliseconds, a standard optimiser such as Nelder-Mead can run thousands of evaluations in seconds.</p>
 
+        <h3>Before calibration: plausibility against published figures</h3>
+        <p>Published toilet studies give a few numbers the presets can be held against before any reference run exists. <code>checks/literature.js</code> makes this comparison. It is not a validation: the published bowls are not the presets, most figures come from CFD, and the coefficients are still uncalibrated. Figures backed by more than one source are ranges that the presets must meet; the others are comparisons with a verdict. The sources are on the <a href="sources.html">sources page</a>, sections 1 and 5.</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Quantity</th><th>Presets (washdown, siphonic)</th><th>Published</th><th>Verdict</th></tr></thead>
+            <tbody>
+              <tr><td>Peak flow into the bowl</td><td>1.73, 1.63 L/s</td><td>1.3 to 2.4 L/s; free-outlet cisterns up to 2.4</td><td>Inside</td></tr>
+              <tr><td>Mean flow while released</td><td>1.53, 1.41 L/s</td><td>0.58 to 2.1 L/s</td><td>Inside</td></tr>
+              <tr><td>Trap diameter</td><td>48, 50 mm</td><td>47 to 54 mm</td><td>Inside</td></tr>
+              <tr><td>Turns of the film on the wall</td><td>2.5, 1.9</td><td>about 3 (one vortex bowl)</td><td>Same order</td></tr>
+              <tr><td>Most water in the bowl, per litre flushed</td><td>0.53, 0.56</td><td>0.52 (vortex bowl), 0.27 (rimless bowl with three outlets)</td><td>Close to the vortex bowl</td></tr>
+              <tr><td>Water at rest</td><td>0.44, 0.80 L</td><td>1.0 to 1.5 L</td><td>Too little; calibration item (section 4)</td></tr>
+              <tr><td>Start of outflow</td><td>0.62 s in both</td><td>0.5 s (bowl feeding the pool directly), 1.75 s (vortex bowl)</td><td>Earlier than a vortex bowl; open</td></tr>
+              <tr><td>Wall shear under the film</td><td>9 to 16 Pa</td><td>peak 1.75 and 2.95 Pa, averaging not stated</td><td>Not directly comparable; calibrate with τ<sub>c</sub></td></tr>
+              <tr><td>Best trap diameter for waste removal</td><td>none: removal falls with diameter</td><td>50 to 53 mm (siphon toilets)</td><td>Missing effect: priming does not depend on trap size</td></tr>
+              <tr><td>Siphon peak outflow, 60 mm trap</td><td>4.0 L/s at 2.2 s</td><td>4.4 L/s at 0.58 s, with a jet into the trapway</td><td>Same peak, later; not like for like</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Over the slider ranges, only about half of 300 random designs have a peak flow between 1.0 and 2.4 L/s, and about a third exceed what a free-outlet cistern delivers. The sliders allow valve heights and nozzle areas beyond real cisterns, which is fine for exploring trends but worth keeping in mind when reading optimiser results.</p>
+
         <h3>Hybrid option</h3>
         <p>Where the physics-based model stays off after calibration, a small machine-learning correction can be trained on the remaining differences between model and the reference runs, for example a Gaussian process per output. This needs far fewer reference runs than a full neural surrogate, keeps the physical explanation, and gives an uncertainty estimate that grows away from the reference designs.</p>
       </section>

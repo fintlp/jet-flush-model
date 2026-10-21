@@ -93,7 +93,7 @@ console.log(r.cleanPct, r.solidsPct, r.paperPct, r.water);
 | `model.js` | The physics model: geometry, cistern, wall film, pool, trap, waste |
 | `app.js` | Drawing, controls, sweep, undo and change tracking; no physics |
 | `ai.js` | AI lab: optimiser, neural network, Nelder-Mead, Gaussian process |
-| `checks/` | Deterministic scripts: regression against another model version, film update resolution, noise range |
+| `checks/` | Deterministic scripts: regression against another model version, film update resolution, noise range, physics checks, plausibility against published figures |
 | `tour.js` | The Demo me walkthrough |
 | `method.html` | Full model description: equations, numerics, coefficients, calibration |
 | `sources.html` | Sources and references |
@@ -148,6 +148,7 @@ Version 2.0 changes model results. Work in progress on branch `dev-2.0`; this en
 **Checks**
 
 - **New `checks/physics.js`, 59 checks with pass limits:** conservation and balance (energy and angular momentum of a frictionless film, water balance, physical ranges, smoothness of swirl and main results with refinement that tells jumps, steep slopes and time-step jitter apart); closed-form cases (cistern drain, steady weir level, level table, film on a vertical cylinder, paper decay); Runge-Kutta re-integration of pool level and swirl; and the checks proposed by the review (spatial convergence, siphon break, time step down to 1 ms, partial flush head, film front, monotone waste trends, round-bowl symmetry, rim line depth). `--strict` makes known open issues fail. All pass.
+- **New `checks/literature.js`: the presets against published figures** from toilet CFD studies, patents and an independent flush test. Peak flow into the bowl (1.6 to 1.7 L/s), mean flow while released (1.4 to 1.6 L/s) and trap diameter lie inside the published ranges. Film turns on the wall (1.9 to 2.5 against about 3) and the water held in the bowl per litre flushed (0.53 to 0.56 against 0.52 for a vortex bowl) agree. Three differences are reported, not hidden: the presets hold too little water at rest (known), outflow starts earlier than in a published vortex bowl, and waste removal falls steadily with trap diameter where a published siphon study finds an optimum at 50 to 53 mm, because priming in the model does not depend on trap size. Wall shear under the film is about three times the one published figure, which is not directly comparable. A plausibility check, not a validation; method section 13 has the table.
 - **`checks/browser.js` now has 45 checks**, adding the noise calibration (A-weighting of test tones, demo fit, WAV file, meter readings), the tolerance study (spread, one tolerance alone, all zero, reset, out-of-date note) and the robust search. All pass.
 
 **Effect on results**, 300 random designs against 1.3.1: cleaning +1.9 points in the median (5 % lose more than 4.8 points, 5 % gain more than 20, mostly short, strong flushes); peak pool swirl +28 % in the median and the vortex dip about 12 mm deeper, mainly from the corrected pool inertia; solids and paper change little in most designs. Presets:
