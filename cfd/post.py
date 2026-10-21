@@ -89,7 +89,18 @@ def cell_of(x, y, z):
 
 # ---------- wall data: alpha and wall shear on the wall patch ----------
 J = [0.0] * (NTH * NS); tWet = [None] * (NTH * NS)
-wall_series, tau_unit, prev = [], None, None
+wall_series, prev = [], None
+# unit of wallShearStress from the dimensions in a written field file: [0 2 -2 ...] is kinematic (m2/s2),
+# [1 -1 -2 ...] is Pa. The surface samples carry no units, so the field files are the only source.
+tau_unit, tau_dims = 'not found', None
+for f in sorted(glob.glob(os.path.join(case, 'processor0', '*', 'wallShearStress')) + glob.glob(os.path.join(case, '[0-9]*', 'wallShearStress'))):
+    with open(f, 'rb') as fh: head = fh.read(4000).decode('latin-1')
+    m = re.search(r'dimensions\s*\[([^\]]*)\]', head)
+    if m:
+        tau_dims = [float(x) for x in m.group(1).split()]
+        tau_unit = 'kinematic' if tau_dims[:3] == [0, 2, -2] else 'Pa' if tau_dims[:3] == [1, -1, -2] else 'other ' + m.group(1)
+        break
+fac = RHO if tau_unit == 'kinematic' else 1.0
 for t, d in times_of('wallData'):
     fa, ft = find(d, 'alpha.water'), find(d, 'wallShearStress')
     if not fa or not ft: continue
@@ -103,11 +114,6 @@ for t, d in times_of('wallData'):
         mag = math.sqrt(t_[3] ** 2 + t_[4] ** 2 + t_[5] ** 2)
         n[c] += 1
         if a_[3] > 0.5: nw[c] += 1; tw[c] += mag
-    # wallShearStress of interFoam is kinematic (m2/s2) in some versions: decide once from the magnitudes
-    if tau_unit is None:
-        mags = sorted(tw[c] / nw[c] for c in range(len(n)) if nw[c])
-        tau_unit = 'kinematic' if mags and mags[len(mags) // 2] < 0.05 else 'Pa'
-    fac = RHO if tau_unit == 'kinematic' else 1.0
     wetA = shearA = 0.0
     dt = 0.0 if prev is None else t - prev
     for c in range(len(n)):
@@ -161,8 +167,89 @@ for t, d in times_of('poolPlanes'):
             num += area * sut / cnt; den += area * sa / cnt
     if den: swirl.append({'t': t, 'uTheta': num / den})
 
+# ---------- first water in the pool: downward water flux through the plane 3 mm above the crest ----------
+def read_vtk_polys(path):
+    """legacy ascii VTK polydata (or XML ascii .vtp): polygon areas, centres and cell arrays"""
+    txt = open(path, encoding='latin-1').read()
+    if txt.lstrip().startswith('<'):
+        import xml.etree.ElementTree as ET
+        root = ET.fromstring(txt); pd = root.find('.//Piece')
+        pts = [float(x) for x in pd.find('Points/DataArray').text.split()]
+        conn = [int(x) for x in pd.find(".//Polys/DataArray[@Name='connectivity']").text.split()]
+        offs = [int(x) for x in pd.find(".//Polys/DataArray[@Name='offsets']").text.split()]
+        polys, prev_ = [], 0
+        for o_ in offs: polys.append(conn[prev_:o_]); prev_ = o_
+        arrays = {}
+        for da in pd.findall('CellData/DataArray'):
+            arrays[da.get('Name')] = ([float(x) for x in da.text.split()], int(da.get('NumberOfComponents', '1')))
+    else:
+        tok = txt.split(); i = tok.index('POINTS'); n = int(tok[i + 1]); pts = [float(x) for x in tok[i + 3:i + 3 + 3 * n]]
+        j = tok.index('POLYGONS'); m = int(tok[j + 1]); k = j + 3; polys = []
+        if tok[k] == 'OFFSETS':                       # VTK 5.1 layout
+            k += 2; offs = [int(x) for x in tok[k:k + m]]; k += m
+            k += 2; nconn = offs[-1]; conn = [int(x) for x in tok[k:k + nconn]]; k += nconn
+            polys = [conn[offs[q]:offs[q + 1]] for q in range(m - 1)]
+        else:
+            for _ in range(m): c = int(tok[k]); polys.append([int(x) for x in tok[k + 1:k + 1 + c]]); k += 1 + c
+        arrays = {}
+        c0 = tok.index('CELL_DATA', k); k = c0 + 2
+        while k < len(tok):
+            w = tok[k]
+            if w == 'FIELD': k += 3; continue
+            if w in ('SCALARS', 'VECTORS'):
+                name, nc_ = tok[k + 1], (3 if w == 'VECTORS' else 1); k += 3
+                if tok[k] == 'LOOKUP_TABLE': k += 2
+                cnt = len(polys) * nc_; arrays[name] = ([float(x) for x in tok[k:k + cnt]], nc_); k += cnt; continue
+            if w in ('POINT_DATA', 'CELL_DATA'): break
+            name, nc_, cnt_ = w, int(tok[k + 1]), int(tok[k + 2]); k += 4
+            arrays[name] = ([float(x) for x in tok[k:k + nc_ * cnt_]], nc_); k += nc_ * cnt_
+    P_ = [(pts[3 * q], pts[3 * q + 1], pts[3 * q + 2]) for q in range(len(pts) // 3)]
+    areas, cents = [], []
+    for poly in polys:
+        q = [P_[v] for v in poly]; A2 = 0.0
+        for r_ in range(len(q)): A2 += q[r_][0] * q[(r_ + 1) % len(q)][1] - q[(r_ + 1) % len(q)][0] * q[r_][1]
+        areas.append(abs(0.5 * A2)); cents.append((sum(v[0] for v in q) / len(q), sum(v[1] for v in q) / len(q)))
+    return areas, cents, arrays
+
+arrival, arr_err = [], None
+rw = info.get('rWallArrival', 0.0647)
+for t, d in times_of('arrival'):
+    f = None
+    for cand in sorted(glob.glob(os.path.join(d, '**', '*'), recursive=True)):
+        if os.path.isfile(cand) and cand.endswith(('.vtk', '.vtp')): f = cand; break
+    if not f: continue
+    try:
+        areas, cents, arr = read_vtk_polys(f)
+        al = arr['alpha.water'][0]; U = arr['U'][0]
+        tot = wallb = 0.0; sub = 0.0
+        for q, A_ in enumerate(areas):
+            fl = -al[q] * U[3 * q + 2] * A_           # downward water flux through this face, m3/s
+            tot += fl
+            if math.hypot(*cents[q]) >= rw - 0.008: wallb += fl
+            sub += al[q] * A_
+        arrival.append({'t': t, 'total': tot, 'wall': wallb, 'interior': tot - wallb, 'wetArea': sub, 'area': sum(areas)})
+    except Exception as e:   # keep the rest of the summary if the plane format is unexpected
+        arr_err = '%s: %s' % (os.path.basename(f), e); break
+def inflow_at(t):
+    tot = 0.0
+    for k in info['jets']:
+        ser = dat_series('flow_' + k)
+        if not ser: return float('nan')
+        q = min(ser, key=lambda r_: abs(r_[0] - t))[1]; tot += -q
+    return tot
+arrival_times = {}
+if arrival:
+    first = next((a_['t'] for a_ in arrival if a_['total'] > 1e-6), None)
+    t10 = next((a_['t'] for a_ in arrival if a_['total'] >= 0.1 * inflow_at(a_['t']) > 0), None)
+    t50 = next((a_['t'] for a_ in arrival if a_['total'] >= 0.5 * inflow_at(a_['t']) > 0), None)
+    # the plane is no longer above the pool once most of it is covered by water
+    sub_t = next((a_['t'] for a_ in arrival if a_['wetArea'] > 0.5 * a_['area']), None)
+    arrival_times = {'first_1mLs': first, 't10': t10, 't50': t50, 'planeSubmerged': sub_t}
+
 out = {
-    'case': info, 'tauUnit': tau_unit, 'tauC': TAUC, 'Jcrit': JCRIT,
+    'case': info, 'tauUnit': tau_unit, 'tauDims': tau_dims, 'tauC': TAUC, 'Jcrit': JCRIT,
+    'wetRule': 'wall face wet when alpha.water > 0.5; model cell wet when more than half of its wall faces are wet; same rule at every sample (0.05 s); shares area-weighted with model cell areas',
+    'arrival': arrival, 'arrivalTimes': arrival_times, 'arrivalError': arr_err,
     'inflow': {k: dat_series('flow_' + k) for k in info['jets']},
     'outflow': dat_series('flowRates'), 'water': dat_series('water'),
     'level': level, 'swirl': swirl, 'wall': wall_series,
@@ -170,5 +257,8 @@ out = {
     'map': {'NTH': NTH, 'NS': NS, 'J': [round(x, 4) for x in J], 'tWet': tWet},
 }
 json.dump(out, open(os.path.join(case, 'summary.json'), 'w'), separators=(',', ':'))
-print('summary: cleaned %.1f %%, wetted %.1f %%, %d wall samples, %d level samples, %d swirl samples, shear unit %s'
-      % (out['cleanPct'], out['wetPct'], len(wall_series), len(level), len(swirl), tau_unit))
+print('summary: cleaned %.1f %%, wetted %.1f %%, %d wall samples, %d level samples, %d swirl samples, %d arrival samples, shear unit %s %s'
+      % (out['cleanPct'], out['wetPct'], len(wall_series), len(level), len(swirl), len(arrival), tau_unit, tau_dims))
+print('arrival times', arrival_times, arr_err or '')
+w0 = out['water'][0][1] if out['water'] else None
+print('water at start %s L, model %s L' % (w0 and round(w0 * 1000, 4), info.get('Vstatic_model') and round(info['Vstatic_model'] * 1000, 4)))

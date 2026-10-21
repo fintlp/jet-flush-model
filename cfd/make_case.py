@@ -167,10 +167,13 @@ h0 = {'coarse': 0.006, 'medium': 0.004, 'fine': 0.004}[a.mesh]
 lvl = {'coarse': 1, 'medium': 1, 'fine': 2}[a.mesh]          # wall cells: coarse 3 mm, medium 2 mm, fine 1 mm
 jl = lvl
 X = Rr + 0.01
-nx_ = int(math.ceil(2 * X / h0)); nz_ = int(math.ceil((zTop + 0.005 - (zBot - 0.005)) / h0))
+# the background mesh has a face plane at z = 0 (the crest): whole cells from zLo up, so setFields fills the pool
+# exactly to the crest and no water flows in through the outlet at the start
+zLo = -math.ceil((0.005 - zBot) / h0 - 1e-9) * h0; zHi = math.ceil((zTop + 0.005) / h0 - 1e-9) * h0
+nx_ = int(math.ceil(2 * X / h0)); nz_ = int(round((zHi - zLo) / h0))
 write('system/blockMeshDict', 'dictionary', 'blockMeshDict', f'''scale 1;
-vertices ( ({-X} {-X} {zBot-0.005}) ({X} {-X} {zBot-0.005}) ({X} {X} {zBot-0.005}) ({-X} {X} {zBot-0.005})
-           ({-X} {-X} {zTop+0.005}) ({X} {-X} {zTop+0.005}) ({X} {X} {zTop+0.005}) ({-X} {X} {zTop+0.005}) );
+vertices ( ({-X} {-X} {zLo:.6f}) ({X} {-X} {zLo:.6f}) ({X} {X} {zLo:.6f}) ({-X} {X} {zLo:.6f})
+           ({-X} {-X} {zHi:.6f}) ({X} {-X} {zHi:.6f}) ({X} {X} {zHi:.6f}) ({-X} {X} {zHi:.6f}) );
 blocks ( hex (0 1 2 3 4 5 6 7) ({nx_} {nx_} {nz_}) simpleGrading (1 1 1) );
 edges ();
 boundary ( box {{ type patch; faces ( (0 3 2 1) (4 5 6 7) (0 1 5 4) (2 3 7 6) (1 2 6 5) (0 4 7 3) ); }} );
@@ -396,6 +399,19 @@ functions
 {planes}
         }}
     }}
+    arrival
+    {{
+        type surfaces; libs (sampling);
+        writeControl adjustableRunTime; writeInterval 0.01;
+        timeEnd 1.0;
+        surfaceFormat vtk;
+        formatOptions {{ vtk {{ format ascii; legacy true; precision 8; }} }}
+        fields (alpha.water U);
+        surfaces
+        {{
+            z003 {{ type cuttingPlane; planeType pointAndNormal; pointAndNormalDict {{ point (0 0 0.003); normal (0 0 1); }} interpolate false; }}
+        }}
+    }}
     levels
     {{
         type sets; libs (sampling);
@@ -445,6 +461,6 @@ write('system/decomposeParDict', 'dictionary', 'decomposeParDict', f'numberOfSub
 import shutil
 if os.path.isdir(os.path.join(a.out, '0')): shutil.rmtree(os.path.join(a.out, '0'))
 shutil.copytree(os.path.join(a.out, '0.orig'), os.path.join(a.out, '0'))   # setFields then fills the pool in 0/
-json.dump({'mesh': a.mesh, 'h0': h0, 'level': lvl, 'end': a.end, 'jets': info, 'outlet_deg': [40, 140], 'zBot': zBot, 'zTop': zTop,
+json.dump({'mesh': a.mesh, 'h0': h0, 'zLo': zLo, 'Vstatic_model': S.get('Vstatic'), 'arrivalPlane': 0.003, 'rWallArrival': r_of_z(0.003), 'level': lvl, 'end': a.end, 'jets': info, 'outlet_deg': [40, 140], 'zBot': zBot, 'zTop': zTop,
            'D': D, 'Rr': Rr, 'Rp': Rp, 'ds': ds, 'triangles': {k: len(v) for k, v in tris.items()}}, open(os.path.join(a.out, 'case-info.json'), 'w'), indent=1)
 print(json.dumps(json.load(open(os.path.join(a.out, 'case-info.json')))))

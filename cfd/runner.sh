@@ -57,6 +57,7 @@ while true; do
         curl -fsSL "$BASE/$2" -o "$TOOLS/$2" >> "$L" 2>&1; RC=$?; ls -l "$TOOLS/$2" >> "$L" 2>&1
       else
         if [ "$1" = python3 ]; then (cd "$CASES/$CASE" && python3 "$ROOT/$2" "${@:3}") < /dev/null >> "$L" 2>&1 &
+        elif [ "$1" = mpirun ] || [ "$1" = interFoam ]; then (cd "$CASES/$CASE" && caffeinate -i "$@") < /dev/null >> "$L" 2>&1 &   # keep the Mac awake while the solver runs
         else (cd "$CASES/$CASE" && "$@") < /dev/null >> "$L" 2>&1 & fi
         PID=$!
         while kill -0 $PID 2>/dev/null; do
