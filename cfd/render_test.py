@@ -9,6 +9,7 @@
 #   <case>_<t>s_cutaway_rt.png  same as cutaway with ray tracing (only if this ParaView build has OSPRay)
 # and render.log next to them.
 #
+# Version 3: bowl drawn with jet and outlet patches, camera fitted with ResetCamera, fixed colour scale 0 to 2.5 m/s.
 # Version 2: the decomposed case is merged before the surface is drawn (version 1 showed seams at the borders of the
 # 12 processor parts), the surface is lightly smoothed for display, the camera is fitted to the bowl, and the colour
 # scale runs from light blue (slow) to dark blue (fast).
@@ -26,7 +27,7 @@ def say(*a):
 
 MESH = {'coarse': '3 mm', 'medium': '2 mm', 'fine': '1 mm'}
 mesh = next((m for m in MESH if m in case), None)
-VMAX = 2.0   # top of the colour scale, m/s
+VMAX = 2.5   # top of the colour scale, m/s
 
 def merged(src):
     """One block with coincident points merged, so data is averaged across processor borders."""
@@ -52,7 +53,8 @@ try:
     times = list(fluid.TimestepValues) if fluid.TimestepValues else []
     t = min(times, key=lambda x: abs(x - want)) if times else 0.0
     say('time used:', t)
-    bowl = merged(reader(['patch/wall', 'wall']))
+    # bowl: wall plus the jet and outlet patches, so the bowl has no holes
+    bowl = merged(reader(['patch/wall', 'wall', 'patch/jet1', 'patch/jet2', 'patch/outlet']))
     bowl.UpdatePipeline(t)
     x0, x1, y0, y1, z0, z1 = bowl.GetDataInformation().GetBounds()
     R = max(x1 - x0, y1 - y0) / 2; zc = (z0 + z1) / 2
@@ -87,14 +89,16 @@ try:
     except Exception: pass
 
     lut = GetColorTransferFunction('U')
-    lut.VectorMode = 'Magnitude'
-    lut.RGBPoints = [0.0, 0.78, 0.90, 0.98,  0.7 * VMAX / 2, 0.42, 0.68, 0.90,  VMAX / 2, 0.20, 0.50, 0.82,  VMAX, 0.03, 0.19, 0.45]
-    lut.RescaleTransferFunction(0.0, VMAX)
     try: lut.AutomaticRescaleRangeMode = 'Never'
     except Exception: pass
+    lut.VectorMode = 'Magnitude'
+    def fix_lut():
+        lut.RGBPoints = [0.0, 0.78, 0.90, 0.98,  0.35 * VMAX, 0.42, 0.68, 0.90,  0.6 * VMAX, 0.20, 0.50, 0.82,  VMAX, 0.03, 0.19, 0.45]
+        lut.RescaleTransferFunction(0.0, VMAX)
 
     def show_water(src):
         d = Show(src, view); ColorBy(d, ('POINTS', 'U', 'Magnitude')); d.LookupTable = lut
+        fix_lut()   # ColorBy rescales to the data range; put the fixed scale back
         d.Specular = 0.4; d.SpecularPower = 40
         return d
     def show_bowl(src, opacity):
@@ -106,7 +110,10 @@ try:
     bar = GetScalarBar(lut, view); bar.Title = 'Water speed (m/s)'; bar.ComponentTitle = ''
     bar.TitleColor = [0.2, 0.2, 0.2]; bar.LabelColor = [0.2, 0.2, 0.2]
     bar.TitleFontSize = 18; bar.LabelFontSize = 16
-    try: bar.RangeLabelFormat = '%.1f'; bar.LabelFormat = '%.1f'; bar.AutomaticLabelFormat = 0
+    try:
+        v = GetParaViewVersion(); fmt = '{:.1f}' if (v.major, v.minor) >= (6, 0) else '%.1f'
+    except Exception: fmt = '{:.1f}'
+    try: bar.AutomaticLabelFormat = 0; bar.LabelFormat = fmt; bar.RangeLabelFormat = fmt
     except Exception: pass
     bar.WindowLocation = 'Any Location'; bar.Position = [0.89, 0.28]; bar.ScalarBarLength = 0.44
 
@@ -119,8 +126,13 @@ try:
 
     base = os.path.join(out, '%s_%.2fs' % (case, t))
     def cam(pos, up, angle=30):
+        # set the viewing direction, then let ParaView fit the visible bowl into the picture with a margin
         view.CameraPosition = pos; view.CameraFocalPoint = [0.0, 0.0, zc]; view.CameraViewUp = up
         view.CameraViewAngle = angle; view.CameraParallelProjection = 0
+        try: view.ResetCamera(False)
+        except Exception: view.ResetCamera()
+        try: view.GetActiveCamera().Dolly(1.05)
+        except Exception: pass
     def shoot(name):
         Render(view); SaveScreenshot(base + name, view, ImageResolution=[1920, 1080]); say('wrote', base + name)
     def only(*reps):
@@ -155,7 +167,7 @@ try:
         el = math.radians(28); d = 3.2 * R
         cam([0.0, -d * math.cos(el), zc + d * math.sin(el)], [0, 0, 1])
         view.EnableRayTracing = 1; view.BackEnd = 'OSPRay raycaster'; view.Shadows = 1
-        view.SamplesPerPixel = 4; view.AmbientSamples = 2
+        view.SamplesPerPixel = 16; view.AmbientSamples = 4
         shoot('_cutaway_rt.png')
         view.EnableRayTracing = 0
     except Exception as e:
