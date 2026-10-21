@@ -296,6 +296,12 @@ tr.best td{background:color-mix(in srgb, var(--clean) 12%, transparent)}
 .ch-log tr.ok td{font-weight:600}
 .ch-you{margin-top:14px}
 .ch-h{font-size:14px;margin:16px 0 6px}
+.cfd-maps canvas{aspect-ratio:2/1}
+.cfd-media{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin:10px 0}
+.cfd-fig{margin:0}.cfd-fig img,.cfd-fig video{width:100%;border-radius:8px;border:1px solid var(--line);display:block}
+.cfd-fig figcaption{font-size:12.5px;color:var(--muted);margin-top:4px}
+.cfd-legend .sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin:0 4px 0 10px;border:1px solid var(--line)}
+#cfdHead,#cfdDiff,.cfd-maps{scroll-margin-top:64px}
 #challenge canvas,#chTask,.ch-routes,#chRep,#chVerify,.ch-you,#chHead{scroll-margin-top:64px}
 .ch-cv{aspect-ratio:2.2/1}
 @media (max-width:560px){ .ch-cv{aspect-ratio:1.3/1} }
@@ -363,7 +369,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
   </section>
 
   <nav class="jump" aria-label="Page sections">
-    <a href="#sim">Simulate</a><a href="#results">Results</a><a href="#traces">Traces</a><a href="#wallmap">Wall map</a><a href="#sweep">Sweep</a><a href="#tolerance">Tolerances</a><a href="#challenge">Challenge</a><a href="#ai-lab">AI lab</a><a href="#how">How it works</a><a href="why.html" target="_blank" rel="noopener">Why</a>
+    <a href="#sim">Simulate</a><a href="#results">Results</a><a href="#traces">Traces</a><a href="#wallmap">Wall map</a><a href="#sweep">Sweep</a><a href="#tolerance">Tolerances</a><a href="#cfd">CFD check</a><a href="#challenge">Challenge</a><a href="#ai-lab">AI lab</a><a href="#how">How it works</a><a href="why.html" target="_blank" rel="noopener">Why</a>
     <button type="button" class="jump-demo" id="demoBtn2">Demo me</button>
   </nav>
 
@@ -504,6 +510,31 @@ td code{font-family:var(--f-mono);font-size:12.5px}
         </div>
         <div class="tablewrap"><table id="tolTable" class="compact"></table></div>
         <div class="ai-results" id="tolSum"></div>
+      </section>
+
+      <section class="panel" aria-label="Checked against CFD" id="cfd">
+        <div class="panel-head"><h2>Checked against CFD</h2><span class="muted" style="font-size:12.5px">Can we trust the fast model? The same bowl in a full flow simulation</span></div>
+        <p class="ai-lede">The fast model makes simplifications to answer in milliseconds. To see what they cost, the same bowl with the same jets was simulated with OpenFOAM, an open-source CFD code that resolves the water and the air in about 160,000 cells. Both are shown on the same unrolled bowl wall: left the CFD, right the fast model.</p>
+        <p class="ch-label" id="cfdCaveat"></p>
+        <div class="ai-results" id="cfdHead"><p class="muted" id="cfdStatus">Loading the CFD results…</p></div>
+        <div class="sweep-ctl" style="margin-top:8px">
+          <div class="seg" role="group" aria-label="What the maps show"><button type="button" data-cfdmode="wet" aria-pressed="true">When the water gets there</button><button type="button" data-cfdmode="clean" aria-pressed="false">What gets cleaned</button></div>
+          <button class="btn primary" type="button" id="cfdPlay">Play the first seconds</button>
+          <label class="f inline" for="cfdT">Time<input type="range" id="cfdT" min="0" max="1.5" step="0.01" value="0"></label>
+          <span class="ai-status" id="cfdTOut"></span>
+          <button class="btn" type="button" id="cfdTour">Guided tour</button>
+        </div>
+        <div class="ai-two cfd-maps">
+          <canvas id="cvCfdC" aria-label="Wall map of the CFD simulation"></canvas>
+          <canvas id="cvCfdM" aria-label="Wall map of the fast model for the same flush"></canvas>
+        </div>
+        <p class="ai-note cfd-legend" id="cfdLegend"></p>
+        <div class="ai-results" id="cfdDiff"></div>
+        <div class="cfd-media" id="cfdMedia" hidden></div>
+        <details class="ch-log"><summary>Curves over time, for engineers</summary>
+          <canvas id="cvCfdCurves" class="ch-cv" aria-label="Wetted share of the wall and pool swirl over time, CFD against fast model"></canvas>
+          <p class="ai-note">Wetted share from the maps above (first time a cell is wet; the CFD samples every 0.05 s). Pool swirl: the CFD's mean tangential speed of the water in the pool; the fast model's mean speed of a pool turning as a solid body. The details of the CFD case, its limits and the measurement definitions are in the method page, section 13.</p>
+        </details>
       </section>
 
       <section class="panel" aria-label="Engineering challenge" id="challenge">
@@ -742,6 +773,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
 <script src="model.js?v=21"></script>
 <script src="app.js?v=21"></script>
 <script src="tolerance.js?v=21"></script>
+<script src="cfdcheck.js?v=21"></script>
 <script src="challenge-core.js?v=21"></script>
 <script src="challenge-data.js?v=21"></script>
 <script src="challenge.js?v=21"></script>

@@ -4,11 +4,11 @@
 //   node checks/browser.js            serves this repository on a free local port and tests it
 //   node checks/browser.js <url>      tests a running copy instead, for example the live site
 // Check names starting with F-numbers or Open refer to the findings of the independent review of 1.3.0, fixed in 1.3.1.
-// Takes about six minutes (the demo, normal and robust optimiser searches, the engineering challenge and its tour, a surrogate training run, a noise fit and two tolerance studies). Exits with code 1 on any failure.
+// Takes about seven minutes (the demo, normal and robust optimiser searches, the CFD check, the engineering challenge and its tour, a surrogate training run, a noise fit and two tolerance studies). Exits with code 1 on any failure.
 const http = require('http'), fs = require('fs'), path = require('path');
 const { chromium } = require('playwright');
 const ROOT = path.join(__dirname, '..');
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml', '.mp4': 'video/mp4', '.pdf': 'application/pdf' };
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml', '.mp4': 'video/mp4', '.pdf': 'application/pdf' };
 function serve() {
   return new Promise((resolve) => {
     const srv = http.createServer((req, res) => {
@@ -101,7 +101,7 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   const step7 = await page.evaluate(() => document.getElementById('tourText').innerText);
   ok('Demo still loads a winner', /Cleaning \d+ %/.test(step7), step7.replace(/\s+/g, ' ').slice(0, 400));
   await next(); await page.waitForFunction(() => !document.getElementById('tourNext').disabled, null, { timeout: 60000 });
-  ok('Demo me: the last step offers the engineering challenge tour', await page.evaluate(() => !!document.getElementById('tourNextTour')));
+  ok('Demo me: the last step offers part 2 of the story, the CFD check', await page.evaluate(() => (document.getElementById('tourNextTour') || {}).textContent === 'Continue with part 2: Checked against CFD'));
   await page.click('#tourNext'); await page.waitForTimeout(300);   // Finish
   ok('F05 finish leaves no undo steps', (await undoInfo()).dis === preUndo.dis, await undoInfo());
   ok('F05 finish leaves no delta chips', (await chips()) === preChips, { before: preChips, after: await chips() });
@@ -135,7 +135,7 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   await page.click('#tourX'); await page.click('#demoBtn');
   await page.waitForTimeout(6000);
   const txt = await page.evaluate(() => ({ step: document.getElementById('tourStep').textContent, text: document.getElementById('tourText').innerText }));
-  ok('Open1 reopened demo shows its own step', txt.step === 'Step 1 of 9' && !txt.text.includes('did not finish'), txt.step + ' | ' + txt.text.slice(0, 80));
+  ok('Open1 reopened demo shows its own step', txt.step.endsWith('Step 1 of 9') && !txt.text.includes('did not finish'), txt.step + ' | ' + txt.text.slice(0, 80));
   await page.click('#tourX');
 
   // F-17 pin vs coefficients
@@ -258,6 +258,26 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   await page.waitForFunction(() => !FlushAI.busy(), null, { timeout: 60000 });
   const pg4 = await page.evaluate(() => ({ st: document.getElementById('optStatus').textContent, inc: FlushAI._test.opt().incomplete, fin: FlushAI._test.opt().final, hidden: document.getElementById('optProg').hidden }));
   ok('Optimiser: Stop during the check reports only checked designs and says so', pg3.txt.startsWith('Step 2 of 2, checking') && pg3.btn.startsWith('Stop check') && pg4.inc && pg4.fin && pg4.hidden && pg4.st.includes('You stopped the full-resolution check'), { pg3, st: pg4.st.slice(0, 120) });
+
+  // CFD check (2.0): the OpenFOAM run next to the fast model, playback, modes, and part 2 of the story
+  await fresh();
+  await page.waitForFunction(() => window.FlushCFD && FlushCFD.ready(), null, { timeout: 30000 }).catch(() => {});
+  const cf0 = await page.evaluate(() => ({ ready: FlushCFD.ready(), head: document.getElementById('cfdHead').innerText, cav: document.getElementById('cfdCaveat').innerText }));
+  ok('CFD check: the OpenFOAM run loads and the headline compares time and results', cf0.ready && cf0.head.includes('OpenFOAM needed') && /wetted \d+ %/.test(cf0.head), cf0.head.slice(0, 200));
+  ok('CFD check: the caveat names the mesh and says it is not a measurement', cf0.cav.includes('mm cells at the wall') && cf0.cav.includes('not a measurement'), cf0.cav.slice(0, 160));
+  await page.evaluate(() => FlushCFD.play());
+  const cf1 = await page.evaluate(() => { const S = FlushCFD.data(); return { t: S.t, end: S.cfd.case.end, cw: S.cWet(S.cfd.case.end), mw: S.mWet(S.cfd.case.end), out: document.getElementById('cfdTOut').textContent }; });
+  ok('CFD check: playback runs the wall maps to the end of the CFD run', Math.abs(cf1.t - cf1.end) < 1e-9 && cf1.cw > 50 && cf1.mw > 50 && cf1.out.startsWith('t ='), cf1);
+  await page.click('[data-cfdmode="clean"]'); await page.waitForTimeout(100);
+  ok('CFD check: the cleaning view disables the time slider', await page.evaluate(() => document.getElementById('cfdT').disabled && document.getElementById('cfdLegend').innerText.includes('cleaned')));
+  await page.evaluate(() => document.getElementById('cfdTour').click());
+  const t2 = [];
+  for (let i = 0; i < 4; i++) { await page.waitForFunction(() => !document.getElementById('tourNext').disabled, null, { timeout: 60000 }); t2.push(await page.textContent('#tourStep')); if (i < 3) await page.click('#tourNext'); }
+  const cont = await page.evaluate(() => (document.getElementById('tourNextTour') || {}).textContent || '');
+  ok('Story part 2: four steps about the CFD check, then an offer to continue with part 3', t2[0].startsWith('Part 2 of 3') && t2[3].includes('Step 4 of 4') && cont.includes('part 3'), { t2, cont });
+  await page.click('#tourNextTour'); await page.waitForTimeout(800);
+  ok('Story: continuing starts part 3, the engineering challenge', (await page.textContent('#tourStep')).startsWith('Part 3 of 3'));
+  await page.click('#tourX');
 
   // Engineering challenge (2.0): eight stored races on one clock, a chosen race, live recomputation, your turn, guided tour
   await fresh();

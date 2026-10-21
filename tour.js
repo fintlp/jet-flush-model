@@ -1,5 +1,6 @@
-/* Guided walkthroughs that drive the page live: "Demo me" (the simulator and the AI lab) and the engineering
-   challenge tour. Both save the visitor's design at the start and offer it back at the end. */
+/* The guided story, in three parts that drive the page live: 1 the fast model ("Demo me": simulator and AI lab),
+   2 the check against CFD, 3 AI in the engineering loop (the engineering challenge). Each part can be started on its
+   own and ends by offering the next. Every part saves the visitor's design at the start and offers it back. */
 (function () {
   const A = window.FlushApp, M = window.FlushModel;
   if (!A || !M) return;
@@ -48,7 +49,7 @@
     {
       t: 'Welcome', el: () => document.querySelector('.top .title'),
       x: async () => { A.stop(); A.apply(Object.assign(M.defaults('washdown'), { flushMode: 'full' })); },
-      h: () => `<p>This demo takes about a minute. It plays a flush, changes the bowl, and lets the AI lab find a better design, all live in the browser.</p><p>We start from the EU washdown preset. Your own design is saved, and you can bring it back at the end.</p>`
+      h: () => `<p>This first part takes about a minute. It plays a flush, changes the bowl, and lets the AI lab find a better design, all live in the browser. Part 2 checks the fast model against a full CFD simulation; part 3 shows what AI does with it in an engineering project.</p><p>We start from the EU washdown preset. Your own design is saved, and you can bring it back at the end.</p>`
     },
     {
       t: 'Watch the flush', el: () => $('sim'), block: 'start',
@@ -103,7 +104,7 @@
     },
     {
       t: 'Your turn', el: () => document.querySelector('.top .actions'), block: 'center', last: true,
-      h: () => `<p><b>Undo</b> steps back one change at a time, <b>Reset</b> returns to the preset, and <b>Pin as reference</b> above the results compares every change with one fixed design.</p><p>Each slider has an <b>i</b> button that explains it.</p><p>Do you want your own design back, or keep this one? <b>Finish</b> brings your own design back.</p>`
+      h: () => `<p><b>Undo</b> steps back one change at a time, <b>Reset</b> returns to the preset, and <b>Pin as reference</b> above the results compares every change with one fixed design.</p><p>Each slider has an <b>i</b> button that explains it.</p><p>Next: <b>can we trust a model that answers in milliseconds?</b> Part 2 puts it next to a full CFD simulation. Or end here: <b>Finish</b> brings your own design back.</p>`
     }
   ];
 
@@ -119,7 +120,7 @@
     },
     {
       t: 'Three ways to work', el: () => document.querySelector('.ch-routes'), block: 'center',
-      h: () => `<p><b>Classic:</b> an experienced engineer changes one setting per run and keeps what helps.</p><p><b>Fast model alone:</b> our flush model screens hundreds of designs in seconds, and the best ones are sent to the expensive simulation.</p><p><b>AI route:</b> the same fast model, plus a correction that is learned from every expensive run, so the next run goes where success is most likely.</p>`
+      h: () => `<p><b>Classic:</b> an experienced engineer changes one setting per run and keeps what helps.</p><p><b>Fast model alone:</b> our flush model screens hundreds of designs in seconds, and the best ones are sent to the expensive simulation.</p><p><b>AI route:</b> the same fast model, plus a correction that is learned from every expensive run, so the next run goes where success is most likely. The fast model is right on trends but off in places, as the CFD check showed; the correction learns where.</p>`
     },
     {
       t: 'Eight projects, one clock', el: () => $('cvChAll'), block: 'center',
@@ -158,7 +159,44 @@
       h: () => `<p>A physics model you can trust for the trends, a few expensive runs, and a correction learned from each of them: that is how AI shortens engineering loops. Not by replacing simulation, but by <b>deciding where the next expensive run is worth it</b>.</p><p class="tour-hint">The reference here is synthetic and the task has five settings, so the numbers illustrate the principle. With real CFD at hours per run and more settings to change, every run saved counts more.</p><p>Do you want your own design back, or keep this one? <b>Finish</b> brings your own design back.</p>`
     }
   ];
-  let STEPS = DEMO, KIND = 'demo';
+  // ---- part 2: the check against CFD ----
+  const F = () => window.FlushCFD;
+  const cfdNum = () => { const S = F() && F().data(); if (!S || !S.cfd) return null; const t = S.cfd.case.end; return { S, t, wc: (S.cfd.case.wallClock_s || S.run.wallClock_s), cores: (S.cfd.case.cores || S.run.cores), ms: S.msModel }; };
+  const waitCfd = async () => { for (let k = 0; k < 100 && !(F() && F().ready()); k++) await wait(100); };
+  const CFD = [
+    {
+      t: 'Can we trust the fast model?', el: () => $('cfdHead'), block: 'center',
+      x: async () => { await waitCfd(); F().setMode('wet'); },
+      h: () => { const n = cfdNum(); if (!n) return '<p>The CFD results could not be loaded here, so this part cannot be shown.</p>';
+        return `<p>The fast model simplifies to answer in milliseconds. To see what that costs, we simulated the same bowl with the same jets in <b>OpenFOAM</b>, a full CFD code that resolves water and air in about 160,000 cells.</p><p>For ${n.t.toFixed(1)} s of flush, the CFD needed ${n.wc ? `<b>about ${Math.round(n.wc / 60)} minutes on ${n.cores} processor cores</b>` : 'hours'}. The fast model: <b>${Math.round(n.ms)} ms</b>.</p>`; }
+    },
+    {
+      t: 'When the water gets there', el: () => document.querySelector('.cfd-maps'), block: 'center',
+      during: '<p>Both maps unroll the bowl wall: round the rim from left to right, rim at the top, waterline at the bottom. Watch the films spread from the two jets.</p><p class="tour-hint">Left CFD, right fast model.</p>',
+      x: async () => { await waitCfd(); await F().play(); },
+      h: () => { const n = cfdNum(); if (!n) return '<p>No CFD data.</p>'; const S = n.S, t1 = Math.min(0.5, n.t);
+        const c1 = S.cWet(t1), m1 = S.mWet(t1), cE = S.cWet(n.t), mE = S.mWet(n.t);
+        return `<p>Left the CFD, right the fast model, on the same colour scale. Dark means wetted early.</p><p>In the end both wet nearly the whole wall: <b>${Math.round(cE)} %</b> in the CFD, <b>${Math.round(mE)} %</b> in the fast model by ${n.t.toFixed(1)} s.${Math.abs(c1 - m1) >= 3 ? ` The ${c1 > m1 ? 'CFD' : 'fast model'} gets there sooner: by ${t1.toFixed(1)} s ${Math.round(c1)} % against ${Math.round(m1)} %.` : ''} The paths differ: in the CFD the water runs down the wall soon after each jet; in the fast model the films first circle near the rim.</p>${n.wc && n.ms ? `<p>The fast model gets this picture about <b>${Math.round(n.wc * 1000 / n.ms / 1000).toLocaleString('en')} thousand times faster</b>.</p>` : ''}`; }
+    },
+    {
+      t: 'What gets cleaned', el: () => document.querySelector('.cfd-maps'), block: 'center',
+      x: async () => { await waitCfd(); F().setMode('clean'); },
+      h: () => { const n = cfdNum(); if (!n) return '<p>No CFD data.</p>'; const S = n.S;
+        const dC = S.mClean - S.cClean;
+        return `<p>Green: where the water's shear was strong enough for long enough to clean, by ${n.t.toFixed(1)} s. CFD <b>${Math.round(S.cClean)} %</b>, fast model <b>${Math.round(S.mClean)} %</b>${Math.abs(dC) >= 2 ? `, the fast model about <b>${Math.round(Math.abs(dC))} points ${dC > 0 ? 'more optimistic' : 'more cautious'}</b>` : ''}.</p><p>The patterns differ more than the totals: the CFD leaves streaks behind each jet, and it also counts the swirling pool washing the wall near the waterline, which the fast model does not.</p><p class="tour-hint">This is a second simulation, not a measurement of a real bowl, and thin films are smoothed at this mesh size. Agreement shows consistency, not truth.</p>`; }
+    },
+    {
+      t: 'Where they differ', el: () => $('cfdDiff'), block: 'center', last: true, keepsDesign: true,
+      h: () => { const n = cfdNum(); if (!n) return '<p>No CFD data.</p>'; const S = n.S, first = S.arr && S.arr.arrivalTimes ? S.arr.arrivalTimes.first_1mLs : null;
+        return `<p>So: close on the totals, different in the details.${first != null ? ` The first water reaches the pool after <b>${first.toFixed(2)} s</b> in the CFD, but only after <b>${S.mod.firstArr.toFixed(2)} s</b> in the fast model.` : ''} The CFD film runs down sooner, its pool spins faster and washes the lower wall.</p><p>That is what a fast model is: <b>right on the trends, off in places</b>. Part 3 shows how a few expensive runs correct exactly that, and how much engineering time it saves.</p>`; }
+    }
+  ];
+  const PARTS = [
+    { k: 'demo', name: 'The fast model', steps: DEMO, btn: 'demoBtn', ok: () => true },
+    { k: 'cfd', name: 'Checked against CFD', steps: CFD, btn: 'cfdTour', ok: () => !!window.FlushCFD },
+    { k: 'challenge', name: 'AI in the engineering loop', steps: CHALLENGE, btn: 'chTour', ok: () => !!window.FlushChallengeUI }
+  ];
+  let PART = 0, STEPS = DEMO, KIND = 'demo';
 
   function place() {
     if (!active) return;
@@ -188,7 +226,7 @@
   });
   async function show(i, fromBack) {
     const s = STEPS[i], ses = session; idx = i; busy = true;
-    $('tourStep').textContent = `Step ${i + 1} of ${STEPS.length}`;
+    $('tourStep').textContent = `Part ${PART + 1} of ${PARTS.length} · ${PARTS[PART].name} · Step ${i + 1} of ${STEPS.length}`;
     $('tourTitle').textContent = s.t;
     $('tourDots').innerHTML = STEPS.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('');
     $('tourBack').disabled = i === 0;
@@ -196,17 +234,18 @@
     next.disabled = true; next.textContent = s.last ? 'Finish' : (i === 0 ? 'Start' : 'Next');
     target = s.el ? s.el() : null;
     // on phones the card docks at the bottom, so the highlighted part goes to the top of the screen
-    if (target) target.scrollIntoView({ behavior: reduce() ? 'auto' : 'smooth', block: A.isPhone() && KIND === 'challenge' ? 'start' : (s.block || 'center') });
+    if (target) target.scrollIntoView({ behavior: reduce() ? 'auto' : 'smooth', block: A.isPhone() && KIND !== 'demo' ? 'start' : (s.block || 'center') });
     $('tourText').innerHTML = s.slow ? '<p class="tour-hint" id="tourProgTxt">The AI lab searches about 540 designs and then checks the best ones at full resolution. This takes about 10 to 15 seconds.</p><div class="prog"><div class="prog-bar" role="progressbar" aria-label="Progress of the search" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="prog-fill" id="tourProgFill"></span></div></div>' : (s.during || '<p class="tour-hint">…</p>');
     if (s.x && !(fromBack && s.slow)) { try { await s.x(); } catch (e) { } }
     await wait(reduce() ? 0 : 350);
     if (ses !== session || idx !== i || !active) return;   // closed, or closed and reopened, meanwhile
     $('tourText').innerHTML = s.h();
     if (s.last) {
-      $('tourText').insertAdjacentHTML('beforeend', `<div class="tour-end"><button class="btn" type="button" id="tourRestore">Bring my design back</button><button class="btn" type="button" id="tourKeep">Keep this design</button>${KIND === 'demo' && window.FlushChallengeUI ? '<button class="btn primary" type="button" id="tourNextTour">Continue: the engineering challenge</button>' : ''}</div>`);
-      $('tourRestore').addEventListener('click', () => end(true));
-      $('tourKeep').addEventListener('click', () => { end(false); A.save(); });
-      if ($('tourNextTour')) $('tourNextTour').addEventListener('click', () => { end(true); start('challenge'); });
+      const nxt = PARTS[PART + 1] && PARTS[PART + 1].ok() ? PARTS[PART + 1] : null;
+      $('tourText').insertAdjacentHTML('beforeend', `<div class="tour-end">${s.keepsDesign ? '' : '<button class="btn" type="button" id="tourRestore">Bring my design back</button><button class="btn" type="button" id="tourKeep">Keep this design</button>'}${nxt ? `<button class="btn primary" type="button" id="tourNextTour">Continue with part ${PART + 2}: ${nxt.name}</button>` : ''}</div>`);
+      if ($('tourRestore')) $('tourRestore').addEventListener('click', () => end(true));
+      if ($('tourKeep')) $('tourKeep').addEventListener('click', () => { end(false); A.save(); });
+      if ($('tourNextTour')) $('tourNextTour').addEventListener('click', () => { const k = nxt.k; end(true); start(k); });
       next.textContent = 'Finish';
     } else next.textContent = i === 0 ? 'Start' : 'Next';
     next.disabled = false; busy = false;
@@ -215,7 +254,7 @@
 
   function start(kind) {
     if (active) return;
-    KIND = kind === 'challenge' && window.FlushChallengeUI ? 'challenge' : 'demo'; STEPS = KIND === 'challenge' ? CHALLENGE : DEMO;
+    PART = Math.max(0, PARTS.findIndex((q) => q.k === kind && q.ok())); KIND = PARTS[PART].k; STEPS = PARTS[PART].steps;
     session++; startSnap = A.histState(); mem = {}; active = true; ov.hidden = false; document.body.classList.add('touring');
     startPin = A.pin(); if (startPin) A.setPin(null);   // the demo compares with the preset; a pinned reference comes back at the end
     if (A.isPhone()) A.drawer(false);
@@ -229,7 +268,7 @@
     if (startSnap) A.restoreState(startSnap, !restore);   // undo history and deltas as before the walkthrough
     startSnap = null;
     if (startPin) { A.setPin(startPin); startPin = null; }
-    const b = $(KIND === 'challenge' ? 'chTour' : 'demoBtn'); if (b) b.focus({ preventScroll: true });
+    const b = $(PARTS[PART].btn); if (b) b.focus({ preventScroll: true });
   }
   $('tourNext').addEventListener('click', () => { if (busy) return; if (idx >= STEPS.length - 1) end(true); else show(idx + 1); });
   $('tourBack').addEventListener('click', () => { if (busy || idx === 0) return; show(idx - 1, true); });
@@ -242,6 +281,7 @@
   });
   ['demoBtn', 'demoBtn2'].forEach((id) => { const b = $(id); if (b) b.addEventListener('click', () => start('demo')); });
   if ($('chTour')) $('chTour').addEventListener('click', () => start('challenge'));
+  if ($('cfdTour')) $('cfdTour').addEventListener('click', () => start('cfd'));
   // show the small menu button only once the big "Start here" button has scrolled out of view
   (function () {
     const strip = document.querySelector('.starthere'), small = $('demoBtn2');
@@ -252,5 +292,6 @@
   // deep link: …/#demo starts the walkthrough
   if (location.hash === '#demo') setTimeout(() => start('demo'), 600);
   if (location.hash === '#challenge-tour') setTimeout(() => start('challenge'), 600);
+  if (location.hash === '#cfd-tour') setTimeout(() => start('cfd'), 600);
   window.FlushTour = { start, end, kind: () => KIND, step: () => idx, active: () => active };
 })();
