@@ -1,6 +1,6 @@
-/* The guided story, in three parts that drive the page live: 1 the fast model ("Demo me": simulator and AI lab),
-   2 the check against CFD, 3 AI in the engineering loop (the engineering challenge). Each part can be started on its
-   own and ends by offering the next. Every part saves the visitor's design at the start and offers it back. */
+/* The guided story, in four parts that drive the page live: 1 the fast model ("Demo me": simulator and AI lab),
+   2 the check against CFD, 3 AI in the engineering loop (the engineering challenge), 4 what it means for your team
+   (the savings calculator, for managers). Each part can be started on its own and ends by offering the next. Every part saves the visitor's design at the start and offers it back. */
 (function () {
   const A = window.FlushApp, M = window.FlushModel;
   if (!A || !M) return;
@@ -156,7 +156,7 @@
     },
     {
       t: 'What this means', el: () => $('chHead'), block: 'center', last: true,
-      h: () => `<p>A fast physics model, a few expensive runs, and a correction learned from each of them: that is how AI shortens engineering loops. Not by replacing simulation, but by <b>deciding where the next expensive run is worth it</b>.</p>${(() => { const S = U().stats(); if (!S) return ''; const f = (v) => (v % 1 ? v.toFixed(1) : String(v)); return `<p>At one working day per iteration, as Geberit reported for its bowl development, the median project takes <b>${f(S.ai.med)} days instead of ${f(S.classic.med)}</b>; over the eight projects, <b>${S.classic.sum - S.ai.sum} working days</b> of iterations are saved. <a href="why.html#loop" target="_blank" rel="noopener">The timeline</a>.</p>`; })()}<p class="tour-hint">The reference here is synthetic and the task has five settings, so the numbers illustrate the principle. With real CFD at hours per run and more settings to change, every run saved counts more.</p><p>Do you want your own design back, or keep this one? <b>Finish</b> brings your own design back.</p>`
+      h: () => `<p>A fast physics model, a few expensive runs, and a correction learned from each of them: that is how AI shortens engineering loops. Not by replacing simulation, but by <b>deciding where the next expensive run is worth it</b>.</p>${(() => { const S = U().stats(); if (!S) return ''; const f = (v) => (v % 1 ? v.toFixed(1) : String(v)); return `<p>At one working day per iteration, as Geberit reported for its bowl development, the typical project takes <b>${f(S.ai.med)} days instead of ${f(S.classic.med)}</b>: about <b>${f(S.classic.med - S.ai.med)} working days</b> saved on one design question. Part 4 turns this into your own team's numbers.</p>`; })()}<p class="tour-hint">The reference here is synthetic and the task has five settings, so the numbers illustrate the principle. With real CFD at hours per run and more settings to change, every run saved counts more.</p><p>Do you want your own design back, or keep this one? <b>Finish</b> brings your own design back.</p>`
     }
   ];
   // ---- part 2: the check against CFD ----
@@ -198,10 +198,54 @@
         return `<p>The "measured" flush is simulated: the full model with a weir coefficient of <b>${S.D.Cw.toFixed(2)}</b>, hidden from the network; the model assumes ${S.D.CwModel.toFixed(1)}. From ${S.D.obs.length} noisy readings the network found <b>${S.pinn.Cw.toFixed(2)}</b>, and estimated the unmeasured water on the wall.</p><p class="tour-hint">For an equation this small, least squares is quicker (${S.ls.Cw.toFixed(2)}). PINNs pay off for expensive or partly unknown equations; for a full 3D flush, CFD plus surrogates is the realistic route.</p>`; }
     }
   ];
+  // ---- part 4: what it means for your team ----
+  const VU = () => window.FlushValueUI, VS = () => VU() && VU().stats();
+  const vf = (v) => { const x = Math.round(v * 100) / 100; return x.toLocaleString('en', { maximumFractionDigits: 2 }); };
+  const veur = (v) => `${Math.round(v).toLocaleString('en')} €`;
+  const vcalc = () => VU() && VU().first();
+  const vgrp = (i) => { const c = vcalc(); return c ? c.el.querySelectorAll('.vc-grp')[i] || c.el : null; };
+  const VALUE = [
+    {
+      t: 'Where the time goes', el: () => document.querySelector('#challenge .panel-head'), block: 'center',
+      h: () => `<p>Engineering rarely waits for ideas. It waits for answers: every design question goes through expensive simulations or prototypes, and each <b>iteration</b> (set up, run, evaluate, decide) takes time. Geberit reported about <b>one working day per iteration</b> in its CFD-led bowl development.</p><p>So the question for a manager is not how fast the solver is. It is: <b>how many iterations does one design question need?</b></p>`
+    },
+    {
+      t: 'The typical project', el: () => $('chRep'), block: 'center',
+      h: () => { const S = VS(); if (!S) return '<p>The challenge data could not be loaded.</p>';
+        return `<p>In the engineering challenge, the same design question was worked eight times. The typical project needed <b>${vf(S.medClassic)} iterations</b> with an automated one-change-at-a-time search, and <b>${vf(S.medAi)}</b> with the fast model and a correction learned from every expensive run.</p><p>That is <b>${vf(S.perProject)} iterations fewer</b> per design question: about <b>${vf(S.perProject)} working days</b> at a day each.</p><p class="tour-hint">The expensive runs come from a synthetic reference, not real CFD; the task has five settings.</p>`; }
+    },
+    {
+      t: 'Not every race is a win', el: () => $('chRep'), block: 'center',
+      h: () => { const S = VS(); if (!S) return '<p>No data.</p>';
+        return `<p>The AI route needed fewer iterations in <b>${S.fewer} of ${S.n}</b> races${S.tie ? `, the same number in ${S.tie}` : ''}${S.more ? `, and more in ${S.more} (up to ${-S.minSaved} more)` : ''}. Race by race, it saved between ${S.minSaved < 0 ? '−' + -S.minSaved : S.minSaved} and ${S.maxSaved} iterations.</p><p>The fast model alone, without learning, never met the targets in <b>${S.fastMiss} of ${S.n}</b>. A fast model is not enough: it has to learn from the expensive runs.</p>`; }
+    },
+    {
+      t: 'Two clocks', el: () => $('vHead'), block: 'center',
+      x: async () => { const c = vcalc(); if (c) { if (!mem.vcPrev) mem.vcPrev = c.values(); c.fill(false); } },
+      h: () => { const S = VS(); if (!S) return '<p>No data.</p>';
+        return `<p><b>Computing time:</b> in the challenge each expensive run costs 8 hours of computing, so ${vf(S.perProject)} runs are ${vf(S.perProject * 8)} hours of machine time.</p><p><b>Working time:</b> what a manager feels is the whole iteration, with people in it. That differs from team to team, so the next steps use the reader's own figures.</p>`; }
+    },
+    {
+      t: 'Your numbers', el: () => vgrp(0), block: 'center',
+      x: async () => { const c = vcalc(); if (c) c.fill(true); await wait(200); },
+      h: () => { const c = vcalc(), o = c && c.result(); if (!o || o.costPerQ == null) return '<p>The calculator could not be filled.</p>';
+        return `<p>We filled in example values, each with its source below the fields: <b>${o.given.d} working day</b> and <b>${o.given.h} person hours</b> per iteration, <b>${veur(o.given.r)}</b> per hour.</p><p>One design question then saves <b>${vf(o.daysPerQ)} working days</b> and <b>${veur(o.costPerQ)}</b>: ${vf(o.k)} iterations × ${o.given.h} h × ${veur(o.given.r)}. Every result shows its calculation in small print.</p><p class="tour-hint">Replace the examples with your own figures; nothing you enter leaves the browser.</p>`; }
+    },
+    {
+      t: 'When it pays off', el: () => vgrp(2), block: 'center',
+      h: () => { const c = vcalc(), o = c && c.result(); if (!o || o.breakEven == null) return '<p>The calculator could not be filled.</p>';
+        return `<p>With <b>${vf(o.given.q)} design questions</b> like this a year (an example), the team saves <b>${vf(o.daysPerYear)} working days</b> and <b>${veur(o.costPerYear)}</b> a year.</p><p>So a fast model pays for itself within a year if building and calibrating it costs less than <b>${veur(o.breakEven)}</b>. Enter your own effort in person weeks, and the calculator gives the payback time.</p><p class="tour-hint">Time to market is not priced in. Finding a weak design weeks earlier is often worth more than the hours.</p>`; }
+    },
+    {
+      t: 'How a team would start', el: () => $('vHead'), block: 'center', last: true, keepsDesign: true,
+      h: () => `<ol class="tour-list"><li><b>Pick one recurring design question</b> that today waits for CFD or tests.</li><li><b>Build a fast model</b> of its main mechanisms with the people who know them.</li><li><b>Calibrate it</b> with CFD or test data you already have.</li><li><b>Close the loop:</b> let every new expensive run correct it.</li></ol><p>The toilet is the example; the pattern fits wherever design loops wait for simulation or tests. <b>Try it</b> on this page, and <a href="https://fintlp.github.io/latest-news/#contact" target="_blank" rel="noopener">contact Peter Fintl</a> to look at one of your own design questions in a workshop.</p>`
+    }
+  ];
   const PARTS = [
     { k: 'demo', name: 'The fast model', steps: DEMO, btn: 'demoBtn', ok: () => true },
     { k: 'cfd', name: 'Checked against CFD', steps: CFD, btn: 'cfdTour', ok: () => !!window.FlushCFD },
-    { k: 'challenge', name: 'AI in the engineering loop', steps: CHALLENGE, btn: 'chTour', ok: () => !!window.FlushChallengeUI }
+    { k: 'challenge', name: 'AI in the engineering loop', steps: CHALLENGE, btn: 'chTour', ok: () => !!window.FlushChallengeUI },
+    { k: 'value', name: 'What it means for your team', steps: VALUE, btn: 'vTour', ok: () => !!(window.FlushValueUI && window.FlushValueUI.first()) }
   ];
   let PART = 0, STEPS = DEMO, KIND = 'demo';
 
@@ -283,6 +327,7 @@
     if (startSnap) A.restoreState(startSnap, !restore);   // undo history and deltas as before the walkthrough
     startSnap = null;
     if (startPin) { A.setPin(startPin); startPin = null; }
+    if (mem.vcPrev && window.FlushValueUI && window.FlushValueUI.first()) { const c = window.FlushValueUI.first(), v = mem.vcPrev; mem.vcPrev = null; c.fill(false); Object.keys(v).forEach((k) => { if (v[k] !== '') c.set(k, v[k]); }); }
     const b = $(PARTS[PART].btn); if (b) b.focus({ preventScroll: true });
   }
   $('tourNext').addEventListener('click', () => { if (busy) return; if (idx >= STEPS.length - 1) end(true); else show(idx + 1); });
@@ -300,6 +345,7 @@
   ['demoBtn', 'demoBtn2'].forEach((id) => { const b = $(id); if (b) b.addEventListener('click', () => start('demo')); });
   if ($('chTour')) $('chTour').addEventListener('click', () => start('challenge'));
   if ($('cfdTour')) $('cfdTour').addEventListener('click', () => start('cfd'));
+  if ($('vTour')) $('vTour').addEventListener('click', () => start('value'));
   // show the small menu button only once the big "Start here" button has scrolled out of view
   (function () {
     const strip = document.querySelector('.starthere'), small = $('demoBtn2');
@@ -311,5 +357,6 @@
   if (location.hash === '#demo') setTimeout(() => start('demo'), 600);
   if (location.hash === '#challenge-tour') setTimeout(() => start('challenge'), 600);
   if (location.hash === '#cfd-tour') setTimeout(() => start('cfd'), 600);
+  if (location.hash === '#value-tour') setTimeout(() => start('value'), 600);
   window.FlushTour = { start, end, kind: () => KIND, step: () => idx, active: () => active };
 })();

@@ -388,7 +388,7 @@ a{color:var(--accent)}
   </section>
 
   <nav class="jump" aria-label="Page sections">
-    <a href="#sim">Simulate</a><a href="#results">Results</a><a href="#traces">Traces</a><a href="#wallmap">Wall map</a><a href="#sweep">Sweep</a><a href="#tolerance">Tolerances</a><a href="#cfd">CFD check</a><a href="#challenge">Challenge</a><a href="#ai-lab">AI lab</a><a href="#how">How it works</a><a href="why.html" target="_blank" rel="noopener">Why</a>
+    <a href="#sim">Simulate</a><a href="#results">Results</a><a href="#traces">Traces</a><a href="#wallmap">Wall map</a><a href="#sweep">Sweep</a><a href="#tolerance">Tolerances</a><a href="#cfd">CFD check</a><a href="#challenge">Challenge</a><a href="#value">What it saves</a><a href="#ai-lab">AI lab</a><a href="#how">How it works</a><a href="why.html" target="_blank" rel="noopener">Why</a>
     <button type="button" class="jump-demo" id="demoBtn2">Demo me</button>
   </nav>
 
@@ -599,6 +599,13 @@ a{color:var(--accent)}
           <ol class="ch-you-log" id="chYouLog"></ol>
           <div class="ai-results" id="chYouSum"></div>
         </fieldset>
+      </section>
+
+      <section class="panel" aria-label="What it saves" id="value">
+        <div class="panel-head"><h2>What it saves</h2><span class="muted" style="font-size:12.5px">From the engineering challenge to your team: working days and money per design question</span></div>
+        <div class="ai-results" id="vHead"><p>In the <a href="#challenge">engineering challenge</a> the typical project needed <b data-vv="cl">10.5</b> expensive iterations with the classic route and <b data-vv="ai">4.5</b> with the AI route: <b data-vv="per">6 fewer</b> per design question. What that is worth depends on your figures: how long one iteration takes in your team, and what it costs. Enter them below, or start with the example values. <a href="why.html#loop" target="_blank" rel="noopener">How each figure is calculated</a>.</p></div>
+        <div class="sweep-ctl"><button class="btn" type="button" id="vTour">Guided tour</button></div>
+        <div data-value-calc></div>
       </section>
 
       <section class="panel" aria-label="AI lab" id="ai-lab">
@@ -817,7 +824,7 @@ a{color:var(--accent)}
       </section>
       <footer class="foot">
         <span class="footlinks"><a href="why.html" target="_blank" rel="noopener">Why we built this</a><a href="method.html" target="_blank" rel="noopener">Model details</a><a href="sources.html" target="_blank" rel="noopener">Sources and references</a><a href="slides/jet-flush-model.pptx" target="_blank" rel="noopener">Slides, PowerPoint</a><a href="slides/jet-flush-model.pdf" target="_blank" rel="noopener">Slides, PDF</a></span>
-        <span class="muted">Tangential Jet Flush Model · v2.0.0 · Peter Fintl</span>
+        <span class="muted">Tangential Jet Flush Model · v2.1.0 preview · Peter Fintl</span>
       </footer>
     </div>
   </div>
@@ -826,18 +833,20 @@ a{color:var(--accent)}
     <button type="button" class="btn primary" id="mobarBtn" aria-expanded="false" aria-controls="rail">Adjust design</button>
   </div>
 </div>
-<script src="model.js?v=25"></script>
-<script src="app.js?v=25"></script>
-<script src="tolerance.js?v=25"></script>
-<script src="cfdcheck.js?v=25"></script>
-<script src="pinn-core.js?v=25"></script>
-<script src="field-core.js?v=25"></script>
-<script src="challenge-core.js?v=25"></script>
-<script src="challenge-data.js?v=25"></script>
-<script src="challenge.js?v=25"></script>
-<script src="ai.js?v=25"></script>
-<script src="pinn.js?v=25"></script>
-<script src="field.js?v=25"></script>
-<script src="tour.js?v=25"></script>
+<script src="model.js?v=26"></script>
+<script src="app.js?v=26"></script>
+<script src="tolerance.js?v=26"></script>
+<script src="cfdcheck.js?v=26"></script>
+<script src="pinn-core.js?v=26"></script>
+<script src="field-core.js?v=26"></script>
+<script src="challenge-core.js?v=26"></script>
+<script src="challenge-data.js?v=26"></script>
+<script src="challenge.js?v=26"></script>
+<script src="ai.js?v=26"></script>
+<script src="pinn.js?v=26"></script>
+<script src="field.js?v=26"></script>
+<script src="value-core.js?v=26"></script>
+<script src="value.js?v=26"></script>
+<script src="tour.js?v=26"></script>
 </body>
 </html>

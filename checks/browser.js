@@ -282,9 +282,9 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   const t2 = [];
   for (let i = 0; i < 5; i++) { await page.waitForFunction(() => !document.getElementById('tourNext').disabled, null, { timeout: 60000 }); t2.push(await page.textContent('#tourStep')); if (i < 4) await page.click('#tourNext'); }
   const cont = await page.evaluate(() => (document.getElementById('tourNextTour') || {}).textContent || '');
-  ok('Story part 2: five steps, the CFD check and the physics-informed network, then an offer to continue with part 3', t2[0].startsWith('Part 2 of 3') && t2[4].includes('Step 5 of 5') && cont.includes('part 3') && (await page.evaluate(() => !!FlushPinnUI.result().pinn)), { t2, cont });
+  ok('Story part 2: five steps, the CFD check and the physics-informed network, then an offer to continue with part 3', t2[0].startsWith('Part 2 of 4') && t2[4].includes('Step 5 of 5') && cont.includes('part 3') && (await page.evaluate(() => !!FlushPinnUI.result().pinn)), { t2, cont });
   await page.click('#tourNextTour'); await page.waitForTimeout(800);
-  ok('Story: continuing starts part 3, the engineering challenge', (await page.textContent('#tourStep')).startsWith('Part 3 of 3'));
+  ok('Story: continuing starts part 3, the engineering challenge', (await page.textContent('#tourStep')).startsWith('Part 3 of 4'));
   await page.click('#tourX');
 
   // Physics-informed network (2.0): trains in the browser and finds the hidden weir coefficient
@@ -338,14 +338,39 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   const lastTxt = await page.evaluate(() => document.getElementById('tourText').innerText);
   ok('Challenge tour: nine steps from the problem to what it means', titles.length === 9 && titles[0] === 'An engineering problem' && titles[8] === 'What this means' && lastTxt.includes('Bring my design back'), titles);
   ok('Challenge tour: the your-turn step ran one reference run', (await page.evaluate(() => FlushChallengeUI.you().length)) === 1);
+  ok('Challenge tour: the last step offers part 4, what it means for your team', await page.evaluate(() => (document.getElementById('tourNextTour') || {}).textContent === 'Continue with part 4: What it means for your team'));
   await page.click('#tourNext'); await page.waitForTimeout(300);   // Finish
   const pAfter = await P();
   ok('Challenge tour: Finish brings the visitor\'s design back', pAfter.ovality === pBefore.ovality && pAfter.jetPhase === pBefore.jetPhase && pAfter.Vfull === pBefore.Vfull && (await page.evaluate(() => document.querySelector('.tour').hidden)), { ovality: pAfter.ovality, Vfull: pAfter.Vfull });
 
-  // why page: the timeline of one design loop is computed from the stored races
+  // why page (2.1): the figures of one design question are computed from the stored races, each with its calculation
   await page.goto(base + 'why.html'); await page.waitForTimeout(300);
-  const wy = await page.evaluate(() => ({ c: document.querySelector('[data-v="classic"]').textContent, a: document.querySelector('[data-v="ai"]').textContent, s: document.querySelector('[data-v="sum"]').textContent, m: document.querySelector('[data-v="saved"]').textContent, blocks: document.querySelectorAll('.loop-bar i').length }));
-  ok('Why page: the two-clocks timeline shows the median project from the challenge data', wy.c === '10.5 days' && wy.a === '4.5 days' && wy.s === '97 → 43' && wy.blocks === 16 && wy.m === '≈ 2.5 months', wy);
+  const wy = await page.evaluate(() => { const t = (k) => document.querySelector(`[data-v="${k}"]`).textContent; return { c: t('classic'), a: t('ai'), per: t('per'), fewer: t('fewer'), miss: t('miss'), calc: t('calcPer'), races: t('calcRaces'), rows: document.querySelectorAll('[data-v="calcRaces"] tbody tr').length, blocks: document.querySelectorAll('.loop-bar i').length }; });
+  ok('Why page: the typical project per route, the headline per design question and the race counts come from the challenge data', wy.c === '10.5 days' && wy.a === '4.5 days' && wy.blocks === 16 && wy.per === '6 fewer' && wy.fewer === '6 of 8' && wy.miss === '3 of 8', wy);
+  ok('Why page: the calculation boxes show each step and all eight races, with the total as 54 working days', wy.calc.includes('10.5 − 4.5 = 6 iterations') && wy.calc.includes('2, 9, 9, 10, 11, 11, 19, 26') && wy.rows === 9 && wy.races.includes('97 − 43 = 54') && wy.races.includes('2.6 months'), { calc: wy.calc.slice(0, 160), races: wy.races.slice(-200) });
+  // the savings calculator: empty at first, example values with sources, every result with its calculation
+  const vc0 = await page.evaluate(() => ({ n: FlushValueUI.all().length, vals: FlushValueUI.first().values(), out: FlushValueUI.first().el.querySelector('[data-role="out"]').innerText }));
+  ok('Why page calculator: starts empty and asks for figures', vc0.n === 1 && Object.values(vc0.vals).every((v) => v === '') && vc0.out.includes('Enter working days'), vc0);
+  await page.click('#value [data-act="ex"]');
+  const vc1 = await page.evaluate(() => ({ out: FlushValueUI.first().el.querySelector('[data-role="out"]').innerText, src: !FlushValueUI.first().el.querySelector('[data-role="src"]').hidden }));
+  ok('Why page calculator: example values give 6 working days and 4,560 € per question, 45,600 € a year as the break-even budget, each with its calculation', vc1.src && vc1.out.includes('6 working days') && vc1.out.includes('4,560 €') && vc1.out.includes('45,600 €') && vc1.out.includes('6 × (8 h × 95 € + 0 €)') && vc1.out.includes('pays for itself'), vc1.out.slice(0, 300));
+  await page.fill('#vc0-weeks', '12'); await page.fill('#vc0-run', '200');
+  const vc2 = await page.evaluate(() => ({ out: FlushValueUI.first().el.querySelector('[data-role="out"]').innerText, r: FlushValueUI.first().result() }));
+  ok('Why page calculator: a build effort gives the payback time, and a run cost adds to every iteration', vc2.out.includes('Paid back after') && Math.abs(vc2.r.costPerQ - 6 * 960) < 1e-9 && Math.abs(vc2.r.paybackMonths - 45600 / (57600 / 12)) < 1e-9, vc2.r);
+  await page.click('#value [data-act="clear"]');
+  ok('Why page calculator: Clear empties every field', await page.evaluate(() => Object.values(FlushValueUI.first().values()).every((v) => v === '')));
+  ok('Why page: the call to action offers the demo, the simulator and a contact for a workshop', await page.evaluate(() => { const t = document.getElementById('next').innerText; return t.includes('Start the guided demo') && t.includes('ask for a workshop'); }));
+
+  // simulator page (2.1): What it saves, and part 4 of the story for managers
+  await fresh();
+  const vh = await page.evaluate(() => ({ head: document.getElementById('vHead').innerText, n: FlushValueUI.all().length }));
+  ok('What it saves: the panel names the typical project and holds the calculator', vh.n === 1 && vh.head.includes('10.5') && vh.head.includes('4.5') && vh.head.includes('6 fewer'), vh);
+  await page.evaluate(() => document.getElementById('vTour').click());
+  const t4 = [];
+  for (let i = 0; i < 7; i++) { await page.waitForFunction(() => !document.getElementById('tourNext').disabled, null, { timeout: 60000 }); t4.push({ s: await page.textContent('#tourStep'), x: await page.evaluate(() => document.getElementById('tourText').innerText) }); if (i < 6) await page.click('#tourNext'); }
+  ok('Story part 4: seven steps for managers, the example values filled in at step 5, break-even at step 6, the call to action at the end', t4[0].s.startsWith('Part 4 of 4') && t4[6].s.includes('Step 7 of 7') && t4[4].x.includes('4,560 €') && t4[5].x.includes('45,600 €') && t4[6].x.includes('workshop') && !(await page.evaluate(() => !!document.getElementById('tourNextTour'))), t4.map((q) => q.s));
+  await page.click('#tourNext'); await page.waitForTimeout(300);
+  ok('Story part 4: Finish leaves the calculator as it was before the tour', await page.evaluate(() => document.querySelector('.tour').hidden && Object.values(FlushValueUI.first().values()).every((v) => v === '')));
 
   // F-18 accessibility
   await fresh();

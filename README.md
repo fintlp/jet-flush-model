@@ -3,7 +3,7 @@
 A fast model of how a rimless toilet flushes. Rim jets wash the bowl, swirl the pool and carry waste through the trap. Each flush computes in milliseconds in the browser, so you can change the design and see the effect on cleaning, waste removal, water use and relative noise right away. An AI lab searches for better designs and shows how the model would be trained and calibrated with high-fidelity simulation, such as PreonLab, Ansys Fluent, Simcenter STAR-CCM+ or OpenFOAM.
 
 - **Live simulator:** https://fintlp.github.io/jet-flush-model/
-- **Guided story, three parts:** [1 the fast model](https://fintlp.github.io/jet-flush-model/#demo) · [2 checked against CFD](https://fintlp.github.io/jet-flush-model/#cfd-tour) · [3 AI in the engineering loop](https://fintlp.github.io/jet-flush-model/#challenge-tour)
+- **Guided story, four parts:** [1 the fast model](https://fintlp.github.io/jet-flush-model/#demo) · [2 checked against CFD](https://fintlp.github.io/jet-flush-model/#cfd-tour) · [3 AI in the engineering loop](https://fintlp.github.io/jet-flush-model/#challenge-tour) · [4 what it means for your team](https://fintlp.github.io/jet-flush-model/#value-tour)
 - **How the model works:** https://fintlp.github.io/jet-flush-model/method.html
 - **Sources and references:** https://fintlp.github.io/jet-flush-model/sources.html
 - **Why we built this:** https://fintlp.github.io/jet-flush-model/why.html
@@ -29,7 +29,7 @@ It splits the flush into simple physical sub-models: cistern, rim jets, wall fil
 
 ## Quick start
 
-1. Open the [live simulator](https://fintlp.github.io/jet-flush-model/) and press **Demo me** to start the guided story. Part 1 shows the fast model, part 2 checks it against CFD, part 3 shows AI in the engineering loop; each part can be started on its own.
+1. Open the [live simulator](https://fintlp.github.io/jet-flush-model/) and press **Demo me** to start the guided story. Part 1 shows the fast model, part 2 checks it against CFD, part 3 shows AI in the engineering loop, part 4 what it means for a team, with a savings calculator; each part can be started on its own.
 2. Pick a preset (EU washdown 4.5/3 L, or siphonic 4.8 L plus 0.8 L bowl refill) and change the bowl and jets with the sliders. Each slider has an **i** button that explains it.
 3. Press **Play flush** and read the result cards. Green and red chips show how much each change helped or hurt.
 4. Use **Undo**, **Reset** and **Pin as reference** to compare designs.
@@ -50,6 +50,7 @@ On a phone, the sliders open from the **Adjust design** button at the bottom.
 | Tolerance study | The spread of every result when the design deviates within production and installation tolerances, and which tolerances cause most of it |
 | Checked against CFD | The fast model next to an OpenFOAM simulation of the same bowl: when the wall gets wet and what gets cleaned, side by side, with computing times and where they differ |
 | Engineering challenge | How many expensive high-fidelity runs three routes need to reach the targets: one change at a time, the fast model alone, and the fast model with a learned correction; plus a hands-on mode |
+| What it saves | A savings calculator: enter working days and person hours per iteration, the cost per hour and the design questions a year, and see the working days and money saved per design question and per year, and the break-even budget for a fast model; example values with their sources. Also on the why page |
 | AI lab | Design optimiser, neural surrogate, hybrid calibration, noise calibration, a physics-informed network and a field surrogate, all running in the browser |
 
 ## AI lab
@@ -107,7 +108,8 @@ The checks run in Node too, for example `node checks/physics.js` and `node check
 | `challenge.js` | Engineering challenge panel: charts, race table, Your turn |
 | `pinn-core.js`, `pinn.js` | Physics-informed network: training (no page code) and its AI lab tab |
 | `field-core.js`, `field.js` | Field surrogate: POD and Gaussian processes (no page code) and its AI lab tab |
-| `tour.js` | The guided story in three parts: Demo me, the CFD check tour, the challenge tour |
+| `tour.js` | The guided story in four parts: Demo me, the CFD check tour, the challenge tour, and what it means for your team |
+| `value-core.js`, `value.js` | What it saves: the why page figures and the savings calculator computed from the stored races (no page code, also used by `checks/value.js` and `tools/slides.js`), and the calculator form on the simulator and why pages |
 | `reviews/` | The independent reviews and what was done about each finding |
 | `fonts/` | Ubuntu and Ubuntu Mono (Latin, Latin Extended and Greek), self-hosted, with their licence |
 | `checks/` | Deterministic scripts: physics checks, regression against the stored 2.0 baseline (`baseline-2.0.json`) or another model version, page checks in a headless browser, film update resolution, noise range, plausibility against published figures, and checks of the challenge, the PINN and the field surrogate. See `checks/README.md` |
@@ -115,8 +117,8 @@ The checks run in Node too, for example `node checks/physics.js` and `node check
 | `method.html` | Full model description: equations, numerics, coefficients, calibration |
 | `sources.html` | Sources and references |
 | `why.html` | Why we built this: faster loops from idea to engineering to manufacturing |
-| `media/` | Video of a flush (`flush-playback.mp4`), the whole guided story recorded at reading pace (`demo-walkthrough.mp4`, about 4 minutes) and stills of each view, the CFD maps, the challenge and every AI lab tool; made by `tools/media.js` |
-| `slides/jet-flush-model.pptx`, `.pdf` | Six slides following the story, with the two videos embedded (the PDF shows their posters); each slide carries the author, the repository link, the version and the date. `slides/figures.json` holds every figure the slides quote, read from the live page by `tools/media.js` |
+| `media/` | Video of a flush (`flush-playback.mp4`), the whole guided story recorded at reading pace (`demo-walkthrough.mp4`) and stills of each view, the CFD maps, the challenge, the savings calculator and every AI lab tool, made by `tools/media.js`; `qr-live.png`, the link to the live page for the slides |
+| `slides/jet-flush-model.pptx`, `.pdf` | Eleven slides that work without a presenter: each title states its message, every slide has speaker notes with the full story, and the two videos are embedded (the PDF shows their posters). Each slide carries the author, the repository link, the version and the date. `slides/figures.json` holds the page figures the slides quote, read from the live page by `tools/media.js`; the challenge and savings figures come from `value-core.js` |
 | `tools/` | `media.js` regenerates the stills, the videos and `slides/figures.json` from the page; `slides.js` builds the deck from them (needs `pptxgenjs`). Commands in the file headers |
 
 ## Calibration
@@ -124,6 +126,42 @@ The checks run in Node too, for example `node checks/physics.js` and `node check
 The coefficients that describe physics the model does not resolve (film friction, spreading, soil shear threshold, swirl transfer, transport thresholds and others) are fitted to a few reference runs. The procedure, the order of fitting and which measurement or CFD output to use for each coefficient are in [section 13 of the model description](https://fintlp.github.io/jet-flush-model/method.html#calibration). The reference runs can come from any high-fidelity free-surface solver: particle-based (SPH) such as PreonLab, nanoFluidX or the SPH solver of Simcenter STAR-CCM+, or mesh-based (VOF) such as Ansys Fluent or CFX, Simcenter STAR-CCM+, OpenFOAM or FLOW-3D. Section 13 compares them for this job. A good start is one preset in one tool of each family, checked against a simple rig measurement; paper removal is best calibrated against physical tests.
 
 ## Change log
+
+### 2.1.0 · in preparation
+
+Version 2.1 explains to managers what a faster design loop is worth and how each figure is calculated. The model and its results are unchanged from 2.0.0.
+
+**Why page: every figure traceable**
+
+- **Per design question first.** The headline is the typical project of the engineering challenge: 10.5 expensive iterations with the classic route, 4.5 with the AI route, **6 fewer**, about 6 working days at a day each. Before, the page led with the total over the eight races as "≈ 2.5 months", which read like a portfolio of eight products (they are eight starts of one task) and rounded 54 working days, 2.57 months, down.
+- **"How this is calculated"** under each figure: the sorted iteration counts and their medians, the subtraction, the day per iteration and its source; all eight races in a table with the totals (97 − 43 = 54 iterations, 54 working days, about 2.6 months); why the fast model alone gets stuck.
+- **The spread is shown:** the AI route needed fewer iterations in 6 of 8 races, the same in one, and 4 more in one. Race by race the saving ranged from −4 to 24 (median 5.5, average 6.75); the headline of 6, the difference between the typical projects, sits between the two.
+- **Two clocks in one box:** 8 hours of computing per run in the challenge, about one working day per iteration on the why page.
+- **Fixed:** the "3 of 8" figure was never updated from the data, because its line of code sat inside a comment (it was correct by chance); `checks/value.js` now guards against this.
+- **The toilet is the example, not the limit:** a table that reads "fast model", "expensive run" and "one iteration" for five other product areas.
+- **Call to action:** try the demo, open the simulator, contact Peter Fintl and ask for a workshop.
+
+**Savings calculator (why page and simulator page, What it saves)**
+
+- The reader enters working days per iteration, person hours per iteration, the cost per hour, computing and licence cost per run, design questions a year and, optionally, the effort to build and calibrate a fast model. Results per design question and per year, each with its calculation in small print: working days, money, and the **break-even budget**: a fast model pays for itself within a year if building and calibrating it costs less than the yearly saving. With a build effort, the payback time.
+- **Example values on a button, each with its source:** 1 working day per iteration (Geberit, CADFEM Journal), 8 person hours (one engineer for that day), 95 € per hour (average rate of freelance engineers in Germany, freelancermap, February 2026), 10 design questions a year (an example only). No example for computing and licence costs or for the build effort, since there is no measured figure. With the examples: 4,560 € per design question, 45,600 € a year.
+- Nothing entered is stored or sent anywhere. Time to market is not priced in, and the page says so.
+
+**Guided story, part 4: what it means for your team**
+
+- Seven steps for managers on the simulator page (Guided tour in What it saves, the end of part 3, or `#value-tour`): where the time goes, the typical project, not every race is a win, two clocks, the calculator with the example values, the break-even budget, and how a team would start, with the call to action. The calculator is left as it was before the tour.
+- Part 3 now ends with the saving per design question and offers part 4.
+
+**Slides**
+
+- **Eleven slides that work without a presenter,** in place of six: the problem (design loops wait for expensive answers), the approach (fast physics explores, AI narrows, high fidelity decides), three proofs (the fast model, the check against CFD, AI in the loop with a native chart of all eight races), what it is worth (the calculation step by step with the example values and the break-even budget), the toilet as an example for other products, what the demo shows and does not show yet, how a team would start, and the next step: try the page (with a QR code), watch the story, contact Peter Fintl for a workshop.
+- **Every title states the message**, not the topic, and **every slide has speaker notes** with the full story.
+- The challenge and savings figures come from `value-core.js`, the code the pages use.
+
+**Media:** the story video covers all four parts; a still of the calculator (`media/value.png`).
+
+**Checks:** new `checks/value.js` (17 checks, about a second): the arithmetic of every step, the example values and their sources, the figures written into why.html against the data, and the figures the slides use. `checks/browser.js` checks the why page figures and calculation boxes, the calculator (empty start, examples, run cost, payback, Clear), the What it saves panel and part 4 of the story.
+
 
 ### 2.0.0 · 21 October 2026
 
