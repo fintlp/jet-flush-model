@@ -97,7 +97,7 @@ console.log(r.cleanPct, r.solidsPct, r.paperPct, r.water);
 | `model.js` | The physics model: geometry, cistern, wall film, pool, trap, waste |
 | `app.js` | Drawing, controls, sweep, undo and change tracking; no physics |
 | `ai.js` | AI lab: optimiser, neural network, Nelder-Mead, Gaussian process |
-| `checks/` | Deterministic scripts: regression against another model version, film update resolution, noise range, physics checks, plausibility against published figures |
+| `checks/` | Deterministic scripts: regression against the stored 2.0 baseline or another model version, film update resolution, noise range, physics checks, plausibility against published figures |
 | `tour.js` | The Demo me walkthrough |
 | `method.html` | Full model description: equations, numerics, coefficients, calibration |
 | `sources.html` | Sources and references |
@@ -149,6 +149,7 @@ Version 2.0 changes model results. Work in progress on branch `dev-2.0`; this en
 
 - **New panel "Checked against CFD".** The fast model next to an OpenFOAM simulation of the same bowl and jets, on the same unrolled wall: when each part gets wet (time slider and playback) and what gets cleaned, the CFD's wall-clock time against the fast model's milliseconds, and where the two differ (first water in the pool, film paths, the band near the waterline, pool swirl). The CFD runs come from the `cfd/` work; the page uses the best available run (now the whole 3.2 s flush on the coarse mesh, 23 minutes on 12 cores) and computes the model live for the same window. Over the flush the CFD wets 98 % of the wall and cleans 87 %, the fast model 96 % and 86 %, with different patterns, which the page says. Every view says it is a second simulation, not a measurement. A video and stills of the CFD flush (ParaView) are shown below the maps.
 - **The guided tours become one story in three parts:** 1 the fast model (Demo me), 2 checked against CFD (new, four steps), 3 AI in the engineering loop (the challenge tour). Each part can be started on its own (`#demo`, `#cfd-tour`, `#challenge-tour`) and ends by offering the next.
+- **Demo me asks for 1 cleaning point more, not 2.** Under 2.0 physics no design within 4.0 L met +2 points (the best missed by 0.1), so the walkthrough ended at the closest design. With +1 it finds one that meets every target (washdown preset: 89 % cleaning, 4.0 L, 0.5 dB quieter).
 
 **Engineering challenge**
 
@@ -161,18 +162,26 @@ Version 2.0 changes model results. Work in progress on branch `dev-2.0`; this en
 - **Optimiser fairness (review finding F-08):** during the search, quick estimates are compared with the current design's quick estimate (this matters for a noise limit against the current design); designs that miss the targets only by about the quick estimate's error are checked at full resolution too (at most 24 per check); the check limit is now 200 designs, and in the cases tried no check reaches it.
 - **Progress bar for the optimiser**, also in the Demo me card and the tolerance study. It shows the step (searching or checking at full resolution), the generation, the designs so far and the time left; for the check, whose length is not known in advance, a range up to the limit of 200 designs. Cancel search stops a search with no result; Stop check reports only the designs checked so far.
 
+**Accessibility and phones (review finding F-18)**
+
+- The AI lab tabs follow the tab pattern: arrow keys, Home and End move between the six tools, and the tab row is one stop for the Tab key.
+- All 27 charts are announced as images with their description.
+- In the guided story, the card's text is read with it, the keyboard focus stays in the card while a step works, and arrow keys on a slider, field or tab row no longer turn the page of the story.
+- On phones the race table of the engineering challenge shows one route per block, and chart placeholders shorten when they do not fit.
+
 **Calibration**
 
 - **Not only PreonLab.** Section 13 of the model description now covers high-fidelity free-surface simulation in general: the two families (mesh-based VOF and level set, particle-based SPH), what each does well and badly for thin wall films and wall shear, and eight candidate tools (PreonLab, Ansys Fluent and CFX, Simcenter STAR-CCM+, nanoFluidX, COMSOL, OpenFOAM, FLOW-3D, DualSPHysics). It suggests starting with one preset in one tool of each family against a simple rig check, since two solvers can differ markedly on the same bowl. Texts on the page, the README and the AI lab no longer name PreonLab as the only reference.
 
 **Checks**
 
-- **New `checks/physics.js`, 59 checks with pass limits:** conservation and balance (energy and angular momentum of a frictionless film, water balance, physical ranges, smoothness of swirl and main results with refinement that tells jumps, steep slopes and time-step jitter apart); closed-form cases (cistern drain, steady weir level, level table, film on a vertical cylinder, paper decay); Runge-Kutta re-integration of pool level and swirl; and the checks proposed by the review (spatial convergence, siphon break, time step down to 1 ms, partial flush head, film front, monotone waste trends, round-bowl symmetry, rim line depth). `--strict` makes known open issues fail. All pass.
+- **New `checks/physics.js`, 59 checks with pass limits:** conservation and balance (energy and angular momentum of a frictionless film, water balance, physical ranges, smoothness of swirl and main results with refinement that tells jumps, steep slopes and time-step jitter apart); closed-form cases (cistern drain, steady weir level, level table, film on a vertical cylinder, paper decay); Runge-Kutta re-integration of pool level and swirl; and the checks proposed by the review (spatial convergence, siphon break, time step down to 1 ms, partial flush head, film front, monotone waste trends, round-bowl symmetry, rim line depth). `--strict` makes known open issues fail. All 59 pass, also with `--strict`.
 - **New `checks/literature.js`: the presets against published figures** from toilet CFD studies, patents and an independent flush test. Peak flow into the bowl (1.6 to 1.7 L/s), mean flow while released (1.4 to 1.6 L/s) and trap diameter lie inside the published ranges. Film turns on the wall (1.9 to 2.5 against about 3) and the water held in the bowl per litre flushed (0.53 to 0.56 against 0.52 for a vortex bowl) agree. Three differences are reported, not hidden: the presets hold too little water at rest (known), outflow starts earlier than in a published vortex bowl, and waste removal falls steadily with trap diameter where a published siphon study finds an optimum at 50 to 53 mm, because priming in the model does not depend on trap size. Wall shear under the film is about three times the one published figure, which is not directly comparable. A plausibility check, not a validation; method section 13 has the table.
+- **`checks/regression.js` has a stored 2.0 baseline** (`checks/baseline-2.0.json`, 200 random designs, all main results plus noise), so it runs on its own; `--write` renews it after a deliberate change. Compared with another `model.js`, only the randomly drawn settings are passed on, so each version uses its own defaults; before, a changed default coefficient went unnoticed.
 - **New `checks/challenge.js`** for the engineering challenge: recomputes the eight races and compares them with `challenge-data.js` (`--write` regenerates the file).
 - **New `checks/pinn.js`** (6 checks, about 5 s) for the physics-informed network.
 - **New `checks/field.js`** (5 checks, about 15 s) for the field surrogate.
-- **`checks/browser.js` now has 72 checks**, adding the noise calibration (A-weighting of test tones, demo fit, WAV file, meter readings), the tolerance study (spread, one tolerance alone, all zero, reset, out-of-date note, progress bar), the robust search, the optimiser's progress bar, Cancel and Stop, also in the demo, and the engineering challenge with its live recomputation and guided tour, the CFD check and the three-part story. All pass.
+- **`checks/browser.js` now has 79 checks**, adding the noise calibration (A-weighting of test tones, demo fit, WAV file, meter readings), the tolerance study (spread, one tolerance alone, all zero, reset, out-of-date note, progress bar), the robust search, the optimiser's progress bar, Cancel and Stop, also in the demo, and the engineering challenge with its live recomputation and guided tour, the CFD check and the three-part story, that Demo me's search meets every target, and the accessibility of tabs, charts and story. All pass.
 
 **Effect on results**, 300 random designs against 1.3.1: cleaning +1.9 points in the median (5 % lose more than 4.8 points, 5 % gain more than 20, mostly short, strong flushes); peak pool swirl +28 % in the median and the vortex dip about 12 mm deeper, mainly from the corrected pool inertia; solids and paper change little in most designs. Presets:
 
