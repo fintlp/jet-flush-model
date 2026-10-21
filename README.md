@@ -160,7 +160,7 @@ Version 2.1 explains to managers what a faster design loop is worth and how each
 
 **Media:** the story video covers all four parts; a still of the calculator (`media/value.png`).
 
-**Checks:** new `checks/value.js` (17 checks, about a second): the arithmetic of every step, the example values and their sources, the figures written into why.html against the data, and the figures the slides use. `checks/browser.js` checks the why page figures and calculation boxes, the calculator (empty start, examples, run cost, payback, Clear), the What it saves panel and part 4 of the story.
+**Checks:** new `checks/value.js` (17 checks, about a second): the arithmetic of every step, the example values and their sources, the figures written into why.html against the data, and the figures the slides use. `checks/browser.js` now has 92 checks, adding the why page figures and calculation boxes, the calculator (empty start, examples, run cost, payback, Clear), the What it saves panel and part 4 of the story. All pass; regression 0 differences (the model is unchanged), challenge --quick 10 of 10.
 
 
 ### 2.0.0 · 21 October 2026
