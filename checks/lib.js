@@ -3,7 +3,8 @@
 const path = require('path');
 function loadModel(file) {
   delete globalThis.FlushModel;
-  require(path.resolve(file || path.join(__dirname, '..', 'model.js')));
+  const f = path.resolve(file || path.join(__dirname, '..', 'model.js')); delete require.cache[f];
+  require(f);
   const M = globalThis.FlushModel; delete globalThis.FlushModel; return M;
 }
 function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }

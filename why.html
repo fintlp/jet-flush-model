@@ -5,40 +5,42 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="description" content="Why build a fast physics model with AI on top: faster loops from idea to engineering to manufacturing, with high-fidelity tools used where they decide.">
 <title>Why This Model</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Ccircle cx=%2216%22 cy=%2216%22 r=%2215%22 fill=%22%230070ad%22/%3E%3Cpath d=%22M9 13a7 7 0 0 0 14 0%22 fill=%22none%22 stroke=%22%23fff%22 stroke-width=%223%22 stroke-linecap=%22round%22/%3E%3C/svg%3E">
+<link rel="preload" href="fonts/ubuntu-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/ubuntu-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="fonts/fonts.css">
 <style>
 /* Layout: technical report. Narrow reading column with a sticky contents rail on wide screens; equations and tables sit in their own blocks. */
 :root{
-  --bg:#edf1f2; --surface:#f8fafa; --raised:#ffffff; --ink:#13222a; --muted:#56676f; --line:#d3dcdf; --line-strong:#9fb0b6;
-  --accent:#1f4fbf; --water:#3a8db6; --water-soft:#d6e9f2; --clean:#17876c; --solid:#8a5a2b; --warn:#a86b0c;
-  --f-display:"IBM Plex Sans Condensed","Arial Narrow",Arial,sans-serif;
-  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
-  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --bg:#f3f5f8; --surface:#f9fafc; --raised:#ffffff; --ink:#0f2538; --muted:#52667a; --line:#d8e0e8; --line-strong:#a2b2c2;
+  --accent:#0070ad; --water:#3a8db6; --water-soft:#d6e9f2; --clean:#17876c; --solid:#8a5a2b; --warn:#8f5b08;
+  --f-display:"Ubuntu",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-body:"Ubuntu",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"Ubuntu Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --brand-1:#0070ad; --brand-2:#12abdb;
 }
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
-  --bg:#0d151a; --surface:#131e24; --raised:#18252c; --ink:#e2eaed; --muted:#8c9fa7; --line:#24333b; --line-strong:#4a5f69;
-  --accent:#7fa6ff; --water:#4aa5d2; --water-soft:#1c3a48; --clean:#35b58e; --solid:#c48b52; --warn:#e2a646; color-scheme:dark } }
+  --bg:#08131d; --surface:#0d1b28; --raised:#122333; --ink:#e4ecf3; --muted:#8fa3b5; --line:#1c3044; --line-strong:#3e5a72;
+  --accent:#12abdb; --water:#4aa5d2; --water-soft:#1c3a48; --clean:#35b58e; --solid:#c48b52; --warn:#e2a646; color-scheme:dark } }
 :root[data-theme="dark"]{
-  --bg:#0d151a; --surface:#131e24; --raised:#18252c; --ink:#e2eaed; --muted:#8c9fa7; --line:#24333b; --line-strong:#4a5f69;
-  --accent:#7fa6ff; --water:#4aa5d2; --water-soft:#1c3a48; --clean:#35b58e; --solid:#c48b52; --warn:#e2a646; color-scheme:dark }
+  --bg:#08131d; --surface:#0d1b28; --raised:#122333; --ink:#e4ecf3; --muted:#8fa3b5; --line:#1c3044; --line-strong:#3e5a72;
+  --accent:#12abdb; --water:#4aa5d2; --water-soft:#1c3a48; --clean:#35b58e; --solid:#c48b52; --warn:#e2a646; color-scheme:dark }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.62}
 .wrap{max-width:1180px;margin:0 auto;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:20px 64px}
 a{color:var(--accent)}
-.site{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:22px;font-family:var(--f-display);font-weight:600;font-size:14px;letter-spacing:.02em}
+.site{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:22px;font-family:var(--f-display);font-weight:500;font-size:14px;letter-spacing:.02em}
 .site a{text-decoration:none}
 .site a:hover{text-decoration:underline}
 h1,h2,h3,h4{font-family:var(--f-display);text-wrap:balance;line-height:1.15;margin:0}
 h1{font-size:clamp(30px,4vw,44px);font-weight:700}
 h2{font-size:26px;font-weight:700;margin-top:56px;padding-top:12px;border-top:1px solid var(--line)}
-h3{font-size:19px;font-weight:600;margin-top:30px}
-h4{font-size:16px;font-weight:600;margin-top:20px}
+h3{font-size:19px;font-weight:500;margin-top:30px}
+h4{font-size:16px;font-weight:500;margin-top:20px}
 p,ul,ol{margin:12px 0 0;max-width:68ch}
 li{margin-top:4px}
-.eyebrow{font-family:var(--f-display);font-weight:600;font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.eyebrow{font-family:var(--f-display);font-weight:500;font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
 .lede{font-size:18px;color:var(--muted);max-width:62ch;margin-top:12px}
 .meta{font-family:var(--f-mono);font-size:13px;color:var(--muted);margin-top:14px}
 .layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:48px;margin-top:34px;align-items:start}
@@ -61,7 +63,7 @@ code{font-family:var(--f-mono);font-size:.9em;background:var(--raised);border:1p
 .tablewrap{overflow-x:auto;margin-top:16px;max-width:100%}
 table{border-collapse:collapse;font-size:14px;min-width:640px;width:100%;background:var(--raised);border:1px solid var(--line)}
 th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
-th{font-family:var(--f-display);font-weight:600;font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--surface)}
+th{font-family:var(--f-display);font-weight:500;font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--surface)}
 td.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
 figure{margin:20px 0 0;max-width:100%}
 figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
@@ -69,7 +71,7 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
 .diagram svg{display:block;min-width:720px;width:100%;height:auto}
 .d-box{fill:var(--surface);stroke:var(--line-strong);stroke-width:1.2}
 .d-box.out{fill:var(--water-soft);stroke:var(--water)}
-.d-t{fill:var(--ink);font-family:var(--f-display);font-weight:600;font-size:15px}
+.d-t{fill:var(--ink);font-family:var(--f-display);font-weight:500;font-size:15px}
 .d-s{fill:var(--muted);font-family:var(--f-mono);font-size:11.5px}
 .d-a{stroke:var(--muted);stroke-width:1.4;fill:none}
 .d-ah{fill:var(--muted)}
@@ -88,6 +90,16 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
 .why h2{max-width:none}
 .statrow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:22px;max-width:900px}
 @media (max-width:720px){ .statrow{grid-template-columns:minmax(0,1fr)} }
+.loop{max-width:900px;margin-top:18px;display:grid;gap:10px}
+.loop-row{display:grid;grid-template-columns:minmax(150px,240px) 1fr auto;gap:12px;align-items:center}
+@media (max-width:720px){ .loop-row{grid-template-columns:1fr auto} .loop-row .loop-l{grid-column:1 / -1} }
+.loop-l{font-size:14px}
+.loop-bar{display:flex;gap:3px;flex-wrap:nowrap;min-height:22px}
+.loop-bar i{display:block;flex:0 0 auto;width:calc((100% - 33px) / 12);height:22px;border-radius:4px;background:var(--solid)}
+.loop-bar.ai i{background:var(--accent)}
+.loop-bar i.half{width:calc((100% - 33px) / 24)}
+.loop-v{font-weight:500;font-variant-numeric:tabular-nums;min-width:5.5em;text-align:right}
+.loop-scale{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:12.5px;color:var(--muted)}
 .stat{background:var(--raised);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:grid;gap:6px}
 .stat .v{font-family:var(--f-display);font-weight:700;font-size:32px;line-height:1;color:var(--accent);font-variant-numeric:tabular-nums}
 .stat .l{font-size:13.5px;color:var(--muted)}
@@ -98,7 +110,7 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
 .f-band.b1{fill:var(--water-soft)}
 .f-band.b2{fill:color-mix(in srgb, var(--accent) 22%, var(--raised))}
 .f-band.b3{fill:color-mix(in srgb, var(--clean) 26%, var(--raised))}
-.f-t{fill:var(--ink);font-family:var(--f-display);font-weight:600;font-size:17px}
+.f-t{fill:var(--ink);font-family:var(--f-display);font-weight:500;font-size:17px}
 .f-s{fill:var(--muted);font-family:var(--f-mono);font-size:12px}
 .f-l{fill:var(--accent);font-family:var(--f-mono);font-size:12px}
 .f-n{fill:var(--muted);font-family:var(--f-body);font-size:12.5px}
@@ -116,14 +128,20 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
 .ticks li::before{content:"";position:absolute;left:4px;top:.55em;width:9px;height:9px;border-radius:2px;background:var(--clean)}
 .uses{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:18px}
 .uses div{background:var(--raised);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:grid;gap:3px}
-.uses b{font-family:var(--f-display);font-weight:600}
+.uses b{font-family:var(--f-display);font-weight:500}
 .uses span{font-size:14px;color:var(--muted)}
 .cta{border-top:0}
 .cta-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
-.btn{display:inline-block;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);border-radius:9px;padding:9px 16px;font-family:var(--f-display);font-weight:600;font-size:15px;text-decoration:none}
+.btn{display:inline-block;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);border-radius:9px;padding:9px 16px;font-family:var(--f-display);font-weight:500;font-size:15px;text-decoration:none}
 .btn:hover{border-color:var(--accent)}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--raised)}
 .muted{color:var(--muted);font-size:14px;margin-top:14px}
+
+/* Capgemini-inspired look: Ubuntu, brand blues, a thin brand gradient across the top, pill-shaped buttons */
+body::before{content:"";display:block;height:4px;background:linear-gradient(90deg,var(--brand-1),var(--brand-2))}
+h1,h2,h3,h4{letter-spacing:0}
+.eyebrow{color:var(--accent);letter-spacing:.07em}
+.btn{border-radius:999px}
 </style>
 </head>
 <body>
@@ -137,7 +155,7 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
     <span class="eyebrow">Why we built this · Tangential Jet Flush Model</span>
     <h1>Why are we doing this?</h1>
     <p class="lede">Engineering rarely slows down because people run out of ideas. It slows down because every idea waits for a simulation, a prototype or a test slot. This simulator is a small, concrete example of a different way to work: answer most questions in seconds, and spend the slow, expensive tools only where they make the decision.</p>
-    <p class="meta">Peter Fintl · 19 October 2026</p>
+    <p class="meta">Peter Fintl · 19 October 2026, updated 21 October 2026</p>
   </header>
 
   <div class="why">
@@ -147,9 +165,25 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
       <p>That is fast by the standards of physical testing. But it means a team can only afford to ask a few questions, so most design decisions are still made on experience before any number exists. And the later a weak decision is found, the more it costs to change: in the tool, the mould, the production line.</p>
       <div class="statrow">
         <div class="stat"><span class="v">≈ 1 day</span><span class="l">per design iteration with overnight CFD, in a published bowl development</span></div>
-        <div class="stat"><span class="v">5–20 ms</span><span class="l">per flush with the physics model on this page, in a browser</span></div>
-        <div class="stat"><span class="v">≈ 540</span><span class="l">designs searched by the AI lab in about 4 seconds</span></div>
+        <div class="stat"><span class="v">20–40 ms</span><span class="l">per flush with the physics model on this page, in a browser; an OpenFOAM run of the same flush took about 2 hours on 12 cores</span></div>
+        <div class="stat"><span class="v">≈ 540</span><span class="l">designs searched by the AI lab in about 10 seconds, the best ones checked at full resolution</span></div>
       </div>
+    </section>
+
+    <section id="loop">
+      <h2>One design loop, two clocks</h2>
+      <p>The <a href="./#challenge">engineering challenge</a> on the simulator page plays out a design project: an oval bowl misses its targets, and every candidate design has to be checked with an expensive, high-fidelity run. Eight such projects were simulated with two ways of working, against a synthetic reference that stands in for CFD. Counting one working day per iteration, as Geberit reported for its CFD-led bowl development, the median project looks like this:</p>
+      <div class="loop" id="loopFig" role="img" aria-label="Timeline of a median design project: the classic route needs 10.5 iterations of about a day, the AI-assisted route 4.5">
+        <div class="loop-row"><span class="loop-l">Classic: one change at a time (automated)</span><span class="loop-bar" data-route="classic"></span><span class="loop-v" data-v="classic">10.5 days</span></div>
+        <div class="loop-row"><span class="loop-l">AI-assisted: fast model + learned correction</span><span class="loop-bar ai" data-route="ai"></span><span class="loop-v" data-v="ai">4.5 days</span></div>
+        <div class="loop-scale"><span>each block: one high-fidelity iteration, about a working day</span><span>the fast model's screening: seconds, too small to draw</span></div>
+      </div>
+      <div class="statrow">
+        <div class="stat"><span class="v" data-v="sum">97 → 43</span><span class="l">high-fidelity iterations for all eight synthetic projects, classic against AI-assisted</span></div>
+        <div class="stat"><span class="v" data-v="saved">≈ 2.5 months</span><span class="l">of iterations saved over the eight synthetic projects, at an assumed working day each</span></div>
+        <div class="stat"><span class="v" data-v="miss">3 of 8</span><span class="l">synthetic projects in which the fast model alone, without learning from the expensive runs, never met the targets</span></div>
+      </div>
+      <p class="note">How these numbers come about: the iteration counts are measured in the challenge (eight starts of the same synthetic design task, <code>checks/challenge.js</code>); the day per iteration is Geberit's figure and is an assumption here. The challenge panel on the simulator page uses a second clock: computing time only, 8 hours per run. Here a whole iteration counts, from setting up a run to deciding on the next design, which Geberit put at about a working day. The classic route is a simple automated one-change-at-a-time search; a team using design of experiments would need fewer runs than it does. The expensive runs in the challenge come from a synthetic reference, the flush model with other coefficients and effects it does not have, and the task has five settings to change; with more settings to change, the classic route would typically need more iterations. The point is the mechanism: a fast physics model, a few expensive runs, and a correction learned from each of them decide where the next expensive run is worth it.</p>
     </section>
 
     <section id="approach">
@@ -163,7 +197,7 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
           <path class="f-band b3" d="M100 210 H540 L500 280 H140 Z"/>
           <text class="f-t" x="320" y="72" text-anchor="middle">Fast physics model</text><text class="f-s" x="320" y="94" text-anchor="middle">thousands of variants · milliseconds each</text>
           <text class="f-t" x="320" y="157" text-anchor="middle">AI on top</text><text class="f-s" x="320" y="179" text-anchor="middle">optimise · learn a surrogate · tens of candidates</text>
-          <text class="f-t" x="320" y="242" text-anchor="middle">High fidelity: PreonLab, CFD, rig</text><text class="f-s" x="320" y="264" text-anchor="middle">a few finalists · minutes to days each</text>
+          <text class="f-t" x="320" y="242" text-anchor="middle">High fidelity: SPH or VOF CFD, rig</text><text class="f-s" x="320" y="264" text-anchor="middle">a few finalists · minutes to days each</text>
           <path class="f-fb" d="M545 245 H760 V75 H632" marker-end="url(#wa)"/>
           <text class="f-l" x="772" y="150">results</text><text class="f-l" x="772" y="168">calibrate</text><text class="f-l" x="772" y="186">the fast model</text>
           <text class="f-n" x="40" y="315">Decision quality rises at each tier; cost per answer rises too.</text>
@@ -173,7 +207,7 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
       <div class="tiers">
         <div class="tier"><h3>1 · Fast physics</h3><p>A reduced-order model keeps the main mechanisms in a few equations: here the cistern, the jet films, the pool swirl, the trap and the waste. It is explainable, it runs anywhere, and engineers can argue with it. That makes it a thinking tool, not only a calculator.</p></div>
         <div class="tier"><h3>2 · AI on top</h3><p>Optimisation searches the design space for trade-offs and targets. Neural surrogates learn expensive models and answer in microseconds. Hybrid models combine physics with a data-driven correction. None of this needs the physics to be perfect; it needs it to point the right way.</p></div>
-        <div class="tier"><h3>3 · High fidelity where it counts</h3><p>PreonLab, CFD and the test rig check the few designs that survive. Their results flow back to calibrate the fast model and train the surrogate. Each expensive run is used twice: for the decision, and to make every later answer better.</p></div>
+        <div class="tier"><h3>3 · High fidelity where it counts</h3><p>High-fidelity simulation, particle-based such as PreonLab or mesh-based such as Fluent, STAR-CCM+ or OpenFOAM, and the test rig check the few designs that survive. Their results flow back to calibrate the fast model and train the surrogate. Each expensive run is used twice: for the decision, and to improve later answers.</p></div>
       </div>
     </section>
 
@@ -184,7 +218,7 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
         <div class="phase"><span class="ph">Engineering</span><p>Narrow the design space before booking CFD or rig time. Set the targets that matter, such as water per flush, cleaning and waste removal, and let the optimiser find candidates. Spend the slow tools on five designs, not fifty.</p></div>
         <div class="phase"><span class="ph">Manufacturing</span><p>Check how robust a design is to what production will really deliver: nozzle tolerances, glaze, small shape deviations. When one variant takes milliseconds, sweeping thousands of tolerance combinations is cheap. Rig and field data from production then recalibrate the model.</p></div>
       </div>
-      <p class="note">The tolerance study is the natural next feature for this simulator. The design sweep already shows the principle on two parameters at a time.</p>
+      <p class="note">The simulator has a <a href="./#tolerance">tolerance study</a> for this: it varies the current design within tolerances you set, shows how far each result spreads and which tolerances matter most. The optimiser can also search for designs that stay good across that spread.</p>
     </section>
 
     <section id="beyond">
@@ -195,10 +229,14 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
         <li><b>Evolutionary optimisation</b> instead of one-at-a-time parameter studies.</li>
         <li><b>Neural surrogates</b> that answer in microseconds once trained on solver results.</li>
         <li><b>Hybrid calibration</b> that keeps the physics and lets data correct what it misses, with an uncertainty that grows away from known designs.</li>
+        <li><b>Calibration against simple measurements:</b> phone recordings of a few flushes should be enough to fit the noise coefficients, because only the differences between designs matter. The page shows this with synthetic recordings; no real recording has been fitted yet.</li>
+        <li><b>Multi-fidelity optimisation:</b> a fast model plus a correction learned from every expensive run decides where the next run is worth it, as in the <a href="./#challenge">engineering challenge</a>.</li>
+        <li><b>A physics-informed network</b> that learns a model coefficient from a level record and the model's own equation, and a <b>field surrogate</b> that predicts whole cleaning maps from expensive runs. Both are shown with an honest comparison: for a problem this small a classic fit is quicker, and a pure data surrogate needs many runs to approach a good physics model.</li>
+        <li><b>A check against full CFD:</b> the same bowl in OpenFOAM, side by side with the fast model, including where they differ.</li>
       </ul>
       <div class="box">
         <h4>What this does not do</h4>
-        <p>It does not replace validation. The model on this page is not calibrated yet, so its numbers show trends between designs, not certified values. AI suggestions are candidates for a CFD or rig check, never the final answer.</p><p>Some things are out of scope: splashing, jets hitting each other and spill-over are not modelled, so the page cannot say whether a design splashes. The AI is a conventional neural surrogate, not a physics-informed network, and the calibration demo uses synthetic data. The presets are generic bowls, not any manufacturer's product.</p><p>The gain is in how quickly a team gets to the right few questions.</p>
+        <p>It does not replace validation. The model on this page is not calibrated yet, and neither its numbers nor the effect of a design change have been checked against real bowls. Use it to compare designs and decide what to test, not as certified values. AI suggestions are candidates for a CFD or rig check, never the final answer.</p><p>Some things are out of scope: splashing, jets hitting each other and spill-over are not modelled, so the page cannot say whether a design splashes. The expensive runs of the engineering challenge, the field surrogate and the calibration demos come from synthetic references, and the CFD reference is a second simulation, not a measurement. The presets are generic bowls, not any manufacturer's product.</p><p>The gain is in how quickly a team gets to the right few questions.</p>
       </div>
     </section>
 
@@ -234,14 +272,36 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
         <a class="btn" href="slides/jet-flush-model.pptx" download>Slides, PowerPoint</a>
         <a class="btn" href="slides/jet-flush-model.pdf" target="_blank" rel="noopener">Slides, PDF</a>
       </div>
-      <p class="muted">Sources for the figures on this page are on the <a href="sources.html">sources and references page</a>. The 5–20 ms and 540-design figures were measured with this simulator; the one-day iteration comes from the Geberit report by CADFEM.</p>
+      <p class="muted">Sources for the figures on this page are on the <a href="sources.html">sources and references page</a>. The flush times, the 540-design search and the iteration counts were measured with this simulator; the 2-hour CFD run is the medium-mesh OpenFOAM run of the CFD check (its computing time, without time the computer was asleep; a coarser mesh took 23 minutes); the one-day iteration comes from the Geberit report by CADFEM.</p>
     </section>
 
     <footer class="foot">
       <span class="navl"><a href="./">← Simulator</a><a href="method.html">Model description</a><a href="sources.html">Sources and references</a></span>
-      <span>Tangential Jet Flush Model · v1.3.1 · Peter Fintl</span>
+      <span>Tangential Jet Flush Model · v2.0.0 · Peter Fintl</span>
     </footer>
   </div>
 </div>
+<script src="challenge-data.js?v=25"></script>
+<script>
+/* The timeline figures from the eight stored races of the engineering challenge (challenge-data.js), so they stay
+   in step with the simulator page. Without the data, the numbers written into the page above stay as they are. */
+(function () {
+  const D = window.FlushChallengeData; if (!D || !D.races) return;
+  const tt = (k) => D.races.map((r) => r.routes[k].toTarget);
+  const med = (v) => { const s = v.slice().sort((a, b) => a - b), n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; };
+  const cl = tt('classic'), ai = tt('ai'), fa = tt('fast');
+  if (cl.some((v) => v == null) || ai.some((v) => v == null)) return;
+  const mc = med(cl), ma = med(ai), sc = cl.reduce((a, b) => a + b, 0), sa = ai.reduce((a, b) => a + b, 0), saved = sc - sa;
+  const fmtd = (v) => `${v % 1 ? v.toFixed(1) : v} ${v === 1 ? 'day' : 'days'}`;
+  const blocks = (n) => Array.from({ length: Math.floor(n) }, () => '<i></i>').join('') + (n % 1 ? '<i class="half"></i>' : '');
+  const scale = Math.max(mc, ma);
+  document.querySelectorAll('.loop-bar').forEach((b) => { const n = b.dataset.route === 'ai' ? ma : mc; b.innerHTML = blocks(n); b.style.setProperty('--n', scale); });
+  document.querySelectorAll('.loop-bar i').forEach((i) => { i.style.width = `calc((100% - ${3 * (Math.ceil(scale) - 1)}px) / ${Math.ceil(scale)}${i.classList.contains('half') ? ' / 2' : ''})`; });
+  const set = (k, t) => { const el = document.querySelector(`[data-v="${k}"]`); if (el) el.textContent = t; };
+  set('classic', fmtd(mc)); set('ai', fmtd(ma)); set('sum', `${sc} → ${sa}`);
+  set('saved', saved >= 40 ? `≈ ${Math.round(saved / 21 * 2) / 2} months` : `${saved} days`);   // 21 working days a month, to the half month set('miss', `${fa.filter((v) => v == null).length} of ${fa.length}`);
+  const fig = document.getElementById('loopFig'); if (fig) fig.setAttribute('aria-label', `Timeline of a median design project: the classic route needs ${mc} iterations of about a day, the AI-assisted route ${ma}`);
+})();
+</script>
 </body>
 </html>

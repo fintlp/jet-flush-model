@@ -3,42 +3,44 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="Sources and references for the Tangential Jet Flush Model: standards, hydraulics, wall films, swirl, toilet CFD, PreonLab and machine learning.">
+<meta name="description" content="Sources and references for the Tangential Jet Flush Model: standards, hydraulics, wall films, swirl, toilet CFD, free-surface solvers and machine learning.">
 <title>Jet Flush Model Sources</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Ccircle cx=%2216%22 cy=%2216%22 r=%2215%22 fill=%22%230070ad%22/%3E%3Cpath d=%22M9 13a7 7 0 0 0 14 0%22 fill=%22none%22 stroke=%22%23fff%22 stroke-width=%223%22 stroke-linecap=%22round%22/%3E%3C/svg%3E">
+<link rel="preload" href="fonts/ubuntu-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/ubuntu-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="fonts/fonts.css">
 <style>
 /* Layout: technical report. Narrow reading column with a sticky contents rail on wide screens; equations and tables sit in their own blocks. */
 :root{
-  --bg:#edf1f2; --surface:#f8fafa; --raised:#ffffff; --ink:#13222a; --muted:#56676f; --line:#d3dcdf; --line-strong:#9fb0b6;
-  --accent:#1f4fbf; --water:#3a8db6; --water-soft:#d6e9f2; --clean:#17876c; --solid:#8a5a2b; --warn:#a86b0c;
-  --f-display:"IBM Plex Sans Condensed","Arial Narrow",Arial,sans-serif;
-  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
-  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --bg:#f3f5f8; --surface:#f9fafc; --raised:#ffffff; --ink:#0f2538; --muted:#52667a; --line:#d8e0e8; --line-strong:#a2b2c2;
+  --accent:#0070ad; --water:#3a8db6; --water-soft:#d6e9f2; --clean:#17876c; --solid:#8a5a2b; --warn:#8f5b08;
+  --f-display:"Ubuntu",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-body:"Ubuntu",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"Ubuntu Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --brand-1:#0070ad; --brand-2:#12abdb;
 }
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
-  --bg:#0d151a; --surface:#131e24; --raised:#18252c; --ink:#e2eaed; --muted:#8c9fa7; --line:#24333b; --line-strong:#4a5f69;
-  --accent:#7fa6ff; --water:#4aa5d2; --water-soft:#1c3a48; --clean:#35b58e; --solid:#c48b52; --warn:#e2a646; color-scheme:dark } }
+  --bg:#08131d; --surface:#0d1b28; --raised:#122333; --ink:#e4ecf3; --muted:#8fa3b5; --line:#1c3044; --line-strong:#3e5a72;
+  --accent:#12abdb; --water:#4aa5d2; --water-soft:#1c3a48; --clean:#35b58e; --solid:#c48b52; --warn:#e2a646; color-scheme:dark } }
 :root[data-theme="dark"]{
-  --bg:#0d151a; --surface:#131e24; --raised:#18252c; --ink:#e2eaed; --muted:#8c9fa7; --line:#24333b; --line-strong:#4a5f69;
-  --accent:#7fa6ff; --water:#4aa5d2; --water-soft:#1c3a48; --clean:#35b58e; --solid:#c48b52; --warn:#e2a646; color-scheme:dark }
+  --bg:#08131d; --surface:#0d1b28; --raised:#122333; --ink:#e4ecf3; --muted:#8fa3b5; --line:#1c3044; --line-strong:#3e5a72;
+  --accent:#12abdb; --water:#4aa5d2; --water-soft:#1c3a48; --clean:#35b58e; --solid:#c48b52; --warn:#e2a646; color-scheme:dark }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.62}
 .wrap{max-width:1180px;margin:0 auto;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:20px 64px}
 a{color:var(--accent)}
-.site{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:22px;font-family:var(--f-display);font-weight:600;font-size:14px;letter-spacing:.02em}
+.site{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:22px;font-family:var(--f-display);font-weight:500;font-size:14px;letter-spacing:.02em}
 .site a{text-decoration:none}
 .site a:hover{text-decoration:underline}
 h1,h2,h3,h4{font-family:var(--f-display);text-wrap:balance;line-height:1.15;margin:0}
 h1{font-size:clamp(30px,4vw,44px);font-weight:700}
 h2{font-size:26px;font-weight:700;margin-top:56px;padding-top:12px;border-top:1px solid var(--line)}
-h3{font-size:19px;font-weight:600;margin-top:30px}
-h4{font-size:16px;font-weight:600;margin-top:20px}
+h3{font-size:19px;font-weight:500;margin-top:30px}
+h4{font-size:16px;font-weight:500;margin-top:20px}
 p,ul,ol{margin:12px 0 0;max-width:68ch}
 li{margin-top:4px}
-.eyebrow{font-family:var(--f-display);font-weight:600;font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.eyebrow{font-family:var(--f-display);font-weight:500;font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
 .lede{font-size:18px;color:var(--muted);max-width:62ch;margin-top:12px}
 .meta{font-family:var(--f-mono);font-size:13px;color:var(--muted);margin-top:14px}
 .layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:48px;margin-top:34px;align-items:start}
@@ -61,7 +63,7 @@ code{font-family:var(--f-mono);font-size:.9em;background:var(--raised);border:1p
 .tablewrap{overflow-x:auto;margin-top:16px;max-width:100%}
 table{border-collapse:collapse;font-size:14px;min-width:640px;width:100%;background:var(--raised);border:1px solid var(--line)}
 th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
-th{font-family:var(--f-display);font-weight:600;font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--surface)}
+th{font-family:var(--f-display);font-weight:500;font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--surface)}
 td.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
 figure{margin:20px 0 0;max-width:100%}
 figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
@@ -69,7 +71,7 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
 .diagram svg{display:block;min-width:720px;width:100%;height:auto}
 .d-box{fill:var(--surface);stroke:var(--line-strong);stroke-width:1.2}
 .d-box.out{fill:var(--water-soft);stroke:var(--water)}
-.d-t{fill:var(--ink);font-family:var(--f-display);font-weight:600;font-size:15px}
+.d-t{fill:var(--ink);font-family:var(--f-display);font-weight:500;font-size:15px}
 .d-s{fill:var(--muted);font-family:var(--f-mono);font-size:11.5px}
 .d-a{stroke:var(--muted);stroke-width:1.4;fill:none}
 .d-ah{fill:var(--muted)}
@@ -83,11 +85,17 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
 .navl{display:inline-flex;gap:18px;flex-wrap:wrap}
 .refs{list-style:none;padding:0;max-width:74ch;margin-top:16px;display:grid;gap:14px}
 .refs li{background:var(--raised);border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin:0;font-size:15px}
-.refs cite{font-style:normal;font-weight:600}
+.refs cite{font-style:normal;font-weight:500}
 .refs .use{display:block;color:var(--muted);font-size:14px;margin-top:4px}
 .refs a{font-family:var(--f-mono);font-size:13px;word-break:break-word}
-.tag{display:inline-block;font-family:var(--f-display);font-weight:600;font-size:11px;letter-spacing:.08em;text-transform:uppercase;border:1px solid currentColor;border-radius:999px;padding:0 7px;margin-right:8px;vertical-align:1px;color:var(--muted)}
+.tag{display:inline-block;font-family:var(--f-display);font-weight:500;font-size:11px;letter-spacing:.08em;text-transform:uppercase;border:1px solid currentColor;border-radius:999px;padding:0 7px;margin-right:8px;vertical-align:1px;color:var(--muted)}
 .tag.cited{color:var(--accent)}
+
+/* Capgemini-inspired look: Ubuntu, brand blues, a thin brand gradient across the top, pill-shaped buttons */
+body::before{content:"";display:block;height:4px;background:linear-gradient(90deg,var(--brand-1),var(--brand-2))}
+h1,h2,h3,h4{letter-spacing:0}
+.eyebrow{color:var(--accent);letter-spacing:.07em}
+.btn{border-radius:999px}
 </style>
 </head>
 <body>
@@ -101,7 +109,7 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
     <span class="eyebrow">Sources and references · Tangential Jet Flush Model</span>
     <h1>Sources and references</h1>
     <p class="lede">The standards, papers, books and web sources behind the simulator and its model description, grouped by topic. Each entry says what it is used for.</p>
-    <p class="meta">October 2026 · web sources checked on 19 October 2026</p>
+    <p class="meta">October 2026 · web sources checked on 19 and 21 October 2026</p>
   </header>
 
   <div class="layout">
@@ -114,7 +122,7 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
         <li><a href="#films"><span class="n">3</span>Wall films and cleaning</a></li>
         <li><a href="#swirl"><span class="n">4</span>Swirl and vortices</a></li>
         <li><a href="#toiletcfd"><span class="n">5</span>Toilet flushing CFD</a></li>
-        <li><a href="#methods"><span class="n">6</span>Free-surface methods and PreonLab</a></li>
+        <li><a href="#methods"><span class="n">6</span>Free-surface methods and solvers</a></li>
         <li><a href="#ml"><span class="n">7</span>Machine learning for flow</a></li>
         <li><a href="#calib"><span class="n">8</span>Calibration, fitting and search</a></li>
         <li><a href="#noise"><span class="n">9</span>Noise and air entrainment</a></li>
@@ -135,6 +143,9 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
           <li><span class="tag">Background</span><cite>BS EN 997:2018. WC pans and WC suites with integral trap.</cite> British Standards Institution, 2018. European standard for construction, performance and test methods of WC pans with integral trap and close-coupled suites. <span class="use">Used for: the European context of washdown bowls, flush volumes and test methods.</span> <a href="https://www.technickenormy.cz/en/bs-en-997-2018-wc-pans-and-wc-suites-with-integral-trap/" target="_blank" rel="noopener">Standard summary</a></li>
           <li><span class="tag cited">Cited</span><cite>U.S. EPA WaterSense. WaterSense Performance Overview: Tank-Type Toilets.</cite> 2022. States that WaterSense toilets must clear 350 g of soybean paste test media and four balls of toilet paper in four of five flushes, that the test is part of ASME A112.19.2/CSA B45.1, and that voluntary MaP testing goes up to 1,000 g. <span class="use">Used for: the solids and paper test load idea and the "transport capacity" result.</span> <a href="https://www.epa.gov/system/files/documents/2022-05/ws-products-perfomance-toilets.pdf" target="_blank" rel="noopener">PDF</a></li>
           <li><span class="tag">Background</span><cite>ASME A112.19.2/CSA B45.1. Ceramic Plumbing Fixtures.</cite> North American standard that contains the waste extraction test referred to by WaterSense. <span class="use">Used for: the North American siphonic context.</span></li>
+          <li><span class="tag cited">Cited</span><cite>US 8,438,670 B2. High performance siphonic toilet capable of operation at multiple flush volumes.</cite> US patent. Reports measured water surfaces of two wash-down dual-flush toilets (about 115 to 131 cm²) and two siphonic dual-flush toilets (349 and 528 cm²), 1.5 L of water at rest in one wash-down toilet, seal depths of 5.4 to 6.4 cm after refill, and trapway diameters of about 47 to 54 mm. <span class="use">Used for: the plausibility of the presets' water surface, pool volume and seal (method section 4), and the trap diameter range in <code>checks/literature.js</code>.</span> <a href="https://patents.google.com/patent/US8438670B2/en" target="_blank" rel="noopener">Google Patents</a></li>
+          <li><span class="tag cited">Cited</span><cite>SBZ and Hochschule Esslingen. Practical flush test of rimless WCs.</cite> Independent test of rimless and swirl-flush WCs that combines parts of the EN 997 flush tests with practical tests; the flush water is calibrated to 2.1 L/s and a 20 g sawdust test shows where the water reaches. <span class="use">Used for: the upper end of the mean flush flow in <code>checks/literature.js</code>, and the sawdust test as a simple validation of film reach.</span> <a href="https://plumbingconnection.com.au/?p=3136" target="_blank" rel="noopener">Test description</a></li>
+          <li><span class="tag cited">Cited</span><cite>US 9,353,512. High performance toilet with rim-jet control capable of enhanced operation at reduced flush volumes.</cite> US patent. A comparative CFD example of a 4.8 L jet-driven siphonic toilet with a 60 mm trapway reaches a siphon peak of 4.4 L/s at 0.58 s. <span class="use">Used for: the siphon peak outflow comparison in <code>checks/literature.js</code>.</span> <a href="https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/9353512" target="_blank" rel="noopener">USPTO PDF</a></li>
         </ol>
       </section>
 
@@ -169,14 +180,17 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
       <section id="toiletcfd">
         <h2>5 · Toilet flushing CFD</h2>
         <ol class="refs">
-          <li><span class="tag cited">Cited</span><cite>CADFEM. Simulation leads Geberit to design a toilet bowl with asymmetrical geometry.</cite> CADFEM Journal. Describes CFD-led development of an asymmetrical bowl with a lateral inlet, more than 100 virtual design drafts, and about one day per design iteration. <span class="use">Used for: the industrial turnaround time in the comparison of approaches.</span> <a href="https://www.cadfem.net/en/cadfem-informs/media-center/cadfem-journal/geberit.html" target="_blank" rel="noopener">Article</a></li>
+          <li><span class="tag cited">Cited</span><cite>CADFEM. Simulation leads Geberit to design a toilet bowl with asymmetrical geometry.</cite> CADFEM Journal. Describes CFD-led development of an asymmetrical bowl with a lateral inlet, more than 100 virtual design drafts, and about one day per design iteration. <span class="use">Used for: the industrial turnaround time in the comparison of approaches, and the peak flow range in <code>checks/literature.js</code> (free-outlet cisterns up to 2.4 L/s, about 2.0 L/s in the TurboFlush bowl, below 1.0 L/s in some bowls). It also links the quieter flush to low-turbulence flow with less air mixed in, the idea behind the noise indicator.</span> <a href="https://www.cadfem.net/en/cadfem-informs/media-center/cadfem-journal/geberit.html" target="_blank" rel="noopener">Article</a></li>
           <li><span class="tag cited">Cited</span><cite>Li et al. (2020). Siphon pipe parameter optimization of the toilet using CFD-DEM coupling method.</cite> Uses Ansys Fluent with the VOF model coupled to EDEM for polypropylene test balls, with a mesh of about 2.3 million cells and a 0.2 ms time step. <span class="use">Used for: the example of mesh-based CFD with discrete solids for toilets.</span> <a href="https://www.scipedia.com/public/Li_et_al_2020c" target="_blank" rel="noopener">Paper page</a></li>
-          <li><span class="tag">Background</span><cite>Lopes, A. G., &amp; Costa, V. A. F. (2019). Using CFD in the design process of a toilet bowl.</cite> Journal of Fluid Flow, Heat and Mass Transfer, 6, 1–8. Transient free-surface CFD in Ansys CFX, validated against flow visualisation. <span class="use">Used for: typical CFD setup and validation of bowl flushing.</span> <a href="https://doi.org/10.11159/jffhmt.2019.001" target="_blank" rel="noopener">doi:10.11159/jffhmt.2019.001</a></li>
+          <li><span class="tag">Background</span><cite>Lopes, A. G., &amp; Costa, V. A. F. (2019). Using CFD in the design process of a toilet bowl.</cite> Journal of Fluid Flow, Heat and Mass Transfer, 6, 1–8. Transient free-surface CFD in Ansys CFX, validated against flow visualisation. <span class="use">Used for: typical CFD setup and validation of bowl flushing, and the lower end of the mean flush flow in <code>checks/literature.js</code> (flushes simulated at 0.85 and 0.58 L/s).</span> <a href="https://doi.org/10.11159/jffhmt.2019.001" target="_blank" rel="noopener">doi:10.11159/jffhmt.2019.001</a></li>
+          <li><span class="tag cited">Cited</span><cite>Manav, S., Kemaneci, H. İ., &amp; Şimşir, B. (2023). Comparison of two toilet bowls with the use of CFD.</cite> Journal of Fluid Flow, Heat and Mass Transfer, 10. Ansys CFX with VOF and the k-ε model, about 0.8 to 0.9 million nodes, a 0.1 ms time step over 10 s; compared qualitatively with a sawdust test after EN 997. <span class="use">Used for: typical mesh, time step and validation level of VOF toilet studies, and most comparisons in <code>checks/literature.js</code>: peak inflow 1.3 and 1.5 L/s, inflow over after 6.5 and 5.4 s, about three turns of the water on the bowl wall, up to 1.6 and 3.1 L in the bowl, 1.0 to 1.3 L at rest, outflow from 0.5 and 1.75 s, and peak wall shear of 1.75 and 2.95 Pa. The paper also states that the wall was treated as frictionless, so its shear figures are indicative only.</span> <a href="https://jffhmt.avestia.com/2023/PDF/017.pdf" target="_blank" rel="noopener">PDF</a></li>
+          <li><span class="tag cited">Cited</span><cite>Salguero, E., Cabrera-Moreta, V. H., &amp; Gaibor, I. (2025). Hydraulic performance validation of a 4.8 L low-consumption toilet using CFD simulation.</cite> Preprints.org, doi:10.20944/preprints202507.1579.v1 (not peer reviewed). Runs the same bowl in OpenFOAM and Ansys Fluent with VOF; both give siphon formation at about 5 s, but peak velocities of 3.0 and 4.8 m/s and siphon pressures of −3.7 and −5.3 kPa, with no experimental comparison. <span class="use">Used for: OpenFOAM as an option, and how far two solvers can differ on one bowl.</span> <a href="https://www.preprints.org/manuscript/202507.1579/v1" target="_blank" rel="noopener">Preprint</a></li>
+          <li><span class="tag cited">Cited</span><cite>Study on the influence of toilet siphon pipe shape on flushing performance.</cite> Journal of Engineering and Technological Sciences (ITB). VOF simulations of siphon toilets with experimental validation; flushing performance peaks for siphon pipe diameters of 50 to 53 mm rather than improving with size. <span class="use">Used for: the trap diameter comparison in <code>checks/literature.js</code>, where the model shows no such optimum.</span> <a href="https://journals.itb.ac.id/index.php/jets/article/view/11676" target="_blank" rel="noopener">Article</a></li>
         </ol>
       </section>
 
       <section id="methods">
-        <h2>6 · Free-surface methods and PreonLab</h2>
+        <h2>6 · Free-surface methods and solvers</h2>
         <ol class="refs">
           <li><span class="tag">Background</span><cite>Hirt, C. W., &amp; Nichols, B. D. (1981). Volume of fluid (VOF) method for the dynamics of free boundaries.</cite> Journal of Computational Physics, 39(1), 201–225. <span class="use">Used for: the VOF method named in the comparison of approaches.</span> <a href="https://doi.org/10.1016/0021-9991(81)90145-5" target="_blank" rel="noopener">doi:10.1016/0021-9991(81)90145-5</a></li>
           <li><span class="tag">Background</span><cite>Monaghan, J. J. (2005). Smoothed particle hydrodynamics.</cite> Reports on Progress in Physics, 68(8), 1703–1759. <span class="use">Used for: the SPH method in general.</span> <a href="https://doi.org/10.1088/0034-4885/68/8/R01" target="_blank" rel="noopener">doi:10.1088/0034-4885/68/8/R01</a></li>
@@ -185,12 +199,24 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
           <li><span class="tag cited">Cited</span><cite>FIFTY2. PreonLab 6.2 release event.</cite> Lists GPU support for the rigid body solver, an experimental linear elastic solver and the Carreau-Yasuda non-Newtonian model. <span class="use">Used for: what PreonLab can do for solids, flexibles and paste-like media.</span> <a href="https://www.fifty2.eu/innovation/preonlab-6-2-release-event" target="_blank" rel="noopener">Page</a></li>
           <li><span class="tag cited">Cited</span><cite>FIFTY2. FSI in PreonLab: sloshing tank with elastic beam.</cite> Shows fluid-structure interaction with the built-in elastic solver. <span class="use">Used for: flexible bodies in PreonLab.</span> <a href="https://fifty2.eu/innovation/fsi-in-preonlab-sloshing-tank-with-elastic-beam" target="_blank" rel="noopener">Article</a></li>
           <li><span class="tag cited">Cited</span><cite>FIFTY2. Water entry simulation of two-way coupled rigid bodies in PreonLab.</cite> <span class="use">Used for: two-way coupled rigid bodies in PreonLab.</span> <a href="https://www.fifty2.eu/innovation/water-entry-simulation-of-two-way-coupled-rigid-bodies-in-preonlab/" target="_blank" rel="noopener">Article</a></li>
+          <li><span class="tag">Background</span><cite>Weller, H. G., Tabor, G., Jasak, H., &amp; Fureby, C. (1998). A tensorial approach to computational continuum mechanics using object-oriented techniques.</cite> Computers in Physics, 12(6), 620–631. The paper behind OpenFOAM. <span class="use">Used for: the CFD check (OpenFOAM, interFoam, volume of fluid).</span> <a href="https://doi.org/10.1063/1.168744" target="_blank" rel="noopener">DOI</a></li>
+          <li><span class="tag">Background</span><cite>Menter, F. R. (1994). Two-equation eddy-viscosity turbulence models for engineering applications.</cite> AIAA Journal, 32(8), 1598–1605. The k-omega SST model. <span class="use">Used for: the turbulence model of the CFD check.</span> <a href="https://doi.org/10.2514/3.12149" target="_blank" rel="noopener">DOI</a></li>
+          <li><span class="tag">Background</span><cite>Roenby, J., Bredmose, H., &amp; Jasak, H. (2016). A computational method for sharp interface advection.</cite> Royal Society Open Science, 3(11), 160405. The isoAdvector scheme behind OpenFOAM's interIsoFoam solver. <span class="use">Used for: the VOF options in OpenFOAM.</span> doi:10.1098/rsos.160405</li>
+          <li><span class="tag cited">Cited</span><cite>Domínguez, J. M., et al. (2022). DualSPHysics: from fluid dynamics to multiphysics problems.</cite> Computational Particle Mechanics, 9, 867–895. Open-source weakly compressible SPH on GPUs (CUDA), released under the LGPL, with couplings for floating bodies, moorings and articulated structures. <span class="use">Used for: DualSPHysics as a free SPH option.</span> <a href="https://arxiv.org/pdf/2104.00537" target="_blank" rel="noopener">arXiv</a></li>
+          <li><span class="tag cited">Cited</span><cite>Altair. nanoFluidX overview.</cite> Product documentation. Weakly compressible SPH for single- and multiphase flows with surface tension, built for GPUs. <span class="use">Used for: nanoFluidX in the tool comparison.</span> <a href="https://help.altair.com/hwcfdsolvers/nfx/topics/get_started/overview_nanofluidx_r.htm" target="_blank" rel="noopener">Page</a></li>
+          <li><span class="tag cited">Cited</span><cite>Volupe. A closer look at the SPH solver in Simcenter STAR-CCM+.</cite> Reseller article. The SPH solver appeared in version 2402, gained a GPU-native version in 2410 and multi-GPU in 2502; it needs an extra licence and uses one particle size for the whole region. <span class="use">Used for: the SPH option in Simcenter STAR-CCM+.</span> <a href="https://volupe.com/simcenter-star-ccm/a-closer-look-at-the-sph-solver-in-simcenter-star-ccm/" target="_blank" rel="noopener">Article</a></li>
+          <li><span class="tag cited">Cited</span><cite>Ansys. What's new in Ansys Fluent 2025 R1.</cite> Lists VOF free-surface modelling as a beta feature of the Fluent GPU solver. <span class="use">Used for: GPU VOF in Fluent.</span> <a href="https://ansys.synopsys.com/blog/whats-new-ansys-fluent-2025-r1" target="_blank" rel="noopener">Blog</a></li>
+          <li><span class="tag cited">Cited</span><cite>COMSOL. Modeling and simulation of multiphase flow in COMSOL, part 1.</cite> Blog. Describes the level set, phase field and moving mesh methods and when each suits. <span class="use">Used for: COMSOL in the tool comparison.</span> <a href="https://www.comsol.com/blogs/modeling-and-simulation-of-multiphase-flow-in-comsol-part-1/" target="_blank" rel="noopener">Blog</a></li>
+          <li><span class="tag cited">Cited</span><cite>Flow Science, Inc.</cite> Wikipedia. FLOW-3D and its TruVOF method; ownership by Dr. Flender Holding since December 2021. <span class="use">Used for: FLOW-3D in the tool comparison.</span> <a href="https://en.wikipedia.org/wiki/Flow_Science,_Inc." target="_blank" rel="noopener">Article</a></li>
+          <li><span class="tag cited">Cited</span><cite>Synopsys. Synopsys completes acquisition of Ansys.</cite> Press release, 17 July 2025. <span class="use">Used for: the maker of Ansys Fluent and CFX.</span> <a href="https://news.synopsys.com/2025-07-17-Synopsys-Completes-Acquisition-of-Ansys" target="_blank" rel="noopener">Release</a></li>
+          <li><span class="tag cited">Cited</span><cite>Digital Engineering 24/7. Siemens completes acquisition of Altair.</cite> News, March 2025. <span class="use">Used for: the maker of nanoFluidX.</span> <a href="https://www.digitalengineering247.com/article/siemens-completes-acquisition-of-altair/news" target="_blank" rel="noopener">Article</a></li>
         </ol>
       </section>
 
       <section id="ml">
         <h2>7 · Machine learning for flow</h2>
         <ol class="refs">
+          <li><span class="tag">Background</span><cite>Sirovich, L. (1987). Turbulence and the dynamics of coherent structures. Part I: Coherent structures.</cite> Quarterly of Applied Mathematics, 45(3), 561–571. The method of snapshots for proper orthogonal decomposition. <span class="use">Used for: the field surrogate, finding the typical map patterns from training runs.</span> <a href="https://doi.org/10.1090/qam/910462" target="_blank" rel="noopener">DOI</a></li>
           <li><span class="tag">Background</span><cite>Raissi, M., Perdikaris, P., &amp; Karniadakis, G. E. (2019). Physics-informed neural networks: A deep learning framework for solving forward and inverse problems involving nonlinear partial differential equations.</cite> Journal of Computational Physics, 378, 686–707. <span class="use">Used for: what a PINN is.</span> <a href="https://doi.org/10.1016/j.jcp.2018.10.045" target="_blank" rel="noopener">doi:10.1016/j.jcp.2018.10.045</a></li>
           <li><span class="tag cited">Cited</span><cite>McGreivy, N., &amp; Hakim, A. (2024). Weak baselines and reporting biases lead to overoptimism in machine learning for fluid-related partial differential equations.</cite> arXiv:2407.07218. Finds that most of the reviewed papers compared against weak numerical baselines, and describes PINNs as much slower than standard numerical methods for forward problems. <span class="use">Used for: the assessment of PINNs for forward flush simulation.</span> <a href="https://arxiv.org/abs/2407.07218" target="_blank" rel="noopener">arXiv</a> · <a href="https://www.pppl.gov/news/2024/replacing-hype-about-artificial-intelligence-accurate-measurements-success" target="_blank" rel="noopener">PPPL summary</a></li>
           <li><span class="tag">Background</span><cite>Li, Z., Kovachki, N., Azizzadenesheli, K., Liu, B., Bhattacharya, K., Stuart, A., &amp; Anandkumar, A. (2021). Fourier neural operator for parametric partial differential equations.</cite> International Conference on Learning Representations. <span class="use">Used for: neural operators as data-driven surrogates.</span> <a href="https://arxiv.org/abs/2010.08895" target="_blank" rel="noopener">arXiv:2010.08895</a></li>
@@ -203,6 +229,8 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
         <h2>8 · Calibration, fitting and search</h2>
         <ol class="refs">
           <li><span class="tag">Background</span><cite>Nelder, J. A., &amp; Mead, R. (1965). A simplex method for function minimization.</cite> The Computer Journal, 7(4), 308–313. <span class="use">Used for: fitting coefficients, in the calibration procedure and in the AI lab.</span> <a href="https://doi.org/10.1093/comjnl/7.4.308" target="_blank" rel="noopener">doi:10.1093/comjnl/7.4.308</a></li>
+          <li><span class="tag">Background</span><cite>Kennedy, M. C., &amp; O'Hagan, A. (2000). Predicting the output from a complex computer code when fast approximations are available.</cite> Biometrika, 87(1), 1–13. <span class="use">Used for: the engineering challenge, the idea of learning the difference between a cheap and an expensive model.</span> <a href="https://doi.org/10.1093/biomet/87.1.1" target="_blank" rel="noopener">DOI</a></li>
+          <li><span class="tag">Background</span><cite>Forrester, A. I. J., Sóbester, A., &amp; Keane, A. J. (2007). Multi-fidelity optimization via surrogate modelling.</cite> Proceedings of the Royal Society A, 463(2088), 3251–3269. <span class="use">Used for: the engineering challenge, choosing the next expensive run from a corrected cheap model.</span> <a href="https://doi.org/10.1098/rspa.2007.1900" target="_blank" rel="noopener">DOI</a></li>
           <li><span class="tag">Background</span><cite>Rasmussen, C. E., &amp; Williams, C. K. I. (2006). Gaussian Processes for Machine Learning.</cite> MIT Press. <span class="use">Used for: the hybrid option and the AI lab, a Gaussian-process correction on top of the physics model.</span> <a href="http://gaussianprocess.org/gpml/" target="_blank" rel="noopener">Book site</a></li>
                   <li><span class="tag">Background</span><cite>Deb, K., Pratap, A., Agarwal, S., &amp; Meyarivan, T. (2002). A fast and elitist multiobjective genetic algorithm: NSGA-II.</cite> IEEE Transactions on Evolutionary Computation, 6(2), 182–197. <span class="use">Used for: the design optimiser in the AI lab.</span> <a href="https://doi.org/10.1109/4235.996017" target="_blank" rel="noopener">doi:10.1109/4235.996017</a></li>
           <li><span class="tag">Background</span><cite>McKay, M. D., Beckman, R. J., &amp; Conover, W. J. (1979). A comparison of three methods for selecting values of input variables in the analysis of output from a computer code.</cite> Technometrics, 21(2), 239–245. <span class="use">Used for: Latin hypercube sampling of designs in the AI lab.</span> <a href="https://doi.org/10.2307/1268522" target="_blank" rel="noopener">doi:10.2307/1268522</a></li>
@@ -236,7 +264,7 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
 
       <footer class="foot">
         <span class="navl"><a href="./">← Simulator</a><a href="why.html">Why</a><a href="method.html">Model description</a></span>
-        <span>Tangential Jet Flush Model · v1.3.1 · Peter Fintl</span>
+        <span>Tangential Jet Flush Model · v2.0.0 · Peter Fintl</span>
       </footer>
     </main>
   </div>

@@ -1,0 +1,64 @@
+{
+ "run": "medium-3.2s",
+ "mesh": "medium",
+ "video": {
+  "file": "flush.mp4",
+  "poster": "flush.jpg",
+  "fps": 20,
+  "slowdown": 2.5,
+  "t0": 0.02,
+  "t1": 3.2,
+  "caption": "The first 3.2 s of the flush, slowed down 2.5 times, front half of the bowl removed; colour shows the water speed. OpenFOAM CFD, medium mesh (2 mm cells at the wall). After 1.3 s the trap outlet in this run draws air, so the bowl holds more water than in the fast model."
+ },
+ "stills": [
+  {
+   "file": "cutaway_0.3s.jpg",
+   "t": 0.3,
+   "view": "cutaway",
+   "caption": "Water surface 0.3 s after the flush starts, front half of the bowl removed; colour shows the water speed. OpenFOAM CFD, medium mesh (2 mm cells at the wall)."
+  },
+  {
+   "file": "top_0.3s.jpg",
+   "t": 0.3,
+   "view": "top",
+   "caption": "Water surface 0.3 s after the flush starts, seen from above, bowl wall see-through; colour shows the water speed. OpenFOAM CFD, medium mesh (2 mm cells at the wall)."
+  },
+  {
+   "file": "cutaway_0.6s.jpg",
+   "t": 0.6,
+   "view": "cutaway",
+   "caption": "Water surface 0.6 s after the flush starts, front half of the bowl removed; colour shows the water speed. OpenFOAM CFD, medium mesh (2 mm cells at the wall)."
+  },
+  {
+   "file": "top_0.6s.jpg",
+   "t": 0.6,
+   "view": "top",
+   "caption": "Water surface 0.6 s after the flush starts, seen from above, bowl wall see-through; colour shows the water speed. OpenFOAM CFD, medium mesh (2 mm cells at the wall)."
+  },
+  {
+   "file": "cutaway_1.0s.jpg",
+   "t": 1.0,
+   "view": "cutaway",
+   "caption": "Water surface 1.0 s after the flush starts, front half of the bowl removed; colour shows the water speed. OpenFOAM CFD, medium mesh (2 mm cells at the wall)."
+  },
+  {
+   "file": "top_1.0s.jpg",
+   "t": 1.0,
+   "view": "top",
+   "caption": "Water surface 1.0 s after the flush starts, seen from above, bowl wall see-through; colour shows the water speed. OpenFOAM CFD, medium mesh (2 mm cells at the wall)."
+  },
+  {
+   "file": "cutaway_2.0s.jpg",
+   "t": 2.0,
+   "view": "cutaway",
+   "caption": "Water surface 2.0 s after the flush starts, front half of the bowl removed; colour shows the water speed. OpenFOAM CFD, medium mesh (2 mm cells at the wall). After 1.3 s the trap outlet in this run draws air, so the bowl holds more water than in the fast model."
+  },
+  {
+   "file": "top_2.0s.jpg",
+   "t": 2.0,
+   "view": "top",
+   "caption": "Water surface 2.0 s after the flush starts, seen from above, bowl wall see-through; colour shows the water speed. OpenFOAM CFD, medium mesh (2 mm cells at the wall). After 1.3 s the trap outlet in this run draws air, so the bowl holds more water than in the fast model."
+  }
+ ],
+ "validTo": 1.3
+}
