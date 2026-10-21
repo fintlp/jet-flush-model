@@ -297,6 +297,9 @@ tr.best td{background:color-mix(in srgb, var(--clean) 12%, transparent)}
 .ch-you{margin-top:14px}
 .ch-h{font-size:14px;margin:16px 0 6px}
 .cfd-maps canvas{aspect-ratio:2/1}
+.fs-maps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:10px}
+.fs-maps canvas{aspect-ratio:2/1}
+@media (max-width:640px){ .fs-maps{grid-template-columns:minmax(0,1fr)} }
 .cfd-media{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin:10px 0}
 .cfd-fig{margin:0}.cfd-fig img,.cfd-fig video{width:100%;border-radius:8px;border:1px solid var(--line);display:block}
 .cfd-fig figcaption{font-size:12.5px;color:var(--muted);margin-top:4px}
@@ -586,13 +589,14 @@ td code{font-family:var(--f-mono);font-size:12.5px}
       </section>
 
       <section class="panel" aria-label="AI lab" id="ai-lab">
-        <div class="panel-head"><h2>AI lab</h2><span class="muted" style="font-size:12.5px">Five ways AI and data work with the physics model. Everything runs in your browser.</span></div>
+        <div class="panel-head"><h2>AI lab</h2><span class="muted" style="font-size:12.5px">Six ways AI and data work with the physics model. Everything runs in your browser.</span></div>
         <div class="seg ai-tabs" role="tablist" aria-label="AI tools">
           <button type="button" role="tab" data-aitab="aiOpt" aria-selected="true" aria-pressed="true">Design optimiser</button>
           <button type="button" role="tab" data-aitab="aiSur" aria-selected="false" aria-pressed="false">Neural surrogate</button>
           <button type="button" role="tab" data-aitab="aiHyb" aria-selected="false" aria-pressed="false">Hybrid calibration</button>
           <button type="button" role="tab" data-aitab="aiNoise" aria-selected="false" aria-pressed="false">Noise calibration</button>
           <button type="button" role="tab" data-aitab="aiPinn" aria-selected="false" aria-pressed="false">Physics-informed network</button>
+          <button type="button" role="tab" data-aitab="aiField" aria-selected="false" aria-pressed="false">Field surrogate</button>
         </div>
 
         <div id="aiOpt" role="tabpanel" class="ai-pane">
@@ -740,6 +744,25 @@ td code{font-family:var(--f-mono);font-size:12.5px}
           <div class="ai-results" id="pnSum"><p class="muted">Train the network to see what it finds. It takes one to three seconds.</p></div>
           <div class="tablewrap"><table id="pnTable" class="compact"></table></div>
         </div>
+
+        <div id="aiField" role="tabpanel" class="ai-pane" hidden>
+          <p class="ai-lede">A field surrogate predicts a whole result field, here the cleaning map of the bowl wall, from the design settings, in microseconds. It learns from expensive runs: proper orthogonal decomposition finds the typical map patterns, and a Gaussian process learns how much of each pattern a design has. This is the idea behind tools such as SimAI, Simcenter PhysicsAI or PhysicsNeMo. How many expensive runs does it need, and how does it compare with the fast physics model?</p>
+          <p class="ch-label"><b>Expensive runs are simulated:</b> the synthetic reference of the engineering challenge, 8 virtual hours each, for 80 training designs and 20 unseen test designs of the oval bowl, varying the six challenge settings.</p>
+          <div class="sweep-ctl">
+            <button class="btn primary" type="button" id="fsRun">Run the comparison</button>
+            <label class="f" for="fsSel">Map for<select id="fsSel" disabled><option>run the comparison first</option></select></label>
+          </div>
+          <div class="prog" id="fsProg" hidden><div class="prog-bar" role="progressbar" aria-label="Progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="prog-fill"></span></div><span class="prog-txt"></span></div>
+          <canvas id="cvFsCurve" class="ch-cv" aria-label="Share of the cleaned area matched on unseen designs against the number of expensive training runs, for the data surrogate, the fast model and the fast model with a learned correction"></canvas>
+          <div class="fs-maps">
+            <canvas id="cvFsRef" aria-label="Cleaning map of the reference for the chosen unseen design"></canvas>
+            <canvas id="cvFsData" aria-label="Cleaning map predicted by the data surrogate"></canvas>
+            <canvas id="cvFsFast" aria-label="Cleaning map of the fast model"></canvas>
+            <canvas id="cvFsCorr" aria-label="Cleaning map of the fast model with the learned correction"></canvas>
+          </div>
+          <div class="ai-results" id="fsSum"><p class="muted">Run the comparison: about 200 flushes in your browser, 5 to 10 seconds.</p></div>
+          <div class="tablewrap"><table id="fsTable" class="compact"></table></div>
+        </div>
       </section>
 
       <section class="panel" aria-label="How the model works" id="how">
@@ -795,11 +818,13 @@ td code{font-family:var(--f-mono);font-size:12.5px}
 <script src="tolerance.js?v=21"></script>
 <script src="cfdcheck.js?v=21"></script>
 <script src="pinn-core.js?v=21"></script>
+<script src="field-core.js?v=21"></script>
 <script src="challenge-core.js?v=21"></script>
 <script src="challenge-data.js?v=21"></script>
 <script src="challenge.js?v=21"></script>
 <script src="ai.js?v=21"></script>
 <script src="pinn.js?v=21"></script>
+<script src="field.js?v=21"></script>
 <script src="tour.js?v=21"></script>
 </body>
 </html>

@@ -247,6 +247,8 @@
     // the step may have revealed or moved its target (a tab shown, a panel filled): bring it into view again
     if (target && active) { const r = target.getBoundingClientRect(); if (r.height === 0 || r.top > window.innerHeight * 0.6 || r.bottom < 60) target.scrollIntoView({ behavior: reduce() ? 'auto' : 'smooth', block: A.isPhone() && KIND !== 'demo' ? 'start' : (s.block || 'center') }); }
     await wait(reduce() ? 0 : 350);
+    // let a smooth scroll finish, so the card has arrived before Next can be pressed
+    for (let k = 0, last = -1, same = 0; k < 40 && same < 2; k++) { const y = window.scrollY; same = y === last ? same + 1 : 0; last = y; await wait(50); }
     if (ses !== session || idx !== i || !active) return;   // closed, or closed and reopened, meanwhile
     $('tourText').innerHTML = s.h();
     if (s.last) {

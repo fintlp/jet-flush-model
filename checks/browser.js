@@ -286,6 +286,11 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   const pn = await page.evaluate(() => { const S = FlushPinnUI.result(); return { cw: S.pinn.Cw, ls: S.ls.Cw, n: S.D.obs.length, rows: document.querySelectorAll('#pnTable tbody tr').length, sum: document.getElementById('pnSum').innerText.slice(0, 120) }; });
   ok('Physics-informed network: from 13 readings it finds the hidden weir coefficient within 6 %, next to least squares', pn.n === 13 && Math.abs(pn.cw - 1.45) / 1.45 < 0.06 && pn.rows === 4 && pn.sum.includes('found a weir coefficient'), pn);
 
+  // Field surrogate (2.0): learning curves and maps
+  await page.evaluate(() => FlushFieldUI.show()); await page.evaluate(() => FlushFieldUI.run());
+  const fsr = await page.evaluate(() => { const S = FlushFieldUI.result(); return { fast: S.res.fast.overlap, d80: S.res.data[3].overlap, rows: document.querySelectorAll('#fsTable tbody tr').length, opts: document.querySelectorAll('#fsSel option').length }; });
+  ok('Field surrogate: learning curve over 10 to 80 runs, data surrogate below the fast model, 20 unseen designs to view', fsr.rows === 5 && fsr.opts === 20 && fsr.d80 < fsr.fast && fsr.fast > 0.93, fsr);
+
   // Engineering challenge (2.0): eight stored races on one clock, a chosen race, live recomputation, your turn, guided tour
   await fresh();
   await page.evaluate(() => document.getElementById('challenge').scrollIntoView());
