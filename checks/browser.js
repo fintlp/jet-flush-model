@@ -334,6 +334,11 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   const pAfter = await P();
   ok('Challenge tour: Finish brings the visitor\'s design back', pAfter.ovality === pBefore.ovality && pAfter.jetPhase === pBefore.jetPhase && pAfter.Vfull === pBefore.Vfull && (await page.evaluate(() => document.querySelector('.tour').hidden)), { ovality: pAfter.ovality, Vfull: pAfter.Vfull });
 
+  // why page: the timeline of one design loop is computed from the stored races
+  await page.goto(base + 'why.html'); await page.waitForTimeout(300);
+  const wy = await page.evaluate(() => ({ c: document.querySelector('[data-v="classic"]').textContent, a: document.querySelector('[data-v="ai"]').textContent, s: document.querySelector('[data-v="sum"]').textContent, blocks: document.querySelectorAll('.loop-bar i').length }));
+  ok('Why page: the two-clocks timeline shows the median project from the challenge data', wy.c === '12 days' && wy.a === '4.5 days' && wy.s === '110 → 43' && wy.blocks === 17, wy);
+
   ok('No page errors', errs.length === 0, errs.slice(0, 5));
   console.log(out.join('\n'));
   const failed = out.filter((l) => l.startsWith('FAIL')).length;

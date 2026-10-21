@@ -88,6 +88,16 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
 .why h2{max-width:none}
 .statrow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:22px;max-width:900px}
 @media (max-width:720px){ .statrow{grid-template-columns:minmax(0,1fr)} }
+.loop{max-width:900px;margin-top:18px;display:grid;gap:10px}
+.loop-row{display:grid;grid-template-columns:minmax(150px,240px) 1fr auto;gap:12px;align-items:center}
+@media (max-width:720px){ .loop-row{grid-template-columns:1fr auto} .loop-row .loop-l{grid-column:1 / -1} }
+.loop-l{font-size:14px}
+.loop-bar{display:flex;gap:3px;flex-wrap:nowrap;min-height:22px}
+.loop-bar i{display:block;flex:0 0 auto;width:calc((100% - 33px) / 12);height:22px;border-radius:4px;background:var(--solid)}
+.loop-bar.ai i{background:var(--accent)}
+.loop-bar i.half{width:calc((100% - 33px) / 24)}
+.loop-v{font-weight:600;font-variant-numeric:tabular-nums;min-width:5.5em;text-align:right}
+.loop-scale{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:12.5px;color:var(--muted)}
 .stat{background:var(--raised);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:grid;gap:6px}
 .stat .v{font-family:var(--f-display);font-weight:700;font-size:32px;line-height:1;color:var(--accent);font-variant-numeric:tabular-nums}
 .stat .l{font-size:13.5px;color:var(--muted)}
@@ -147,9 +157,25 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
       <p>That is fast by the standards of physical testing. But it means a team can only afford to ask a few questions, so most design decisions are still made on experience before any number exists. And the later a weak decision is found, the more it costs to change: in the tool, the mould, the production line.</p>
       <div class="statrow">
         <div class="stat"><span class="v">≈ 1 day</span><span class="l">per design iteration with overnight CFD, in a published bowl development</span></div>
-        <div class="stat"><span class="v">5–20 ms</span><span class="l">per flush with the physics model on this page, in a browser</span></div>
-        <div class="stat"><span class="v">≈ 540</span><span class="l">designs searched by the AI lab in about 4 seconds</span></div>
+        <div class="stat"><span class="v">20–40 ms</span><span class="l">per flush with the physics model on this page, in a browser; a coarse CFD run of the same flush took 23 minutes on 12 cores</span></div>
+        <div class="stat"><span class="v">≈ 540</span><span class="l">designs searched by the AI lab in about 10 seconds, the best ones checked at full resolution</span></div>
       </div>
+    </section>
+
+    <section id="loop">
+      <h2>One design loop, two clocks</h2>
+      <p>The <a href="./#challenge">engineering challenge</a> on the simulator page plays out a design project: an oval bowl misses its targets, and every candidate design has to be checked with an expensive, high-fidelity run. Eight such projects were run with two ways of working. Counting one working day per iteration, as Geberit reported for its CFD-led bowl development, the median project looks like this:</p>
+      <div class="loop" id="loopFig" role="img" aria-label="Timeline of a median design project: the classic route needs 12 iterations of about a day, the AI-assisted route 4 to 5">
+        <div class="loop-row"><span class="loop-l">Classic: one change at a time</span><span class="loop-bar" data-route="classic"></span><span class="loop-v" data-v="classic">12 days</span></div>
+        <div class="loop-row"><span class="loop-l">AI-assisted: fast model + learned correction</span><span class="loop-bar ai" data-route="ai"></span><span class="loop-v" data-v="ai">4.5 days</span></div>
+        <div class="loop-scale"><span>each block: one high-fidelity iteration, about a working day</span><span>the fast model's screening: seconds, too small to draw</span></div>
+      </div>
+      <div class="statrow">
+        <div class="stat"><span class="v" data-v="sum">110 → 43</span><span class="l">high-fidelity iterations for all eight projects, classic against AI-assisted</span></div>
+        <div class="stat"><span class="v" data-v="saved">≈ 3 months</span><span class="l">of iterations saved over the eight projects, at one working day each</span></div>
+        <div class="stat"><span class="v" data-v="miss">3 of 8</span><span class="l">projects in which the fast model alone, without learning from the expensive runs, never met the targets</span></div>
+      </div>
+      <p class="note">How these numbers come about: the iteration counts are measured in the challenge (eight projects, <code>checks/challenge.js</code>); the day per iteration is Geberit's figure and is an assumption here. The expensive runs in the challenge come from a synthetic reference, the flush model with other coefficients and effects it does not have, and the task has five settings to change; with more settings to change, the classic route would typically need more iterations. The point is the mechanism: a fast physics model, a few expensive runs, and a correction learned from each of them decide where the next expensive run is worth it.</p>
     </section>
 
     <section id="approach">
@@ -196,10 +222,13 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
         <li><b>Neural surrogates</b> that answer in microseconds once trained on solver results.</li>
         <li><b>Hybrid calibration</b> that keeps the physics and lets data correct what it misses, with an uncertainty that grows away from known designs.</li>
         <li><b>Calibration against simple measurements:</b> phone recordings of a few flushes are enough to fit the noise coefficients, because only the differences between designs matter.</li>
+        <li><b>Multi-fidelity optimisation:</b> a fast model plus a correction learned from every expensive run decides where the next run is worth it, as in the <a href="./#challenge">engineering challenge</a>.</li>
+        <li><b>A physics-informed network</b> that learns a model coefficient from a level record and the model's own equation, and a <b>field surrogate</b> that predicts whole cleaning maps from expensive runs. Both are shown with an honest comparison: for a problem this small a classic fit is quicker, and a pure data surrogate needs many runs to approach a good physics model.</li>
+        <li><b>A check against full CFD:</b> the same bowl in OpenFOAM, side by side with the fast model, including where they differ.</li>
       </ul>
       <div class="box">
         <h4>What this does not do</h4>
-        <p>It does not replace validation. The model on this page is not calibrated yet, so its numbers show trends between designs, not certified values. AI suggestions are candidates for a CFD or rig check, never the final answer.</p><p>Some things are out of scope: splashing, jets hitting each other and spill-over are not modelled, so the page cannot say whether a design splashes. The AI is a conventional neural surrogate, not a physics-informed network, and the calibration demo uses synthetic data. The presets are generic bowls, not any manufacturer's product.</p><p>The gain is in how quickly a team gets to the right few questions.</p>
+        <p>It does not replace validation. The model on this page is not calibrated yet, so its numbers show trends between designs, not certified values. AI suggestions are candidates for a CFD or rig check, never the final answer.</p><p>Some things are out of scope: splashing, jets hitting each other and spill-over are not modelled, so the page cannot say whether a design splashes. The expensive runs of the engineering challenge, the field surrogate and the calibration demos come from synthetic references, and the CFD reference is a second simulation, not a measurement. The presets are generic bowls, not any manufacturer's product.</p><p>The gain is in how quickly a team gets to the right few questions.</p>
       </div>
     </section>
 
@@ -235,7 +264,7 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
         <a class="btn" href="slides/jet-flush-model.pptx" download>Slides, PowerPoint</a>
         <a class="btn" href="slides/jet-flush-model.pdf" target="_blank" rel="noopener">Slides, PDF</a>
       </div>
-      <p class="muted">Sources for the figures on this page are on the <a href="sources.html">sources and references page</a>. The 5–20 ms and 540-design figures were measured with this simulator; the one-day iteration comes from the Geberit report by CADFEM.</p>
+      <p class="muted">Sources for the figures on this page are on the <a href="sources.html">sources and references page</a>. The flush times, the 540-design search and the iteration counts were measured with this simulator; the 23-minute CFD run is the coarse-mesh OpenFOAM run of the CFD check; the one-day iteration comes from the Geberit report by CADFEM.</p>
     </section>
 
     <footer class="foot">
@@ -244,5 +273,27 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
     </footer>
   </div>
 </div>
+<script src="challenge-data.js?v=21"></script>
+<script>
+/* The timeline figures from the eight stored races of the engineering challenge (challenge-data.js), so they stay
+   in step with the simulator page. Without the data, the numbers written into the page above stay as they are. */
+(function () {
+  const D = window.FlushChallengeData; if (!D || !D.races) return;
+  const tt = (k) => D.races.map((r) => r.routes[k].toTarget);
+  const med = (v) => { const s = v.slice().sort((a, b) => a - b), n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; };
+  const cl = tt('classic'), ai = tt('ai'), fa = tt('fast');
+  if (cl.some((v) => v == null) || ai.some((v) => v == null)) return;
+  const mc = med(cl), ma = med(ai), sc = cl.reduce((a, b) => a + b, 0), sa = ai.reduce((a, b) => a + b, 0), saved = sc - sa;
+  const fmtd = (v) => `${v % 1 ? v.toFixed(1) : v} ${v === 1 ? 'day' : 'days'}`;
+  const blocks = (n) => Array.from({ length: Math.floor(n) }, () => '<i></i>').join('') + (n % 1 ? '<i class="half"></i>' : '');
+  const scale = Math.max(mc, ma);
+  document.querySelectorAll('.loop-bar').forEach((b) => { const n = b.dataset.route === 'ai' ? ma : mc; b.innerHTML = blocks(n); b.style.setProperty('--n', scale); });
+  document.querySelectorAll('.loop-bar i').forEach((i) => { i.style.width = `calc((100% - ${3 * (Math.ceil(scale) - 1)}px) / ${Math.ceil(scale)}${i.classList.contains('half') ? ' / 2' : ''})`; });
+  const set = (k, t) => { const el = document.querySelector(`[data-v="${k}"]`); if (el) el.textContent = t; };
+  set('classic', fmtd(mc)); set('ai', fmtd(ma)); set('sum', `${sc} → ${sa}`);
+  set('saved', saved >= 40 ? `≈ ${Math.round(saved / 21)} months` : `${saved} days`); set('miss', `${fa.filter((v) => v == null).length} of ${fa.length}`);
+  const fig = document.getElementById('loopFig'); if (fig) fig.setAttribute('aria-label', `Timeline of a median design project: the classic route needs ${mc} iterations of about a day, the AI-assisted route ${ma}`);
+})();
+</script>
 </body>
 </html>

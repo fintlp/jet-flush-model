@@ -142,6 +142,8 @@ Version 2.0 changes model results. Work in progress on branch `dev-2.0`; this en
 
 **One guided story and the CFD check**
 
+- **The loop told with a clock (why page):** "One design loop, two clocks" shows the median project of the engineering challenge as a timeline at one working day per iteration (Geberit's figure, stated as an assumption): 12 days classic against 4.5 days AI-assisted; 110 against 43 iterations over eight projects, about three months saved. The numbers are computed from the stored races. Part 3 of the story ends with them. The why page also lists the new methods and its limits.
+
 - **Field surrogate** (AI lab, sixth tab): predicts the whole cleaning map from 10 to 80 expensive runs. With 80 runs it matches 85 % of the cleaned area of unseen designs and misses the cleaned share by 9 points; the fast model alone, with no expensive runs, 95 % and 1.6 points; with a learned map correction 96 % and 1.5. The page explains why and when field surrogates pay off (`field-core.js`, `checks/field.js`).
 - **Physics-informed network** (AI lab, fifth tab, and step 5 of story part 2): from 81 or 13 noisy level readings of a flush simulated with a weir coefficient of 1.45 (the model uses 1.7), it finds 1.42 to 1.44 and estimates the unmeasured water on the wall; least squares finds 1.49 to 1.50 in tens of milliseconds. A record that stops after 3 s cannot identify the coefficient, and the page shows that too. Own forward and backward pass with time derivatives, no library (`pinn-core.js`, `checks/pinn.js`).
 
@@ -169,7 +171,7 @@ Version 2.0 changes model results. Work in progress on branch `dev-2.0`; this en
 - **New `checks/challenge.js`** for the engineering challenge: recomputes the eight races and compares them with `challenge-data.js` (`--write` regenerates the file).
 - **New `checks/pinn.js`** (6 checks, about 5 s) for the physics-informed network.
 - **New `checks/field.js`** (5 checks, about 15 s) for the field surrogate.
-- **`checks/browser.js` now has 71 checks**, adding the noise calibration (A-weighting of test tones, demo fit, WAV file, meter readings), the tolerance study (spread, one tolerance alone, all zero, reset, out-of-date note, progress bar), the robust search, the optimiser's progress bar, Cancel and Stop, also in the demo, and the engineering challenge with its live recomputation and guided tour, the CFD check and the three-part story. All pass.
+- **`checks/browser.js` now has 72 checks**, adding the noise calibration (A-weighting of test tones, demo fit, WAV file, meter readings), the tolerance study (spread, one tolerance alone, all zero, reset, out-of-date note, progress bar), the robust search, the optimiser's progress bar, Cancel and Stop, also in the demo, and the engineering challenge with its live recomputation and guided tour, the CFD check and the three-part story. All pass.
 
 **Effect on results**, 300 random designs against 1.3.1: cleaning +1.9 points in the median (5 % lose more than 4.8 points, 5 % gain more than 20, mostly short, strong flushes); peak pool swirl +28 % in the median and the vortex dip about 12 mm deeper, mainly from the corrected pool inertia; solids and paper change little in most designs. Presets:
 
