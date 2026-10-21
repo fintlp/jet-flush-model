@@ -9,26 +9,32 @@
   if (!A || !M || !$('cfd')) return;
   const fmt = (v, d) => (v == null || !isFinite(v) ? '–' : Number(v).toFixed(d));
   const now = () => performance.now();
+  // computing time in words: minutes up to 90, then hours to the half hour
+  const dur = (s) => (s < 5400 ? `${Math.round(s / 60)} minutes` : `${fmt(Math.round(s / 1800) / 2, Math.round(s / 1800) % 2 ? 1 : 0)} hours`);
   const reduce = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   // Runs in order of preference; the first one that loads is used. Only runs that exist are listed, so the page
-  // asks for no missing file; when the full 3.2 s runs arrive (medium-3.2s.json, coarse-full-3.2s.json), they are
-  // added at the top. Wall-clock times come from the run file when it has them (case.wallClock_s, case.cores),
-  // otherwise from the CFD status notes given here.
+  // asks for no missing file. Wall-clock times come from the run file (case.wallClock_s: computing time, without
+  // the time the Mac was asleep; case.cores). The medium run is the main dataset; the coarse run of the same set-up
+  // is loaded as the second mesh, to show how much the results move with the mesh (a sensitivity, not mesh
+  // independence).
+  const NOTE32 = 'Pool and trap flow match the fast model up to 1.3 s; after that the trap outlet of this run draws air from the swirling pool, so the bowl holds more water than in the fast model. The wall data run to 3.2 s.';
   const RUNS = [
-    { file: 'coarse-full-3.2s.json', label: 'coarse mesh, 3 mm cells at the wall, 157,596 cells',
-      note: 'Pool and trap flow match the fast model up to 1.3 s; after that the trap outlet of this run draws air from the swirling pool, so the bowl holds more water than in the fast model. The wall data run to 3.2 s.' },
+    { file: 'medium-3.2s.json', label: 'medium mesh, 2 mm cells at the wall, 428,584 cells', note: NOTE32, second: 1 },
+    { file: 'coarse-full-3.2s.json', label: 'coarse mesh, 3 mm cells at the wall, 157,596 cells', note: NOTE32 },
     { file: 'coarse-modelout-1.5s.json', label: 'coarse mesh, 3 mm cells at the wall, 157,596 cells',
       note: 'Pool and trap flow are valid to 1.3 s; after that the vortex air core reaches the outlet. The wall data run to 1.5 s.' }
   ];
   const ARRIVAL = 'coarse-arrival-1s.json';
   const BASE = 'cfd/washdown/runs/';
-  const S = { run: null, cfd: null, arr: null, mod: null, t: 0, mode: 'wet', playing: false, msModel: null };
+  const S = { run: null, cfd: null, cfd2: null, run2: null, sens: null, arr: null, mod: null, t: 0, mode: 'wet', playing: false, msModel: null };
 
   async function load() {
-    for (const r of RUNS) {
-      try { const res = await fetch(BASE + r.file, { cache: 'no-cache' }); if (res.ok) { S.cfd = await res.json(); S.run = r; break; } } catch (e) { /* try the next */ }
-    }
-    try { const res = await fetch(BASE + ARRIVAL, { cache: 'no-cache' }); if (res.ok) S.arr = await res.json(); } catch (e) { S.arr = null; }
+    const get = async (f) => { try { const res = await fetch(BASE + f, { cache: 'no-cache' }); return res.ok ? await res.json() : null; } catch (e) { return null; } };
+    for (const r of RUNS) { const d = await get(r.file); if (d) { S.cfd = d; S.run = r; break; } }
+    // the second mesh, for the sensitivity
+    if (S.run && S.run.second != null) { const r2 = RUNS[S.run.second], d2 = await get(r2.file); if (d2) { S.cfd2 = d2; S.run2 = r2; } }
+    // first water in the pool: from the run itself when it has an arrival plane, else from the arrival run
+    S.arr = S.cfd && S.cfd.arrivalTimes && S.cfd.arrivalTimes.first_1mLs != null ? S.cfd : await get(ARRIVAL);
     media();
     if (!S.cfd) { $('cfdStatus').textContent = 'The CFD data could not be loaded. They are read from the cfd/ folder, so the page has to be served over http, as on the live site.'; return; }
     compute();
@@ -57,7 +63,7 @@
     for (let k = 0; k < 5; k++) { const t0 = now(); M.simulate(p, { light: true, Tend: tEnd, Tmax: tEnd }); ts.push(now() - t0); }
     const r = M.simulate(p, { Tend: tEnd, Tmax: tEnd });   // full result, with the wall maps
     ts.sort((a, b) => a - b); S.msModel = ts[2];
-    const t0 = now(); M.simulate(p, { light: true, Tend: 12 }); S.msFull = now() - t0;
+    const tf = []; for (let k = 0; k < 5; k++) { const t0 = now(); M.simulate(p, { light: true, Tend: 12 }); tf.push(now() - t0); } tf.sort((a, b) => a - b); S.msFull = tf[2];
     let firstArr = null, last = -1;
     M.simulate(p, { light: true, Tend: tEnd, Tmax: tEnd, probe: (s) => { if (firstArr == null && s.Qarr > 1e-6) firstArr = s.t; if (s.t - last >= 0.05 - 1e-9) { last = s.t; series.push({ t: s.t, uMean: 2 / 3 * s.om * s.Rc }); } } });
     const g = M.buildGeom(p), NTH = r.NTH, NS = r.NS, rowA = [];
@@ -69,6 +75,11 @@
     S.cWet = (t) => S.share((j) => c.tWet[j] != null && c.tWet[j] <= t + 1e-9);
     S.mWet = (t) => S.share((j) => m.tWet[j] <= t + 1e-9);
     S.cClean = S.share((j) => c.J[j] >= S.cfd.Jcrit); S.mClean = S.share((j) => m.J[j] >= m.Jcrit);
+    if (S.cfd2) {   // two meshes: totals, and the share of the wall where both give the same cleaned verdict
+      const c2 = S.cfd2.map, tE = Math.min(S.cfd.case.end, S.cfd2.case.end);
+      S.sens = { clean2: S.share((j) => c2.J[j] >= S.cfd2.Jcrit), wet1: S.share((j) => c.tWet[j] != null && c.tWet[j] <= tE + 1e-9), wet2: S.share((j) => c2.tWet[j] != null && c2.tWet[j] <= tE + 1e-9),
+        same: S.share((j) => (c.J[j] >= S.cfd.Jcrit) === (c2.J[j] >= S.cfd2.Jcrit)), tE };
+    }
     const sl = $('cfdT'); sl.max = String(tEnd); sl.value = String(tEnd); S.t = tEnd;
     head(); diff(); draw(); curves();
     document.dispatchEvent(new Event('flushcfdready'));
@@ -78,18 +89,19 @@
     const cs = S.cfd.case, run = S.run, wc = cs.wallClock_s || run.wallClock_s, cores = cs.cores || run.cores, tEnd = cs.end;
     const speed = wc && S.msModel ? wc * 1000 / S.msModel : null;
     $('cfdCaveat').innerHTML = `<b>CFD reference:</b> OpenFOAM (interFoam, volume of fluid), the model's own bowl and inflow, ${run.label}. It is a second simulation, not a measurement of a real bowl. Thin films and fine spray are smoothed at this resolution. The trap outflow is taken from the model, so the CFD checks the wall and the pool, not the trap. This run covers 0 to ${fmt(tEnd, 1)} s of the flush.${run.note ? ' ' + run.note : ''} Agreement between two simulations shows consistency, not truth.`;
-    $('cfdHead').innerHTML = `<p class="ch-big">Same bowl, same jets, ${fmt(tEnd, 1)} s of flush: OpenFOAM needed ${wc ? `about <b>${Math.round(wc / 60)} minutes on ${cores} CPU cores</b>` : 'hours of computing'}; the fast model needs <b>${fmt(S.msModel, 0)} ms</b> in your browser${speed ? `, about <b>${Math.round(speed / 1000).toLocaleString('en')} thousand times faster</b>` : ''}.</p>` +
-      `<p>By ${fmt(tEnd, 1)} s, the CFD has wetted <b>${fmt(S.cWet(tEnd), 0)} %</b> of the wall and the fast model <b>${fmt(S.mWet(tEnd), 0)} %</b>; cleaned so far: CFD <b>${fmt(S.cClean, 0)} %</b>, fast model <b>${fmt(S.mClean, 0)} %</b>. The whole 12 s flush takes the fast model ${fmt(S.msFull, 0)} ms.</p>`;
+    $('cfdHead').innerHTML = `<p class="ch-big">Same bowl, same jets, ${fmt(tEnd, 1)} s of flush: OpenFOAM needed ${wc ? `about <b>${dur(wc)} on ${cores} CPU cores</b>` : 'hours of computing'}; the fast model needs <b>${fmt(S.msModel, 0)} ms</b> in your browser${speed ? `, about <b>${Math.round(speed / 1000).toLocaleString('en')} thousand times faster</b>` : ''}.</p>` +
+      `<p>By ${fmt(tEnd, 1)} s, the CFD has wetted <b>${fmt(S.cWet(tEnd), 0)} %</b> of the wall and the fast model <b>${fmt(S.mWet(tEnd), 0)} %</b>; cleaned so far: CFD <b>${fmt(S.cClean, 0)} %</b>, fast model <b>${fmt(S.mClean, 0)} %</b>. The fast model's whole 12 s flush takes about as long (${fmt(S.msFull, 0)} ms): nearly all of its work is in the first seconds, while the water moves.</p>`;
   }
   function diff() {
     const sw = (arr, t) => { const q = (arr || []).filter((x) => x.t <= t + 1e-9); return q.length ? q[q.length - 1] : null; };
-    const tq = Math.min(1.0, S.run.validTo || S.cfd.case.end), cs = sw(S.cfd.swirl, tq), ms = sw(S.mod.series, tq);
+    const tq = Math.min(1.0, S.run.validTo || S.cfd.case.end), cs = sw(S.cfd.swirl, tq), ms = sw(S.mod.series, tq), cs2 = S.cfd2 ? sw(S.cfd2.swirl, tq) : null;
     const first = S.arr && S.arr.arrivalTimes ? S.arr.arrivalTimes.first_1mLs : null;
     $('cfdDiff').innerHTML = `<p><b>Where they differ.</b></p><ul>` +
       (first != null ? `<li><b>First water in the pool:</b> CFD after <b>${fmt(first, 2)} s</b>, as a thin edge running down the steep upper wall; the fast model after <b>${fmt(S.mod.firstArr, 2)} s</b>, when its film front arrives, and then all at once. A real arrival is more gradual than the model's jump.</li>` : '') +
       (cs && ms ? `<li><b>Pool swirl at ${fmt(tq, 1)} s:</b> CFD <b>${fmt(cs.uTheta, 2)} m/s</b>, fast model <b>${fmt(ms.uMean, 2)} m/s</b>. The CFD pool spins faster and forms a deep air core. The two numbers are not defined in quite the same way, so compare the trend.</li>` : '') +
       `<li><b>Wetting:</b> the CFD wets most of the wall within half a second; the fast model reaches the lower wall later. The wetted totals end up close.</li>` +
       `<li><b>Near the waterline:</b> the CFD also counts the swirling pool washing the wall as it rises; the fast model cleans only with the films, so it leaves the band just above the waterline. Higher up, the CFD leaves streaks behind each jet that are wetted but not cleaned. The cleaned totals (${fmt(S.cClean, 0)} % against ${fmt(S.mClean, 0)} %) hide these different patterns.${(S.cfd.case.validTo || S.run.validTo) && (S.cfd.case.validTo || S.run.validTo) < S.cfd.case.end - 1e-9 ? ` From ${fmt(S.cfd.case.validTo || S.run.validTo, 1)} s on, the CFD bowl holds more water than the fast model's, which adds to its cleaning near the waterline.` : ''}</li></ul>` +
+      (S.sens ? `<p><b>How much depends on the CFD mesh.</b> The same CFD set-up on a coarser mesh (${S.run2.label}, about ${dur(S.cfd2.case.wallClock_s)}${S.cfd2.case.cores ? ` on ${S.cfd2.case.cores} cores` : ''}) gives <b>${fmt(S.sens.clean2, 0)} %</b> cleaned against <b>${fmt(S.cClean, 0)} %</b> here${fmt(S.sens.wet2, 0) === fmt(S.sens.wet1, 0) ? `, both wet ${fmt(S.sens.wet1, 0)} % of the wall` : ` and ${fmt(S.sens.wet2, 0)} % against ${fmt(S.sens.wet1, 0)} % wetted`}${S.cfd2.arrivalTimes && S.arr && S.arr.arrivalTimes ? `, and first water in the pool after ${fmt(S.cfd2.arrivalTimes.first_1mLs, 2)} s against ${fmt(S.arr.arrivalTimes.first_1mLs, 2)} s` : ''}. Cell by cell, the two meshes agree on cleaned or not on <b>${fmt(S.sens.same, 0)} %</b> of the wall. Pool swirl at ${fmt(tq, 1)} s is ${cs2 ? fmt(cs2.uTheta, 2) : '–'} m/s on the coarser mesh against ${cs ? fmt(cs.uTheta, 2) : '–'} m/s here, still well above the fast model's. So the totals hardly move with the mesh and the differences from the fast model stay, while the detail of single film paths moves. Two meshes show how much results move; they do not prove that a finer mesh would not change them further.</p>` : '') +
       `<p class="muted">That is what a fast model is: right on the trends, off in places. The next part, the engineering challenge, shows how a few expensive runs can correct exactly such differences.</p>`;
   }
 

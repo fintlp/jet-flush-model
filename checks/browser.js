@@ -270,6 +270,9 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   const cf0 = await page.evaluate(() => ({ ready: FlushCFD.ready(), head: document.getElementById('cfdHead').innerText, cav: document.getElementById('cfdCaveat').innerText }));
   ok('CFD check: the OpenFOAM run loads and the headline compares time and results', cf0.ready && cf0.head.includes('OpenFOAM needed') && /wetted \d+ %/.test(cf0.head), cf0.head.slice(0, 200));
   ok('CFD check: the caveat names the mesh and says it is not a measurement', cf0.cav.includes('mm cells at the wall') && cf0.cav.includes('not a measurement'), cf0.cav.slice(0, 160));
+  const sens = await page.evaluate(() => { const S = FlushCFD.data(); return { main: S.cfd.case.mesh, second: S.cfd2 && S.cfd2.case.mesh, c1: S.cClean, s: S.sens, txt: document.getElementById('cfdDiff').innerText }; });
+  // figures as in cfd-status: cleaned 88.8 % (medium) and 87.4 % (coarse), 92.1 % of the wall with the same verdict
+  ok('CFD check: medium mesh is the main run, the coarse mesh is shown as a sensitivity', sens.main === 'medium' && sens.second === 'coarse' && sens.s && Math.abs(sens.c1 - 88.8) < 0.3 && Math.abs(sens.s.clean2 - 87.4) < 0.3 && Math.abs(sens.s.same - 92.1) < 0.5 && sens.txt.includes('How much depends on the CFD mesh') && !/mesh independen(t|ce) (is|was) shown/.test(sens.txt), { c1: sens.c1, s: sens.s });
   await page.evaluate(() => FlushCFD.play());
   const cf1 = await page.evaluate(() => { const S = FlushCFD.data(); return { t: S.t, end: S.cfd.case.end, cw: S.cWet(S.cfd.case.end), mw: S.mWet(S.cfd.case.end), out: document.getElementById('cfdTOut').textContent }; });
   ok('CFD check: playback runs the wall maps through the first 1.5 s of the CFD run', Math.abs(cf1.t - Math.min(1.5, cf1.end)) < 1e-9 && cf1.cw > 50 && cf1.mw > 50 && cf1.out.startsWith('t ='), cf1);

@@ -161,14 +161,14 @@
   ];
   // ---- part 2: the check against CFD ----
   const F = () => window.FlushCFD;
-  const cfdNum = () => { const S = F() && F().data(); if (!S || !S.cfd) return null; const t = S.cfd.case.end; return { S, t, wc: (S.cfd.case.wallClock_s || S.run.wallClock_s), cores: (S.cfd.case.cores || S.run.cores), ms: S.msModel }; };
+  const cfdNum = () => { const S = F() && F().data(); if (!S || !S.cfd) return null; const t = S.cfd.case.end; return { S, t, wc: (S.cfd.case.wallClock_s || S.run.wallClock_s), cores: (S.cfd.case.cores || S.run.cores), cells: S.cfd.case.cells, ms: S.msModel }; };
   const waitCfd = async () => { for (let k = 0; k < 100 && !(F() && F().ready()); k++) await wait(100); };
   const CFD = [
     {
       t: 'Can we trust the fast model?', el: () => $('cfdHead'), block: 'center',
       x: async () => { await waitCfd(); F().setMode('wet'); },
       h: () => { const n = cfdNum(); if (!n) return '<p>The CFD results could not be loaded here, so this part cannot be shown.</p>';
-        return `<p>The fast model simplifies to answer in milliseconds. To see what that costs, we simulated the same bowl with the same jets in <b>OpenFOAM</b>, a full CFD code that resolves water and air in about 160,000 cells.</p><p>For ${n.t.toFixed(1)} s of flush, the CFD needed ${n.wc ? `<b>about ${Math.round(n.wc / 60)} minutes on ${n.cores} processor cores</b>` : 'hours'}. The fast model: <b>${Math.round(n.ms)} ms</b>.</p>`; }
+        return `<p>The fast model simplifies to answer in milliseconds. To see what that costs, we simulated the same bowl with the same jets in <b>OpenFOAM</b>, a full CFD code that resolves water and air in ${n.cells ? `about ${(Math.round(n.cells / 10000) * 10000).toLocaleString('en')}` : 'hundreds of thousands of'} cells.</p><p>For ${n.t.toFixed(1)} s of flush, the CFD needed ${n.wc ? `<b>about ${n.wc < 5400 ? Math.round(n.wc / 60) + ' minutes' : (Math.round(n.wc / 1800) / 2) + ' hours'} on ${n.cores} processor cores</b>` : 'hours'}. The fast model: <b>${Math.round(n.ms)} ms</b>.</p>`; }
     },
     {
       t: 'When the water gets there', el: () => document.querySelector('.cfd-maps'), block: 'center',
@@ -188,7 +188,7 @@
     {
       t: 'Where they differ', el: () => $('cfdDiff'), block: 'center',
       h: () => { const n = cfdNum(); if (!n) return '<p>No CFD data.</p>'; const S = n.S, first = S.arr && S.arr.arrivalTimes ? S.arr.arrivalTimes.first_1mLs : null;
-        return `<p>So: close on the totals, different in the details.${first != null ? ` The first water reaches the pool after <b>${first.toFixed(2)} s</b> in the CFD, but only after <b>${S.mod.firstArr.toFixed(2)} s</b> in the fast model.` : ''} The CFD wets the lower wall sooner, its pool spins faster and washes the wall near the waterline.</p><p>That is what a fast model is: <b>right on the trends, off in places</b>. Two ways to correct that: calibrate the model from measurements of a real flush, next, or let a few expensive runs correct it during the design, in part 3.</p>`; }
+        return `<p>So: close on the totals, different in the details.${first != null ? ` The first water reaches the pool after <b>${first.toFixed(2)} s</b> in the CFD, but only after <b>${S.mod.firstArr.toFixed(2)} s</b> in the fast model.` : ''} The CFD wets the lower wall sooner, its pool spins faster and washes the wall near the waterline.${S.sens ? ` On a coarser CFD mesh these differences stay the same; only single film paths move.` : ''}</p><p>That is what a fast model is: <b>right on the trends, off in places</b>. Two ways to correct that: calibrate the model from measurements of a real flush, next, or let a few expensive runs correct it during the design, in part 3.</p>`; }
     },
     {
       t: 'From a phone video to the model', el: () => $('aiPinn'), block: 'start', last: true, keepsDesign: true,

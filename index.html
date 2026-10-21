@@ -530,7 +530,7 @@ a{color:var(--accent)}
 
       <section class="panel" aria-label="Checked against CFD" id="cfd">
         <div class="panel-head"><h2>Checked against CFD</h2><span class="muted" style="font-size:12.5px">Can we trust the fast model? The same bowl in a full flow simulation</span></div>
-        <p class="ai-lede">The fast model makes simplifications to answer in milliseconds. To see what they cost, the same bowl with the same jets was simulated with OpenFOAM, an open-source CFD code that resolves the water and the air in about 160,000 cells. Both are shown on the same unrolled bowl wall: left the CFD, right the fast model.</p>
+        <p class="ai-lede">The fast model makes simplifications to answer in milliseconds. To see what they cost, the same bowl with the same jets was simulated with OpenFOAM, an open-source CFD code that resolves the water and the air in about 430,000 cells, and once more on a coarser mesh to see how much the results depend on it. Both are shown on the same unrolled bowl wall: left the CFD, right the fast model.</p>
         <p class="ch-label" id="cfdCaveat"></p>
         <div class="ai-results" id="cfdHead"><p class="muted" id="cfdStatus">Loading the CFD results…</p></div>
         <div class="sweep-ctl" style="margin-top:8px">
