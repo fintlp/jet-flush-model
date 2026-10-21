@@ -341,6 +341,23 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   const wy = await page.evaluate(() => ({ c: document.querySelector('[data-v="classic"]').textContent, a: document.querySelector('[data-v="ai"]').textContent, s: document.querySelector('[data-v="sum"]').textContent, blocks: document.querySelectorAll('.loop-bar i').length }));
   ok('Why page: the two-clocks timeline shows the median project from the challenge data', wy.c === '12 days' && wy.a === '4.5 days' && wy.s === '110 → 43' && wy.blocks === 17, wy);
 
+  // F-18 accessibility
+  await fresh();
+  const cv = await page.evaluate(() => [...document.querySelectorAll('canvas')].filter((c) => c.getAttribute('role') !== 'img' || !(c.getAttribute('aria-label') || '').trim()).map((c) => c.id));
+  ok('F18 every chart has role img and a label', cv.length === 0, cv);
+  await page.focus('#tab-aiOpt'); await page.keyboard.press('ArrowRight');
+  const tb = await page.evaluate(() => ({ act: document.activeElement.id, sel: document.getElementById('tab-aiSur').getAttribute('aria-selected'), shown: !document.getElementById('aiSur').hidden, opt: document.getElementById('aiOpt').hidden, ti: [...document.querySelectorAll('[role=tab]')].map((t) => t.tabIndex).join('') }));
+  ok('F18 AI lab tabs: arrow key moves focus and selection, the panel follows, one tab stop', tb.act === 'tab-aiSur' && tb.sel === 'true' && tb.shown && tb.opt && tb.ti === '-10-1-1-1-1', tb);
+  await page.keyboard.press('End'); await page.keyboard.press('Home');
+  ok('F18 AI lab tabs: End and Home', await page.evaluate(() => document.activeElement.id === 'tab-aiOpt' && !document.getElementById('aiOpt').hidden));
+  ok('F18 tabs carry no aria-pressed', await page.evaluate(() => !document.querySelector('[role=tab][aria-pressed]')));
+  await page.click('#demoBtn'); await page.waitForFunction(() => !document.getElementById('tourNext').disabled, null, { timeout: 60000 });
+  ok('F18 tour card is described by its text', await page.evaluate(() => document.querySelector('.tour-card').getAttribute('aria-describedby') === 'tourText'));
+  const rng = await page.evaluate(() => { const r = document.querySelector('input[type=range]'); r.focus(); return r.id; });
+  const st0 = await page.evaluate(() => document.getElementById('tourStep').textContent);
+  await page.keyboard.press('ArrowRight'); await page.waitForTimeout(200);
+  ok('F18 arrow keys on a slider stay with the slider during a tour', (await page.evaluate(() => document.getElementById('tourStep').textContent)) === st0, { rng, st0 });
+  await page.click('#tourX');
   ok('No page errors', errs.length === 0, errs.slice(0, 5));
   console.log(out.join('\n'));
   const failed = out.filter((l) => l.startsWith('FAIL')).length;

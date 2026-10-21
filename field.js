@@ -60,7 +60,7 @@
       const pts = (arr) => arr.map((q) => [X(q.N), Y(100 * q.overlap)]);
       const line = (p, col, dash) => { ctx.strokeStyle = A.rgba(col); ctx.lineWidth = 2.4 * d; ctx.setLineDash(dash.map((v) => v * d)); ctx.beginPath(); p.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = A.rgba(col); p.forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, 3 * d, 0, 2 * Math.PI); ctx.fill(); }); };
       line(pts(S.res.data), C.bad, []); line([[X(8), Y(100 * S.res.fast.overlap)], [X(100), Y(100 * S.res.fast.overlap)]], C.solid, [6, 4]); line(pts(S.res.corr), C.accent, []);
-    } else { ctx.fillStyle = A.rgba(C.muted); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = A.font(11); ctx.fillText('Run the comparison to see the learning curves', padL + w / 2, padT + h / 2); }
+    } else { ctx.fillStyle = A.rgba(C.muted); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = A.font(11); { const t = 'Run the comparison to see the learning curves'; ctx.fillText(ctx.measureText(t).width > w - 16 ? 'Run the comparison first' : t, padL + w / 2, padT + h / 2); } }
     ctx.font = A.font(10); ctx.textBaseline = 'middle'; ctx.textAlign = 'left'; let x0 = padL, y0 = 12 * d;
     items.forEach(([l, col, dash]) => { const lw = (30 + ctx.measureText(l).width / d) * d; if (x0 > padL && x0 + lw > padL + w) { x0 = padL; y0 += 14 * d; } ctx.strokeStyle = A.rgba(col); ctx.lineWidth = 2.4 * d; ctx.setLineDash(dash.map((v) => v * d)); ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0 + 18 * d, y0); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = A.rgba(C.ink); ctx.fillText(l, x0 + 22 * d, y0); x0 += lw; });
   }

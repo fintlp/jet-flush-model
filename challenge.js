@@ -89,7 +89,7 @@
     const R = RACES[S.sel]; if (!R) return;
     $('chRaceTitle').textContent = `Inside race #${S.sel + 1}${S.sel === 0 ? ', from the start design above' : ', from another start design'}`;
     $('chTable').innerHTML = `<thead><tr><th>Route</th><th>Runs to target</th><th>Virtual time</th><th>Final design</th><th>Reference result</th></tr></thead><tbody>` +
-      ['classic', 'fast', 'ai'].map((k) => { const l = LANES.find((x) => x.k === k), v = R.routes[k], hit = v.runs.find((r) => r.ok) || v.runs.slice().sort((a, b) => (otherOK(b.e) - otherOK(a.e)) || b.e.clean - a.e.clean)[0]; return `<tr><td>${l.l}</td><td class="num">${v.toTarget || `> ${C.MAXR}`}</td><td class="num">${v.toTarget ? daysTxt(v.toTarget) : `> ${daysTxt(C.MAXR)}`}</td><td>${desTxt(hit.des)}</td><td>${fmt(hit.e.clean, 1)} % cleaning, ${fmt(hit.e.solids, 0)} % solids, ${fmt(hit.e.paper, 0)} % paper, ${fmt(hit.e.water, 1)} L${hit.ok ? '' : ' (best run, ' + missTxt(hit.e) + ')'}</td></tr>`; }).join('') + '</tbody>';
+      ['classic', 'fast', 'ai'].map((k) => { const l = LANES.find((x) => x.k === k), v = R.routes[k], hit = v.runs.find((r) => r.ok) || v.runs.slice().sort((a, b) => (otherOK(b.e) - otherOK(a.e)) || b.e.clean - a.e.clean)[0]; return `<tr><td data-l="Route">${l.l}</td><td class="num" data-l="Runs to target">${v.toTarget || `> ${C.MAXR}`}</td><td class="num" data-l="Virtual time">${v.toTarget ? daysTxt(v.toTarget) : `> ${daysTxt(C.MAXR)}`}</td><td data-l="Final design">${desTxt(hit.des)}</td><td data-l="Reference result">${fmt(hit.e.clean, 1)} % cleaning, ${fmt(hit.e.solids, 0)} % solids, ${fmt(hit.e.paper, 0)} % paper, ${fmt(hit.e.water, 1)} L${hit.ok ? '' : ' (best run, ' + missTxt(hit.e) + ')'}</td></tr>`; }).join('') + '</tbody>';
     $('chLog').innerHTML = `<summary>Every run of race #${S.sel + 1}</summary><div class="tablewrap"><table class="compact"><thead><tr><th>Route</th><th>Run</th><th>Why this design</th><th>Fast model, cleaning</th><th>AI expected</th><th>Reference: cleaning, solids, paper, water</th></tr></thead><tbody>` +
       ['classic', 'fast', 'ai'].map((k) => R.routes[k].runs.map((r) => `<tr${r.ok ? ' class="ok"' : ''}><td>${LANES.find((l) => l.k === k).short}</td><td class="num">${r.n}</td><td>${r.why}${r.kept === false ? ', undone' : r.kept ? ', kept' : ''}</td><td class="num">${fmt(r.f.clean, 1)}</td><td class="num">${k === 'ai' && r.pred ? `${fmt(r.pred.m, 1)} ± ${fmt(2 * r.pred.s, 1)}` : '–'}</td><td class="num">${fmt(r.e.clean, 1)}, ${fmt(r.e.solids, 0)}, ${fmt(r.e.paper, 0)}, ${fmt(r.e.water, 1)}${r.ok ? ' ✓' : ''}</td></tr>`).join('')).join('') + '</tbody></table></div>';
     verifyLine();
@@ -112,11 +112,11 @@
     return new Promise((resolve) => {
       const finish = (res, ms, sims) => { S.verifying = null; S.verified[i] = { same: JSON.stringify(res) === want, ms, sims }; verifyLine(); resolve(S.verified[i]); };
       let w = null;
-      try { w = new Worker('challenge-worker.js?v=21'); } catch (e) { w = null; }
+      try { w = new Worker('challenge-worker.js?v=22'); } catch (e) { w = null; }
       if (w) {
         w.onmessage = (ev) => { const d = ev.data; if (d.progress) { S.verifying.n = d.progress; if (S.sel === i) verifyLine(); } else if (d.done) { w.terminate(); finish(d.done, d.ms, d.sims); } else if (d.error) { w.terminate(); slicesVerify(i, finish); } };
         w.onerror = () => { w.terminate(); slicesVerify(i, finish); };
-        w.postMessage({ race: i, v: '21' });
+        w.postMessage({ race: i, v: '22' });
       } else slicesVerify(i, finish);
     });
   }

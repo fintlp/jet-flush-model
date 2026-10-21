@@ -62,8 +62,13 @@
   }
   /* ---------------- tabs ---------------- */
   const tabs = document.querySelectorAll('[data-aitab]');
+  tabs.forEach((b, i) => b.addEventListener('keydown', (e) => {
+    // tab pattern: arrows move between the tools, Home and End go to the first and last; the panel follows
+    const n = tabs.length, j = { ArrowRight: (i + 1) % n, ArrowLeft: (i - 1 + n) % n, Home: 0, End: n - 1 }[e.key];
+    if (j == null) return; e.preventDefault(); e.stopPropagation(); tabs[j].click(); tabs[j].focus();
+  }));
   tabs.forEach((b) => b.addEventListener('click', () => {
-    tabs.forEach((x) => { x.setAttribute('aria-selected', String(x === b)); x.setAttribute('aria-pressed', String(x === b)); });
+    tabs.forEach((x) => { x.setAttribute('aria-selected', String(x === b)); x.tabIndex = x === b ? 0 : -1; });
     ['aiOpt', 'aiSur', 'aiHyb', 'aiNoise', 'aiPinn', 'aiField'].forEach((id) => { if ($(id)) $(id).hidden = id !== b.dataset.aitab; });
     document.dispatchEvent(new CustomEvent('flushaitab', { detail: b.dataset.aitab }));
     redraw();
@@ -807,7 +812,7 @@
         });
       });
       legend(f, stages.map(([l, c]) => [l, c]));
-      if (!R) { ctx.fillStyle = A.rgba(C.muted); ctx.font = A.font(11); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('Run the calibration to compare the three stages', pad.l + w / 2, pad.t + h / 2); }
+      if (!R) { ctx.fillStyle = A.rgba(C.muted); ctx.font = A.font(11); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; const t = 'Run the calibration to compare the three stages'; ctx.fillText(ctx.measureText(t).width > w - 16 ? 'Run the calibration first' : t, pad.l + w / 2, pad.t + h / 2); }
     }
     { // parity for cleaning
       const cv = $('cvHybPar');

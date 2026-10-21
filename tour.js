@@ -18,7 +18,7 @@
   const ov = document.createElement('div');
   ov.className = 'tour'; ov.hidden = true;
   ov.innerHTML = `<div class="tour-spot" aria-hidden="true"></div>
-    <div class="tour-card" role="dialog" aria-modal="false" aria-labelledby="tourTitle" tabindex="-1">
+    <div class="tour-card" role="dialog" aria-modal="false" aria-labelledby="tourTitle" aria-describedby="tourText" tabindex="-1">
       <div class="tour-top"><span class="tour-step" id="tourStep"></span><button class="tour-x" type="button" id="tourX" aria-label="End the demo">×</button></div>
       <h3 id="tourTitle"></h3>
       <div class="tour-text" id="tourText"></div>
@@ -238,6 +238,8 @@
     $('tourDots').innerHTML = STEPS.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('');
     $('tourBack').disabled = i === 0;
     const next = $('tourNext');
+    // Next is disabled while the step works; keep the keyboard focus in the card instead of losing it to the page
+    if (card.contains(document.activeElement)) card.focus({ preventScroll: true });
     next.disabled = true; next.textContent = s.last ? 'Finish' : (i === 0 ? 'Start' : 'Next');
     target = s.el ? s.el() : null;
     // on phones the card docks at the bottom, so the highlighted part goes to the top of the screen
@@ -286,6 +288,9 @@
   $('tourX').addEventListener('click', () => end(true));
   document.addEventListener('keydown', (e) => {
     if (!active) return;
+    // arrows belong to sliders, fields and tab rows when one of them has the focus
+    const t = e.target, own = t && t.closest && (t.closest('input, select, textarea, [role="tab"], [contenteditable]'));
+    if (own && e.key !== 'Escape') return;
     if (e.key === 'Escape') { e.preventDefault(); end(true); }
     else if (e.key === 'ArrowRight' && !busy) { e.preventDefault(); $('tourNext').click(); }
     else if (e.key === 'ArrowLeft' && !busy) { e.preventDefault(); $('tourBack').click(); }

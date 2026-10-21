@@ -313,6 +313,7 @@ tr.best td{background:color-mix(in srgb, var(--clean) 12%, transparent)}
 @media (max-width:560px){ .ch-cv{aspect-ratio:1.3/1} }
 .ch-pick{background:none;border:1px solid var(--line);border-radius:6px;padding:1px 6px;font:inherit;color:var(--accent);cursor:pointer}
 .ch-pick.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+@media (max-width:560px){ #chTable,#chTable tbody{display:block;width:100%;min-width:0} #chTable thead{position:absolute;left:-9999px} #chTable tr{display:block;padding:8px 0;border-bottom:1px solid var(--line)} #chTable td{display:grid;grid-template-columns:7.5em 1fr;gap:8px;border:0;padding:2px 0;text-align:left} #chTable td::before{content:attr(data-l);color:var(--muted);font-size:12px;font-family:var(--f-body)} #chTable td{overflow-wrap:anywhere} #chTable td:first-child{font-weight:600} }
 .ch-rep td.sel{background:color-mix(in srgb,var(--accent) 10%,transparent);font-weight:600}
 .ch-you-log{font-size:13px;padding-left:20px;display:grid;gap:3px}
 .tol-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
@@ -387,7 +388,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
         <div class="views">
           <figure>
             <div class="panel-head"><h2>Bowl from above</h2><div class="readout" id="roTop"></div></div>
-            <canvas id="cvTop" aria-label="Top view of the bowl showing jet films, cleaned wall area and pool swirl"></canvas>
+            <canvas role="img" id="cvTop" aria-label="Top view of the bowl showing jet films, cleaned wall area and pool swirl"></canvas>
             <div class="legend">
               <span><i style="background:var(--dry)"></i>Dry wall</span>
               <span><i style="background:var(--wet)"></i>Wetted, shear dose too low</span>
@@ -399,7 +400,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
           </figure>
           <figure>
             <div class="panel-head"><h2>Section</h2><div class="readout" id="roSec"></div></div>
-            <canvas id="cvSec" aria-label="Side section of cistern, bowl and trapway with live water levels"></canvas>
+            <canvas role="img" id="cvSec" aria-label="Side section of cistern, bowl and trapway with live water levels"></canvas>
             <div class="legend"><span>Section along the long axis. Vertical positions to scale, cistern and trap layout schematic.</span></div>
           </figure>
         </div>
@@ -464,12 +465,12 @@ td code{font-family:var(--f-mono);font-size:12.5px}
 
       <section class="panel" aria-label="Time traces" id="traces">
         <div class="panel-head"><h2>Flush traces</h2><span class="muted" style="font-size:12.5px">Click a trace to jump to that moment</span></div>
-        <canvas id="cvChart" aria-label="Time traces of flow, bowl level, swirl, remaining load and relative noise level"></canvas>
+        <canvas role="img" id="cvChart" aria-label="Time traces of flow, bowl level, swirl, remaining load and relative noise level"></canvas>
       </section>
 
       <section class="panel" aria-label="Wall cleaning map" id="wallmap">
         <div class="panel-head"><h2>Wall cleaning map</h2><span class="muted" style="font-size:12.5px">Bowl wall unrolled: position around the rim (0° is the end of the long axis) vs. depth below the rim</span></div>
-        <canvas id="cvWall" aria-label="Unrolled map of the bowl wall showing where the shear dose cleaned the surface"></canvas>
+        <canvas role="img" id="cvWall" aria-label="Unrolled map of the bowl wall showing where the shear dose cleaned the surface"></canvas>
         <div class="legend">
           <span><i style="background:var(--dry)"></i>Dry</span>
           <span><i style="background:var(--wet)"></i>Wetted, below dose</span>
@@ -488,7 +489,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
           <button class="btn primary" type="button" id="swRun">Run sweep</button>
         </div>
         <div class="sweep-grid">
-          <canvas id="cvSweep" aria-label="Heat map of the chosen result over two design parameters"></canvas>
+          <canvas role="img" id="cvSweep" aria-label="Heat map of the chosen result over two design parameters"></canvas>
           <div class="sweep-side">
             <p class="hov" id="swHov">Run the sweep, then hover a cell to read it. Click a cell to load that design.</p>
             <p class="muted" id="swBest"></p>
@@ -511,8 +512,8 @@ td code{font-family:var(--f-mono);font-size:12.5px}
         <div class="prog" id="tolProg" hidden><div class="prog-bar" role="progressbar" aria-label="Progress of the tolerance study" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="prog-fill"></span></div></div>
         <p class="ai-status" id="tolStatus" role="status">About 30 to 40 ms per varied design. The optimiser in the AI lab can use these tolerances to look for designs that stay good under them.</p>
         <div class="ai-two">
-          <canvas id="cvTolHist" aria-label="Distribution of the chosen result over the varied designs, with the nominal value and the 10 and 90 percent marks"></canvas>
-          <canvas id="cvTolDrv" aria-label="Share of the spread of the chosen result caused by each tolerance"></canvas>
+          <canvas role="img" id="cvTolHist" aria-label="Distribution of the chosen result over the varied designs, with the nominal value and the 10 and 90 percent marks"></canvas>
+          <canvas role="img" id="cvTolDrv" aria-label="Share of the spread of the chosen result caused by each tolerance"></canvas>
         </div>
         <div class="tablewrap"><table id="tolTable" class="compact"></table></div>
         <div class="ai-results" id="tolSum"></div>
@@ -531,14 +532,14 @@ td code{font-family:var(--f-mono);font-size:12.5px}
           <button class="btn" type="button" id="cfdTour">Guided tour</button>
         </div>
         <div class="ai-two cfd-maps">
-          <canvas id="cvCfdC" aria-label="Wall map of the CFD simulation"></canvas>
-          <canvas id="cvCfdM" aria-label="Wall map of the fast model for the same flush"></canvas>
+          <canvas role="img" id="cvCfdC" aria-label="Wall map of the CFD simulation"></canvas>
+          <canvas role="img" id="cvCfdM" aria-label="Wall map of the fast model for the same flush"></canvas>
         </div>
         <p class="ai-note cfd-legend" id="cfdLegend"></p>
         <div class="ai-results" id="cfdDiff"></div>
         <div class="cfd-media" id="cfdMedia" hidden></div>
         <details class="ch-log"><summary>Curves over time, for engineers</summary>
-          <canvas id="cvCfdCurves" class="ch-cv" aria-label="Wetted share of the wall and pool swirl over time, CFD against fast model"></canvas>
+          <canvas role="img" id="cvCfdCurves" class="ch-cv" aria-label="Wetted share of the wall and pool swirl over time, CFD against fast model"></canvas>
           <p class="ai-note">Wetted share from the maps above (first time a cell is wet; the CFD samples every 0.05 s). Pool swirl: the CFD's mean tangential speed of the water in the pool; the fast model's mean speed of a pool turning as a solid body. The details of the CFD case, its limits and the measurement definitions are in the method page, section 13.</p>
         </details>
       </section>
@@ -560,15 +561,15 @@ td code{font-family:var(--f-mono);font-size:12.5px}
           <span class="ai-status" id="chClock" aria-live="off"></span>
         </div>
         <h3 class="ch-h">Eight design projects on one clock</h3>
-        <canvas id="cvChAll" class="ch-cv" aria-label="Number of the eight design projects that met the targets, for each route, against virtual days of high-fidelity computing"></canvas>
+        <canvas role="img" id="cvChAll" class="ch-cv" aria-label="Number of the eight design projects that met the targets, for each route, against virtual days of high-fidelity computing"></canvas>
         <div class="ai-results" id="chHead"><p class="muted">Press Play: the clock runs ten virtual days, and each route works through its eight projects, one high-fidelity run at a time.</p></div>
         <div class="tablewrap"><table id="chRep" class="compact ch-rep"></table></div>
         <div class="ai-results" id="chWhy"></div>
         <h3 class="ch-h" id="chRaceTitle">Inside race #1</h3>
         <p class="ai-note">Pick a race by its number in the table above.</p>
         <div class="ai-two">
-          <canvas id="cvCh" aria-label="Best cleaning reached so far by each route in the chosen race, against virtual days, with the target line"></canvas>
-          <canvas id="cvChPred" aria-label="Cleaning the AI route expected before each of its runs, with its uncertainty, and what the reference then gave"></canvas>
+          <canvas role="img" id="cvCh" aria-label="Best cleaning reached so far by each route in the chosen race, against virtual days, with the target line"></canvas>
+          <canvas role="img" id="cvChPred" aria-label="Cleaning the AI route expected before each of its runs, with its uncertainty, and what the reference then gave"></canvas>
         </div>
         <p class="ai-status" id="chVerify" role="status"></p>
         <div class="sweep-ctl"><button class="btn" type="button" id="chVerifyBtn">Recompute this race live</button></div>
@@ -591,15 +592,15 @@ td code{font-family:var(--f-mono);font-size:12.5px}
       <section class="panel" aria-label="AI lab" id="ai-lab">
         <div class="panel-head"><h2>AI lab</h2><span class="muted" style="font-size:12.5px">Six ways AI and data work with the physics model. Everything runs in your browser.</span></div>
         <div class="seg ai-tabs" role="tablist" aria-label="AI tools">
-          <button type="button" role="tab" data-aitab="aiOpt" aria-selected="true" aria-pressed="true">Design optimiser</button>
-          <button type="button" role="tab" data-aitab="aiSur" aria-selected="false" aria-pressed="false">Neural surrogate</button>
-          <button type="button" role="tab" data-aitab="aiHyb" aria-selected="false" aria-pressed="false">Hybrid calibration</button>
-          <button type="button" role="tab" data-aitab="aiNoise" aria-selected="false" aria-pressed="false">Noise calibration</button>
-          <button type="button" role="tab" data-aitab="aiPinn" aria-selected="false" aria-pressed="false">Physics-informed network</button>
-          <button type="button" role="tab" data-aitab="aiField" aria-selected="false" aria-pressed="false">Field surrogate</button>
+          <button type="button" role="tab" id="tab-aiOpt" data-aitab="aiOpt" aria-controls="aiOpt" aria-selected="true" tabindex="0">Design optimiser</button>
+          <button type="button" role="tab" id="tab-aiSur" data-aitab="aiSur" aria-controls="aiSur" aria-selected="false" tabindex="-1">Neural surrogate</button>
+          <button type="button" role="tab" id="tab-aiHyb" data-aitab="aiHyb" aria-controls="aiHyb" aria-selected="false" tabindex="-1">Hybrid calibration</button>
+          <button type="button" role="tab" id="tab-aiNoise" data-aitab="aiNoise" aria-controls="aiNoise" aria-selected="false" tabindex="-1">Noise calibration</button>
+          <button type="button" role="tab" id="tab-aiPinn" data-aitab="aiPinn" aria-controls="aiPinn" aria-selected="false" tabindex="-1">Physics-informed network</button>
+          <button type="button" role="tab" id="tab-aiField" data-aitab="aiField" aria-controls="aiField" aria-selected="false" tabindex="-1">Field surrogate</button>
         </div>
 
-        <div id="aiOpt" role="tabpanel" class="ai-pane">
+        <div id="aiOpt" role="tabpanel" aria-labelledby="tab-aiOpt" tabindex="0" class="ai-pane">
           <p class="validity" id="optStale" role="status" hidden></p>
           <p class="ai-lede">An evolutionary search breeds hundreds of designs and keeps the best ones. You choose which settings it may change, and whether it should trade performance against water or meet targets you set. Everything you do not tick stays as it is in the simulator.</p>
           <div class="opt-setup">
@@ -640,14 +641,14 @@ td code{font-family:var(--f-mono);font-size:12.5px}
           <div class="prog" id="optProg" hidden><div class="prog-bar" role="progressbar" aria-label="Progress of the search" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="prog-fill"></span></div><button class="btn" type="button" id="optStop">Cancel search</button><span class="prog-txt"></span></div>
           <p class="ai-status" id="optStatus">Score = weighted sum of cleaned, solids removed and paper removed, in %. Designs that do not restore the water seal never count as a solution.</p>
           <div class="ai-grid">
-            <canvas id="cvOpt" class="ai-cv-wide" aria-label="Scatter of evaluated designs: water per flush against weighted score, with the best trade-off curve"></canvas>
+            <canvas role="img" id="cvOpt" class="ai-cv-wide" aria-label="Scatter of evaluated designs: water per flush against weighted score, with the best trade-off curve"></canvas>
             <div class="ai-side"><p class="hov" id="optHover">Hover a point to read it, click to load that design.</p><p class="ai-note pending-note" id="optPendingNote" hidden>Re-checking for the new targets or weights. The results below still belong to the previous ones.</p><div id="optBest"></div></div>
           </div>
           <h3 class="opt-table-title" id="optTableTitle"></h3>
           <div class="tablewrap"><table id="optTable"></table></div>
         </div>
 
-        <div id="aiSur" role="tabpanel" class="ai-pane" hidden>
+        <div id="aiSur" role="tabpanel" aria-labelledby="tab-aiSur" tabindex="0" class="ai-pane" hidden>
           <p class="validity" id="surStale" role="status" hidden></p>
           <p class="ai-lede">A small neural network (6 inputs, two hidden layers of 32, 3 outputs) learns the physics model from a few hundred example flushes, then answers in microseconds. This stands in for the real use case: training the same kind of network on high-fidelity runs, for example from PreonLab, Fluent, STAR-CCM+ or OpenFOAM.</p>
           <div class="ai-ctl">
@@ -656,8 +657,8 @@ td code{font-family:var(--f-mono);font-size:12.5px}
           </div>
           <p class="ai-status" id="surStatus">Inputs are the same six design variables as the optimiser. Outputs are cleaned, solids removed and paper removed.</p>
           <div class="ai-two">
-            <canvas id="cvSurLoss" aria-label="Training curve of the neural network"></canvas>
-            <canvas id="cvSurPar" aria-label="Network prediction against physics model on unseen designs"></canvas>
+            <canvas role="img" id="cvSurLoss" aria-label="Training curve of the neural network"></canvas>
+            <canvas role="img" id="cvSurPar" aria-label="Network prediction against physics model on unseen designs"></canvas>
           </div>
           <div class="ai-results">
             <div class="tablewrap"><table id="surTable" class="compact"></table></div>
@@ -666,7 +667,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
           </div>
         </div>
 
-        <div id="aiHyb" role="tabpanel" class="ai-pane" hidden>
+        <div id="aiHyb" role="tabpanel" aria-labelledby="tab-aiHyb" tabindex="0" class="ai-pane" hidden>
           <p class="validity" id="hybStale" role="status" hidden></p>
           <p class="ai-lede">The calibration workflow from the model description, end to end. A hidden reference model plays the role of a high-fidelity solver: it uses different coefficients and adds effects the physics model cannot represent. The tool fits six coefficients to a few reference runs with Nelder-Mead, adds a Gaussian-process correction for what is left, and checks all three versions on designs it never saw.</p>
           <div class="ai-ctl">
@@ -675,8 +676,8 @@ td code{font-family:var(--f-mono);font-size:12.5px}
           </div>
           <p class="ai-status" id="hybStatus">The reference data is synthetic. With real high-fidelity runs, from any solver, the steps are the same.</p>
           <div class="ai-two">
-            <canvas id="cvHybBars" aria-label="Mean error of uncalibrated, calibrated and hybrid model on hold-out designs"></canvas>
-            <canvas id="cvHybPar" aria-label="Model prediction against reference on hold-out designs"></canvas>
+            <canvas role="img" id="cvHybBars" aria-label="Mean error of uncalibrated, calibrated and hybrid model on hold-out designs"></canvas>
+            <canvas role="img" id="cvHybPar" aria-label="Model prediction against reference on hold-out designs"></canvas>
           </div>
           <div class="ai-results">
             <div id="hybSum"></div>
@@ -685,7 +686,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
           </div>
         </div>
 
-        <div id="aiNoise" role="tabpanel" class="ai-pane" hidden>
+        <div id="aiNoise" role="tabpanel" aria-labelledby="tab-aiNoise" tabindex="0" class="ai-pane" hidden>
           <p class="ai-lede">Fits the noise coefficients to recordings of real flushes. Record a few flushes of each of several designs, add them here with the design set up in the simulator, and the tool fits the coefficients so that the model's peak differences between the designs match the recorded ones. Only differences count: the microphone, the room and the distance cancel out. Audio is analysed in your browser and never uploaded.</p>
           <div class="seg" role="group" aria-label="Data for the noise calibration">
             <button type="button" id="nzModeDemo" aria-pressed="true">Demo with synthetic recordings</button>
@@ -719,8 +720,8 @@ td code{font-family:var(--f-mono);font-size:12.5px}
           <p class="ai-status" id="nzStatus" role="status">The demo makes synthetic recordings from a hidden reference: different coefficients, a valve click, fill valve noise, a low-pitched gurgle the model does not know about, and flush-to-flush scatter.</p>
           <div class="tablewrap"><table id="nzTable" class="compact"></table></div>
           <div class="ai-two">
-            <canvas id="cvNzPar" aria-label="Measured against model peak noise per design, before and after the fit"></canvas>
-            <canvas id="cvNzTrace" aria-label="Measured noise level over time against the model for one design"></canvas>
+            <canvas role="img" id="cvNzPar" aria-label="Measured against model peak noise per design, before and after the fit"></canvas>
+            <canvas role="img" id="cvNzTrace" aria-label="Measured noise level over time against the model for one design"></canvas>
           </div>
           <div class="ai-ctl"><label class="f" for="nzTraceSel">Level over time for<select id="nzTraceSel"></select></label></div>
           <div class="ai-results">
@@ -729,7 +730,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
           </div>
         </div>
 
-        <div id="aiPinn" role="tabpanel" class="ai-pane" hidden>
+        <div id="aiPinn" role="tabpanel" aria-labelledby="tab-aiPinn" tabindex="0" class="ai-pane" hidden>
           <p class="ai-lede">A physics-informed neural network (PINN) learns from measurements and from the equations at the same time. Here it reads the pool level of one flush, as you would from a phone video of a ruler in the bowl, and finds two numbers the model needs: how fast the trap drains (the weir coefficient) and how long the water stays on the wall. The network describes the level over time; its training penalises both the misfit to the readings and any breach of the model's pool balance, and the two coefficients are learned with it.</p>
           <p class="ch-label"><b>The measured flush is simulated:</b> the full flush model with a weir coefficient of 1.45 instead of the model's 1.7, read every 0.1 s with 1.5 mm of reading noise. The network does not know these numbers.</p>
           <div class="sweep-ctl">
@@ -738,14 +739,14 @@ td code{font-family:var(--f-mono);font-size:12.5px}
           </div>
           <div class="prog" id="pnProg" hidden><div class="prog-bar" role="progressbar" aria-label="Training progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="prog-fill"></span></div><span class="prog-txt"></span></div>
           <div class="ai-two">
-            <canvas id="cvPnLevel" aria-label="Pool level over time: readings, the hidden truth, the physics-informed network, the network without physics, and the least-squares fit"></canvas>
-            <canvas id="cvPnCoef" aria-label="Weir coefficient and wall time found by the network during training"></canvas>
+            <canvas role="img" id="cvPnLevel" aria-label="Pool level over time: readings, the hidden truth, the physics-informed network, the network without physics, and the least-squares fit"></canvas>
+            <canvas role="img" id="cvPnCoef" aria-label="Weir coefficient and wall time found by the network during training"></canvas>
           </div>
           <div class="ai-results" id="pnSum"><p class="muted">Train the network to see what it finds. It takes one to three seconds.</p></div>
           <div class="tablewrap"><table id="pnTable" class="compact"></table></div>
         </div>
 
-        <div id="aiField" role="tabpanel" class="ai-pane" hidden>
+        <div id="aiField" role="tabpanel" aria-labelledby="tab-aiField" tabindex="0" class="ai-pane" hidden>
           <p class="ai-lede">A field surrogate predicts a whole result field, here the cleaning map of the bowl wall, from the design settings, in microseconds. It learns from expensive runs: proper orthogonal decomposition finds the typical map patterns, and a Gaussian process learns how much of each pattern a design has. This is the idea behind tools such as SimAI, Simcenter PhysicsAI or PhysicsNeMo. How many expensive runs does it need, and how does it compare with the fast physics model?</p>
           <p class="ch-label"><b>Expensive runs are simulated:</b> the synthetic reference of the engineering challenge, 8 virtual hours each, for 80 training designs and 20 unseen test designs of the oval bowl, varying the six challenge settings.</p>
           <div class="sweep-ctl">
@@ -753,12 +754,12 @@ td code{font-family:var(--f-mono);font-size:12.5px}
             <label class="f" for="fsSel">Map for<select id="fsSel" disabled><option>run the comparison first</option></select></label>
           </div>
           <div class="prog" id="fsProg" hidden><div class="prog-bar" role="progressbar" aria-label="Progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="prog-fill"></span></div><span class="prog-txt"></span></div>
-          <canvas id="cvFsCurve" class="ch-cv" aria-label="Share of the cleaned area matched on unseen designs against the number of expensive training runs, for the data surrogate, the fast model and the fast model with a learned correction"></canvas>
+          <canvas role="img" id="cvFsCurve" class="ch-cv" aria-label="Share of the cleaned area matched on unseen designs against the number of expensive training runs, for the data surrogate, the fast model and the fast model with a learned correction"></canvas>
           <div class="fs-maps">
-            <canvas id="cvFsRef" aria-label="Cleaning map of the reference for the chosen unseen design"></canvas>
-            <canvas id="cvFsData" aria-label="Cleaning map predicted by the data surrogate"></canvas>
-            <canvas id="cvFsFast" aria-label="Cleaning map of the fast model"></canvas>
-            <canvas id="cvFsCorr" aria-label="Cleaning map of the fast model with the learned correction"></canvas>
+            <canvas role="img" id="cvFsRef" aria-label="Cleaning map of the reference for the chosen unseen design"></canvas>
+            <canvas role="img" id="cvFsData" aria-label="Cleaning map predicted by the data surrogate"></canvas>
+            <canvas role="img" id="cvFsFast" aria-label="Cleaning map of the fast model"></canvas>
+            <canvas role="img" id="cvFsCorr" aria-label="Cleaning map of the fast model with the learned correction"></canvas>
           </div>
           <div class="ai-results" id="fsSum"><p class="muted">Run the comparison: about 200 flushes in your browser, 5 to 10 seconds.</p></div>
           <div class="tablewrap"><table id="fsTable" class="compact"></table></div>
@@ -813,18 +814,18 @@ td code{font-family:var(--f-mono);font-size:12.5px}
     <button type="button" class="btn primary" id="mobarBtn" aria-expanded="false" aria-controls="rail">Adjust design</button>
   </div>
 </div>
-<script src="model.js?v=21"></script>
-<script src="app.js?v=21"></script>
-<script src="tolerance.js?v=21"></script>
-<script src="cfdcheck.js?v=21"></script>
-<script src="pinn-core.js?v=21"></script>
-<script src="field-core.js?v=21"></script>
-<script src="challenge-core.js?v=21"></script>
-<script src="challenge-data.js?v=21"></script>
-<script src="challenge.js?v=21"></script>
-<script src="ai.js?v=21"></script>
-<script src="pinn.js?v=21"></script>
-<script src="field.js?v=21"></script>
-<script src="tour.js?v=21"></script>
+<script src="model.js?v=22"></script>
+<script src="app.js?v=22"></script>
+<script src="tolerance.js?v=22"></script>
+<script src="cfdcheck.js?v=22"></script>
+<script src="pinn-core.js?v=22"></script>
+<script src="field-core.js?v=22"></script>
+<script src="challenge-core.js?v=22"></script>
+<script src="challenge-data.js?v=22"></script>
+<script src="challenge.js?v=22"></script>
+<script src="ai.js?v=22"></script>
+<script src="pinn.js?v=22"></script>
+<script src="field.js?v=22"></script>
+<script src="tour.js?v=22"></script>
 </body>
 </html>
