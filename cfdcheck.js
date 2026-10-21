@@ -125,7 +125,7 @@
     // jets at 0 and 180 degrees
     ctx.fillStyle = A.rgba(C.accent); [0, 45].forEach((i) => { const x = padL + i * cw; ctx.beginPath(); ctx.moveTo(x, padT - 2 * d); ctx.lineTo(x + 6 * d, padT - 8 * d); ctx.lineTo(x - 6 * d, padT - 8 * d); ctx.fill(); });
     ctx.font = A.font(10); ctx.fillStyle = A.rgba(C.muted); ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    [0, 90, 180, 270, 360].forEach((a) => ctx.fillText(`${a}°`, padL + a / 360 * w, padT + h + 4 * d));
+    [0, 90, 180, 270, 360].forEach((a) => { ctx.textAlign = a === 360 ? 'right' : 'center'; ctx.fillText(`${a}°`, padL + a / 360 * w, padT + h + 4 * d); }); ctx.textAlign = 'center';
     ctx.fillText('Round the rim, jets at 0° and 180°', padL + w / 2, padT + h + 18 * d);
     ctx.save(); ctx.translate(12 * d, padT + h / 2); ctx.rotate(-Math.PI / 2); ctx.fillText('Rim to waterline', 0, 0); ctx.restore();
     ctx.font = A.font(11, 600); ctx.fillStyle = A.rgba(C.ink); ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText(title, padL + 14 * d, padT - 6 * d);

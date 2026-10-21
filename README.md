@@ -114,8 +114,9 @@ The checks run in Node too, for example `node checks/physics.js` and `node check
 | `method.html` | Full model description: equations, numerics, coefficients, calibration |
 | `sources.html` | Sources and references |
 | `why.html` | Why we built this: faster loops from idea to engineering to manufacturing |
-| `media/` | Video of a flush (`flush-playback.mp4`), a recorded Demo me walkthrough (`demo-walkthrough.mp4`) and stills of each view and of the AI lab |
-| `slides/jet-flush-model.pptx`, `.pdf` | Three slides with embedded videos, key results and links; each slide carries the author, the repository link and the date |
+| `media/` | Video of a flush (`flush-playback.mp4`), the whole guided story recorded at reading pace (`demo-walkthrough.mp4`, about 4 minutes) and stills of each view, the CFD maps, the challenge and every AI lab tool; made by `tools/media.js` |
+| `slides/jet-flush-model.pptx`, `.pdf` | Six slides following the story, with the two videos embedded (the PDF shows their posters); each slide carries the author, the repository link, the version and the date. `slides/figures.json` holds every figure the slides quote, read from the live page by `tools/media.js` |
+| `tools/` | `media.js` regenerates the stills, the videos and `slides/figures.json` from the page; `slides.js` builds the deck from them (needs `pptxgenjs`). Commands in the file headers |
 
 ## Calibration
 
@@ -173,6 +174,13 @@ Version 2.0 changes model results. Work in progress on branch `dev-2.0`; this en
 - **Robust optimiser search.** An option in the design optimiser rates each design at the low end of its spread under these tolerances: six varied copies per design in mirrored pairs, the same for every design, with cleaning, solids and paper at mean minus 1.28 standard deviations and water and noise at mean plus 1.28. A design must restore the seal in all copies. About seven times slower than a normal search.
 - **Optimiser fairness (review finding F-08):** during the search, quick estimates are compared with the current design's quick estimate (this matters for a noise limit against the current design); designs that miss the targets only by about the quick estimate's error are checked at full resolution too (at most 24 per check); the check limit is now 200 designs, and in the cases tried no check reaches it.
 - **Progress bar for the optimiser**, also in the Demo me card and the tolerance study. It shows the step (searching or checking at full resolution), the generation, the designs so far and the time left; for the check, whose length is not known in advance, a range up to the limit of 200 designs. Cancel search stops a search with no result; Stop check reports only the designs checked so far.
+
+**Slides, video and stills**
+
+- **New slides, six instead of three,** following the three-part story: the fast model, the CFD check, AI in the engineering loop, then the two clocks and the whole story. Same look as the page. Every number on them comes from `slides/figures.json`, which `tools/media.js` reads from the live page.
+- **New walkthrough video** of the whole guided story, all 23 steps at reading pace (about 4 minutes), and a new flush playback video, drawn frame by frame from the page.
+- **Stills** of every view in the new look, plus the CFD maps, the challenge chart, the physics-informed network and the field surrogate.
+- **Reproducible:** `tools/media.js` and `tools/slides.js` rebuild all of it; before, the slides and videos were made by hand.
 
 **Look and feel**
 

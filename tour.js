@@ -49,7 +49,7 @@
     {
       t: 'Welcome', el: () => document.querySelector('.top .title'),
       x: async () => { A.stop(); A.apply(Object.assign(M.defaults('washdown'), { flushMode: 'full' })); },
-      h: () => `<p>This first part takes about a minute. It plays a flush, changes the bowl, and lets the AI lab find a better design, all live in the browser. Part 2 checks the fast model against a full CFD simulation; part 3 shows what AI does with it in an engineering project.</p><p>We start from the EU washdown preset. Your own design is saved, and you can bring it back at the end.</p>`
+      h: () => `<p>This first part takes about two minutes. It plays a flush, changes the bowl, and lets the AI lab find a better design, all live in the browser. Part 2 checks the fast model against a full CFD simulation; part 3 shows what AI does with it in an engineering project.</p><p>We start from the EU washdown preset. Your own design is saved, and you can bring it back at the end.</p>`
     },
     {
       t: 'Watch the flush', el: () => $('sim'), block: 'start',
