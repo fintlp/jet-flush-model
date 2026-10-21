@@ -672,8 +672,8 @@
     const h = S.hist, yMax = h.length ? niceUp(Math.max(...h.map((v) => Math.max(v[1], v[2])))) : 1, yMin = h.length ? Math.pow(10, Math.floor(Math.log10(Math.max(1e-6, Math.min(...h.map((v) => Math.min(v[1], v[2]))))))) : 1e-4;
     const f = frame(cv, { x: [0, 1500], y: [yMin, yMax], logy: true, xt: [0, 500, 1000, 1500], yt: [yMin, yMax], yf: (v) => v.toExponential(0), xl: 'Training epoch', yl: 'Error (mean squared, scaled)' });
     const { ctx, X, Y, C, d } = f;
-    [[1, C.accent], [2, C.water]].forEach(([j, col]) => { if (!h.length) return; ctx.strokeStyle = A.rgba(col); ctx.lineWidth = 1.8 * d; ctx.beginPath(); h.forEach((v, i) => { const x = X(v[0]), y = Y(v[j]); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke(); });
-    legend(f, [['training designs', C.accent], ['unseen test designs', C.water]]);
+    [[1, C.lineStrong], [2, C.accent]].forEach(([j, col]) => { if (!h.length) return; ctx.strokeStyle = A.rgba(col); ctx.lineWidth = 1.8 * d; ctx.beginPath(); h.forEach((v, i) => { const x = X(v[0]), y = Y(v[j]); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke(); });
+    legend(f, [['training designs', C.lineStrong], ['unseen test designs', C.accent]]);
   }
   function drawSurParity() {
     const cv = $('cvSurPar'); if ($('aiSur').hidden) return;
@@ -802,7 +802,7 @@
       const cv = $('cvHybBars'), mx = R ? niceUp(Math.max(...R.mae.unc, ...R.mae.cal, ...R.mae.hyb) * 1.1) : 10;
       const f = frame(cv, { x: [0, 2], y: [0, mx], xt: [], yt: [0, mx / 2, mx], yl: 'Mean error, points', xl: '' });
       const { ctx, X, Y, C, d, pad, w, h } = f;
-      const groups = ['Cleaned', 'Solids removed'], stages = [['uncalibrated', C.lineStrong], ['calibrated', C.water], ['hybrid', C.accent]];
+      const groups = ['Cleaned', 'Solids removed'], stages = [['uncalibrated', C.lineStrong], ['calibrated', C.ink], ['hybrid', C.accent]];
       ctx.font = A.font(10.5, 500); ctx.textAlign = 'center'; ctx.textBaseline = 'top';
       groups.forEach((g, gi) => {
         const gx = pad.l + w * (gi + 0.5) / 2; ctx.fillStyle = A.rgba(C.ink); ctx.fillText(g, gx, pad.t + h + 6 * d);
@@ -821,9 +821,9 @@
       const f = frame(cv, { x: [0, 100], y: [0, 100], xt: [0, 50, 100], yt: [0, 50, 100], xl: 'Reference (hold-out), cleaned %', yl: 'Model, cleaned %' });
       const { ctx, X, Y, C, d } = f;
       ctx.strokeStyle = A.rgba(C.muted, 0.7); ctx.setLineDash([4 * d, 4 * d]); ctx.beginPath(); ctx.moveTo(X(0), Y(0)); ctx.lineTo(X(100), Y(100)); ctx.stroke(); ctx.setLineDash([]);
-      if (R) [['unc', C.lineStrong], ['cal', C.water], ['hyb', C.accent]].forEach(([key, col]) => { ctx.fillStyle = A.rgba(col, 0.85); R[key].forEach((e, i) => { ctx.beginPath(); ctx.arc(X(R.holdT[i].clean), Y(Math.max(0, Math.min(100, e.clean))), 3 * d, 0, TAU2); ctx.fill(); }); });
+      if (R) [['unc', C.lineStrong], ['cal', C.ink], ['hyb', C.accent]].forEach(([key, col]) => { ctx.fillStyle = A.rgba(col, 0.85); R[key].forEach((e, i) => { ctx.beginPath(); ctx.arc(X(R.holdT[i].clean), Y(Math.max(0, Math.min(100, e.clean))), 3 * d, 0, TAU2); ctx.fill(); }); });
       if (R) { ctx.strokeStyle = A.rgba(C.accent, 0.5); ctx.lineWidth = 1 * d; R.hyb.forEach((e, i) => { const x = X(R.holdT[i].clean); ctx.beginPath(); ctx.moveTo(x, Y(Math.max(0, e.clean - 2 * e.sc))); ctx.lineTo(x, Y(Math.min(100, e.clean + 2 * e.sc))); ctx.stroke(); }); }
-      legend(f, [['uncalibrated', C.lineStrong, true], ['calibrated', C.water, true], ['hybrid ± 2σ', C.accent, true]]);
+      legend(f, [['uncalibrated', C.lineStrong, true], ['calibrated', C.ink, true], ['hybrid ± 2σ', C.accent, true]]);
     }
   }
   $('hybRun').addEventListener('click', runHyb);

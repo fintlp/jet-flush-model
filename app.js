@@ -306,7 +306,8 @@
     if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; return true; }
     return false;
   }
-  const font = (px, w) => `${w || 400} ${px * dpr()}px "IBM Plex Mono", ui-monospace, monospace`;
+  // chart text in Ubuntu Mono, which runs small for its size: 15 % larger keeps labels as readable as before
+  const font = (px, w) => `${w || 400} ${px * 1.15 * dpr()}px "Ubuntu Mono", ui-monospace, monospace`;
 
   // seeded random for stable tracer layouts
   function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
@@ -565,7 +566,7 @@
     const zmax = Math.max(10, Math.ceil((R.zPeak + 6) / 10) * 10), zmin = siph ? -Math.ceil((p.seal + 8) / 10) * 10 : -10;
     const vmax = niceMax(Math.max(0.1, R.vsPeak) * 1.1);
     const panels = [
-      { t: 'Flow, L/s', min: 0, max: qmax, s: [['Qin', 'into bowl', C.accent], ['Qout', 'out of trap', C.water]] },
+      { t: 'Flow, L/s', min: 0, max: qmax, s: [['Qin', 'into bowl', C.ink], ['Qout', 'out of trap', C.water]] },
       { t: 'Bowl level vs. weir, mm', min: zmin, max: zmax, s: [['z', 'level', C.waterDeep]], ref: siph ? [0, -p.seal] : [0] },
       { t: 'Pool swirl, m/s', min: 0, max: vmax, s: [['vs', 'rim speed', C.accent]] },
       { t: 'Load left, %', min: 0, max: 100, s: [['MsP', 'solids', C.solid], ['NpP', 'paper', C.paperEdge]] },
@@ -608,6 +609,9 @@
       // title + legend
       ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.font = font(10.5, 500);
       let x = padL + 8 * d; const ty = y0 + 5 * d;
+      // light backing behind title and legend, so curves running through them do not hide the text
+      { let tw = ctx.measureText(pn.t).width + 12 * d; ctx.font = font(10); pn.s.forEach(([, lab]) => { tw += 14 * d + ctx.measureText(lab).width + 12 * d; }); ctx.font = font(10.5, 500);
+        ctx.fillStyle = rgba(C.raised, 0.85); ctx.fillRect(x - 4 * d, ty - 2 * d, tw - 4 * d, 12 * 1.15 * d + 4 * d); }
       ctx.fillStyle = rgba(C.ink); ctx.fillText(pn.t, x, ty); x += ctx.measureText(pn.t).width + 12 * d;
       ctx.font = font(10);
       pn.s.forEach(([, lab, col]) => { ctx.fillStyle = rgba(col); ctx.fillRect(x, ty + 4 * d, 10 * d, 2.5 * d); x += 14 * d; ctx.fillStyle = rgba(C.muted); ctx.fillText(lab, x, ty); x += ctx.measureText(lab).width + 12 * d; });
@@ -672,13 +676,15 @@
     for (let j = 0; j < nJ; j++) { const a0 = (P.jetPhase || 0) * Math.PI / 180 + j * TAU2 / nJ; const x = Xa(a0) + (Math.abs(((a0 % TAU2) + TAU2) % TAU2) < 0.05 ? 5 * d : 0); ctx.beginPath(); ctx.moveTo(x - 5 * d, padT - 10 * d); ctx.lineTo(x + 6 * d, padT - 5 * d); ctx.lineTo(x - 5 * d, padT); ctx.closePath(); ctx.fill(); }
     // axes
     ctx.fillStyle = rgba(C.muted); ctx.font = font(10); ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    [0, 90, 180, 270, 360].forEach((a) => ctx.fillText(a + '°', padL + a / 360 * w, padT + h + 6 * d));
+    [0, 90, 180, 270, 360].forEach((a) => { ctx.textAlign = a === 360 ? 'right' : 'center'; ctx.fillText(a + '°', padL + a / 360 * w, padT + h + 6 * d); });
     ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
     for (let dep = 0; dep <= g.D * 1000 + 0.1; dep += 50) ctx.fillText(String(dep), padL - 6 * d, Ys(M.sAtDepth(g, dep / 1000)));
     ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
     ctx.fillText('mm', 2 * d, padT - 2 * d);
-    ctx.textAlign = 'right'; ctx.fillStyle = rgba(C.ink, 0.7);
-    ctx.fillText('rim line, 25 mm deep', padL + w - 4 * d, Ys(R.lineDepthS) - 2 * d);
+    // the rim line label on a light backing, so it stays readable on the dark cleaned area
+    { const lab = 'rim line, 25 mm deep', tx = padL + w - 4 * d, ty = Ys(R.lineDepthS) - 2 * d, tw = ctx.measureText(lab).width, th = 12 * 1.15 * d;
+      ctx.fillStyle = rgba(C.raised, 0.85); ctx.fillRect(tx - tw - 3 * d, ty - th, tw + 6 * d, th + 1 * d);
+      ctx.textAlign = 'right'; ctx.fillStyle = rgba(C.ink, 0.85); ctx.fillText(lab, tx, ty); }
   }
 
   /* ---------------- KPIs ---------------- */

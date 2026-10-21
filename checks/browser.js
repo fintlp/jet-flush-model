@@ -1,4 +1,5 @@
-// Browser checks of the simulator page: presets, rim gap, undo and demo history, pinned reference, AI lab details.
+// Browser checks of the simulator page: presets, rim gap, undo and demo history, pinned reference, AI lab details,
+// and that all pages load their fonts and files from the page's own host.
 // Needs Playwright with Chromium (not a dependency of the page itself):
 //   npm install --no-save playwright && npx playwright install chromium
 //   node checks/browser.js            serves this repository on a free local port and tests it
@@ -8,7 +9,7 @@
 const http = require('http'), fs = require('fs'), path = require('path');
 const { chromium } = require('playwright');
 const ROOT = path.join(__dirname, '..');
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml', '.mp4': 'video/mp4', '.pdf': 'application/pdf' };
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml', '.mp4': 'video/mp4', '.pdf': 'application/pdf', '.woff2': 'font/woff2', '.jpg': 'image/jpeg' };
 function serve() {
   return new Promise((resolve) => {
     const srv = http.createServer((req, res) => {
@@ -32,6 +33,8 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   const page = await ctx.newPage();
   const errs = [];
   page.on('pageerror', (e) => errs.push(e.message));
+  // every file the pages load must come from the same host: no font services or other third parties
+  const foreign = new Set(); page.on('request', (r) => { if (!r.url().startsWith(base) && !r.url().startsWith('data:') && !r.url().startsWith('blob:')) foreign.add(new URL(r.url()).host); });
   // an error from another host (web fonts behind a firewall, say) is not a page error
   page.on('console', (m) => { if (m.type() === 'error' && !(m.text().startsWith('Failed to load resource') && !(m.location().url || '').startsWith(base))) errs.push(m.text()); });
   const fresh = async () => { await page.goto(base); await page.evaluate(() => localStorage.clear()); await page.goto(base); await page.waitForTimeout(400); };
@@ -358,6 +361,11 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   await page.keyboard.press('ArrowRight'); await page.waitForTimeout(200);
   ok('F18 arrow keys on a slider stay with the slider during a tour', (await page.evaluate(() => document.getElementById('tourStep').textContent)) === st0, { rng, st0 });
   await page.click('#tourX');
+  // look and feel: self-hosted Ubuntu, nothing from other hosts on any of the four pages
+  await fresh(); await page.waitForTimeout(600);
+  ok('Look: Ubuntu and Ubuntu Mono load from the page itself', await page.evaluate(async () => { await document.fonts.ready; return document.fonts.check('16px Ubuntu') && document.fonts.check('500 16px Ubuntu') && document.fonts.check('16px "Ubuntu Mono"') && [...document.fonts].some((f) => f.family.replace(/"/g, '') === 'Ubuntu' && f.status === 'loaded'); }));
+  for (const pg of ['why.html', 'method.html', 'sources.html']) { await page.goto(base + pg); await page.waitForTimeout(500); }
+  ok('Look: no requests to other hosts on the simulator, why, method and sources pages', foreign.size === 0, [...foreign]);
   ok('No page errors', errs.length === 0, errs.slice(0, 5));
   console.log(out.join('\n'));
   const failed = out.filter((l) => l.startsWith('FAIL')).length;

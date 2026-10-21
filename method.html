@@ -5,40 +5,41 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="description" content="How the Tangential Jet Flush Model works: geometry, wall film, pool swirl, outflow, waste transport, relative noise, numerics, coefficients and calibration.">
 <title>Jet Flush Model Method</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<link rel="preload" href="fonts/ubuntu-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/ubuntu-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="fonts/fonts.css">
 <style>
 /* Layout: technical report. Narrow reading column with a sticky contents rail on wide screens; equations and tables sit in their own blocks. */
 :root{
-  --bg:#edf1f2; --surface:#f8fafa; --raised:#ffffff; --ink:#13222a; --muted:#56676f; --line:#d3dcdf; --line-strong:#9fb0b6;
-  --accent:#1f4fbf; --water:#3a8db6; --water-soft:#d6e9f2; --clean:#17876c; --solid:#8a5a2b; --warn:#a86b0c;
-  --f-display:"IBM Plex Sans Condensed","Arial Narrow",Arial,sans-serif;
-  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
-  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --bg:#f3f5f8; --surface:#f9fafc; --raised:#ffffff; --ink:#0f2538; --muted:#52667a; --line:#d8e0e8; --line-strong:#a2b2c2;
+  --accent:#0070ad; --water:#3a8db6; --water-soft:#d6e9f2; --clean:#17876c; --solid:#8a5a2b; --warn:#a86b0c;
+  --f-display:"Ubuntu",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-body:"Ubuntu",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"Ubuntu Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --brand-1:#0070ad; --brand-2:#12abdb;
 }
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
-  --bg:#0d151a; --surface:#131e24; --raised:#18252c; --ink:#e2eaed; --muted:#8c9fa7; --line:#24333b; --line-strong:#4a5f69;
-  --accent:#7fa6ff; --water:#4aa5d2; --water-soft:#1c3a48; --clean:#35b58e; --solid:#c48b52; --warn:#e2a646; color-scheme:dark } }
+  --bg:#08131d; --surface:#0d1b28; --raised:#122333; --ink:#e4ecf3; --muted:#8fa3b5; --line:#1c3044; --line-strong:#3e5a72;
+  --accent:#12abdb; --water:#4aa5d2; --water-soft:#1c3a48; --clean:#35b58e; --solid:#c48b52; --warn:#e2a646; color-scheme:dark } }
 :root[data-theme="dark"]{
-  --bg:#0d151a; --surface:#131e24; --raised:#18252c; --ink:#e2eaed; --muted:#8c9fa7; --line:#24333b; --line-strong:#4a5f69;
-  --accent:#7fa6ff; --water:#4aa5d2; --water-soft:#1c3a48; --clean:#35b58e; --solid:#c48b52; --warn:#e2a646; color-scheme:dark }
+  --bg:#08131d; --surface:#0d1b28; --raised:#122333; --ink:#e4ecf3; --muted:#8fa3b5; --line:#1c3044; --line-strong:#3e5a72;
+  --accent:#12abdb; --water:#4aa5d2; --water-soft:#1c3a48; --clean:#35b58e; --solid:#c48b52; --warn:#e2a646; color-scheme:dark }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.62}
 .wrap{max-width:1180px;margin:0 auto;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:20px 64px}
 a{color:var(--accent)}
-.site{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:22px;font-family:var(--f-display);font-weight:600;font-size:14px;letter-spacing:.02em}
+.site{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:22px;font-family:var(--f-display);font-weight:500;font-size:14px;letter-spacing:.02em}
 .site a{text-decoration:none}
 .site a:hover{text-decoration:underline}
 h1,h2,h3,h4{font-family:var(--f-display);text-wrap:balance;line-height:1.15;margin:0}
 h1{font-size:clamp(30px,4vw,44px);font-weight:700}
 h2{font-size:26px;font-weight:700;margin-top:56px;padding-top:12px;border-top:1px solid var(--line)}
-h3{font-size:19px;font-weight:600;margin-top:30px}
-h4{font-size:16px;font-weight:600;margin-top:20px}
+h3{font-size:19px;font-weight:500;margin-top:30px}
+h4{font-size:16px;font-weight:500;margin-top:20px}
 p,ul,ol{margin:12px 0 0;max-width:68ch}
 li{margin-top:4px}
-.eyebrow{font-family:var(--f-display);font-weight:600;font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.eyebrow{font-family:var(--f-display);font-weight:500;font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
 .lede{font-size:18px;color:var(--muted);max-width:62ch;margin-top:12px}
 .meta{font-family:var(--f-mono);font-size:13px;color:var(--muted);margin-top:14px}
 .layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:48px;margin-top:34px;align-items:start}
@@ -61,7 +62,7 @@ code{font-family:var(--f-mono);font-size:.9em;background:var(--raised);border:1p
 .tablewrap{overflow-x:auto;margin-top:16px;max-width:100%}
 table{border-collapse:collapse;font-size:14px;min-width:640px;width:100%;background:var(--raised);border:1px solid var(--line)}
 th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
-th{font-family:var(--f-display);font-weight:600;font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--surface)}
+th{font-family:var(--f-display);font-weight:500;font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--surface)}
 td.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
 figure{margin:20px 0 0;max-width:100%}
 figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
@@ -69,7 +70,7 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
 .diagram svg{display:block;min-width:720px;width:100%;height:auto}
 .d-box{fill:var(--surface);stroke:var(--line-strong);stroke-width:1.2}
 .d-box.out{fill:var(--water-soft);stroke:var(--water)}
-.d-t{fill:var(--ink);font-family:var(--f-display);font-weight:600;font-size:15px}
+.d-t{fill:var(--ink);font-family:var(--f-display);font-weight:500;font-size:15px}
 .d-s{fill:var(--muted);font-family:var(--f-mono);font-size:11.5px}
 .d-a{stroke:var(--muted);stroke-width:1.4;fill:none}
 .d-ah{fill:var(--muted)}
@@ -81,6 +82,12 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
 .foot{margin-top:64px;padding-top:14px;border-top:1px solid var(--line);font-size:14px;color:var(--muted);display:flex;flex-wrap:wrap;gap:8px 20px;justify-content:space-between}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .navl{display:inline-flex;gap:18px;flex-wrap:wrap}
+
+/* Capgemini-inspired look: Ubuntu, brand blues, a thin brand gradient across the top, pill-shaped buttons */
+body::before{content:"";display:block;height:4px;background:linear-gradient(90deg,var(--brand-1),var(--brand-2))}
+h1,h2,h3,h4{letter-spacing:0}
+.eyebrow{color:var(--accent);letter-spacing:.07em}
+.btn{border-radius:999px}
 </style>
 </head>
 <body>

@@ -112,11 +112,11 @@
     return new Promise((resolve) => {
       const finish = (res, ms, sims) => { S.verifying = null; S.verified[i] = { same: JSON.stringify(res) === want, ms, sims }; verifyLine(); resolve(S.verified[i]); };
       let w = null;
-      try { w = new Worker('challenge-worker.js?v=22'); } catch (e) { w = null; }
+      try { w = new Worker('challenge-worker.js?v=23'); } catch (e) { w = null; }
       if (w) {
         w.onmessage = (ev) => { const d = ev.data; if (d.progress) { S.verifying.n = d.progress; if (S.sel === i) verifyLine(); } else if (d.done) { w.terminate(); finish(d.done, d.ms, d.sims); } else if (d.error) { w.terminate(); slicesVerify(i, finish); } };
         w.onerror = () => { w.terminate(); slicesVerify(i, finish); };
-        w.postMessage({ race: i, v: '22' });
+        w.postMessage({ race: i, v: '23' });
       } else slicesVerify(i, finish);
     });
   }

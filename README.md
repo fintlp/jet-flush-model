@@ -67,7 +67,7 @@ Details are in [section 14 of the model description](https://fintlp.github.io/je
 
 ## Run it locally
 
-The page is static HTML and JavaScript with no build step and no dependencies apart from web fonts.
+The page is static HTML and JavaScript with no build step and no dependencies. The fonts (Ubuntu and Ubuntu Mono) are in `fonts/`, so the pages make no requests to other hosts.
 
 ```bash
 git clone https://github.com/fintlp/jet-flush-model.git
@@ -108,6 +108,7 @@ The checks run in Node too, for example `node checks/physics.js` and `node check
 | `pinn-core.js`, `pinn.js` | Physics-informed network: training (no page code) and its AI lab tab |
 | `field-core.js`, `field.js` | Field surrogate: POD and Gaussian processes (no page code) and its AI lab tab |
 | `tour.js` | The guided story in three parts: Demo me, the CFD check tour, the challenge tour |
+| `fonts/` | Ubuntu and Ubuntu Mono (Latin, Latin Extended and Greek), self-hosted, with their licence |
 | `checks/` | Deterministic scripts: physics checks, regression against the stored 2.0 baseline (`baseline-2.0.json`) or another model version, page checks in a headless browser, film update resolution, noise range, plausibility against published figures, and checks of the challenge, the PINN and the field surrogate. See `checks/README.md` |
 | `cfd/` | OpenFOAM reference (owned by the CFD work): case generator, job runner, post-processing, run summaries in `cfd/washdown/runs/`, media in `cfd/washdown/media/` |
 | `method.html` | Full model description: equations, numerics, coefficients, calibration |
@@ -173,6 +174,12 @@ Version 2.0 changes model results. Work in progress on branch `dev-2.0`; this en
 - **Optimiser fairness (review finding F-08):** during the search, quick estimates are compared with the current design's quick estimate (this matters for a noise limit against the current design); designs that miss the targets only by about the quick estimate's error are checked at full resolution too (at most 24 per check); the check limit is now 200 designs, and in the cases tried no check reaches it.
 - **Progress bar for the optimiser**, also in the Demo me card and the tolerance study. It shows the step (searching or checking at full resolution), the generation, the designs so far and the time left; for the check, whose length is not known in advance, a range up to the limit of 200 designs. Cancel search stops a search with no result; Stop check reports only the designs checked so far.
 
+**Look and feel**
+
+- **Capgemini-inspired look.** Ubuntu for text and Ubuntu Mono for numbers, Capgemini's blues (#0070AD for links, buttons and highlights in light mode, #12ABDB in dark mode), navy text, a thin blue gradient across the top of every page and rounded buttons. No logo; the byline stays Peter Fintl. All text colours meet the 4.5:1 contrast rule in both modes.
+- **Fonts served with the page.** Before, the pages loaded IBM Plex from Google Fonts, which sends each visitor's IP address to Google. Now the fonts are in `fonts/` and the pages make no requests to other hosts.
+- Charts follow: their text is set in Ubuntu Mono, 15 % larger to stay as readable as before. Three charts that drew two series in similar blues now use navy for one of them (flow into the bowl, training designs in the surrogate, the calibrated model in the hybrid calibration). The flush trace titles and the rim line label in the wall map get a light backing, so curves no longer run through them, and the 360° label in the wall map is no longer clipped.
+
 **Accessibility and phones (review finding F-18)**
 
 - The AI lab tabs follow the tab pattern: arrow keys, Home and End move between the six tools, and the tab row is one stop for the Tab key.
@@ -193,7 +200,7 @@ Version 2.0 changes model results. Work in progress on branch `dev-2.0`; this en
 - **New `checks/challenge.js`** for the engineering challenge: recomputes the eight races and compares them with `challenge-data.js` (`--write` regenerates the file).
 - **New `checks/pinn.js`** (6 checks, about 5 s) for the physics-informed network.
 - **New `checks/field.js`** (5 checks, about 15 s) for the field surrogate.
-- **`checks/browser.js` now has 79 checks**, adding the noise calibration (A-weighting of test tones, demo fit, WAV file, meter readings), the tolerance study (spread, one tolerance alone, all zero, reset, out-of-date note, progress bar), the robust search, the optimiser's progress bar, Cancel and Stop, also in the demo, and the engineering challenge with its live recomputation and guided tour, the CFD check and the three-part story, that Demo me's search meets every target, and the accessibility of tabs, charts and story. All pass.
+- **`checks/browser.js` now has 81 checks**, adding the noise calibration (A-weighting of test tones, demo fit, WAV file, meter readings), the tolerance study (spread, one tolerance alone, all zero, reset, out-of-date note, progress bar), the robust search, the optimiser's progress bar, Cancel and Stop, also in the demo, and the engineering challenge with its live recomputation and guided tour, the CFD check and the three-part story, that Demo me's search meets every target, the accessibility of tabs, charts and story, and that all four pages load their fonts from the page itself and nothing from other hosts. All pass.
 
 **Effect on results**, 300 random designs against 1.3.1: cleaning +1.9 points in the median (5 % lose more than 4.8 points, 5 % gain more than 20, mostly short, strong flushes); peak pool swirl +28 % in the median and the vortex dip about 12 mm deeper, mainly from the corrected pool inertia; solids and paper change little in most designs. Presets:
 
@@ -275,6 +282,6 @@ First public release.
 
 ## Licence
 
-MIT, see [LICENSE](LICENSE). Copyright 2026 Peter Fintl.
+MIT, see [LICENSE](LICENSE). Copyright 2026 Peter Fintl. The fonts in `fonts/` (Ubuntu and Ubuntu Mono, via Fontsource) are under the Ubuntu Font Licence 1.0, see [fonts/LICENCE.txt](fonts/LICENCE.txt).
 
 Contact: [fintlp.github.io](https://fintlp.github.io/latest-news/#contact)
