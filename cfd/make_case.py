@@ -21,6 +21,8 @@ ap.add_argument('--out', required=True)
 ap.add_argument('--mesh', default='coarse', choices=['coarse', 'medium', 'fine'])
 ap.add_argument('--end', type=float, default=5.0)
 ap.add_argument('--procs', type=int, default=0, help='number of subdomains (0: set by the run script)')
+ap.add_argument('--frames', type=float, default=0.0,
+                help='write the free surface (alpha = 0.5) as VTK every FRAMES seconds for visualisation (0: off)')
 ap.add_argument('--outlet', default='pressure', choices=['pressure', 'model'],
                 help="pressure: total-pressure outlet at crest level (orifice law; blocked by a strong swirl, see cfd-status); "
                      "model: the model's trap outflow Qout(t) prescribed at the outlet")
@@ -266,6 +268,20 @@ jetU = '\n'.join(f'''    {J['name']}
         value           uniform (0 0 0);
     }}''' for J in jets)
 JETS = '|'.join(J['name'] for J in jets)
+FRAMES_FO = '' if a.frames <= 0 else f'''    frames
+    {{
+        type surfaces; libs (sampling);
+        writeControl adjustableRunTime; writeInterval {a.frames};
+        surfaceFormat vtk;
+        formatOptions {{ vtk {{ format binary; legacy false; }} }}
+        interpolationScheme cellPoint;
+        fields (U);
+        surfaces
+        {{
+            freeSurface {{ type isoSurface; isoField alpha.water; isoValue 0.5; interpolate true; regularise true; }}
+        }}
+    }}
+'''
 if a.outlet == 'model':
     if 'Qout' not in S: raise SystemExit('--outlet model needs Qout in the series file')
     qrows = [(t, q) for t, q in zip(S['tq'], S['Qout']) if t <= a.end + 0.05]
@@ -427,7 +443,7 @@ functions
             z003 {{ type cuttingPlane; planeType pointAndNormal; pointAndNormalDict {{ point (0 0 0.003); normal (0 0 1); }} interpolate false; }}
         }}
     }}
-    levels
+{FRAMES_FO}    levels
     {{
         type sets; libs (sampling);
         writeControl adjustableRunTime; writeInterval {wdt};
