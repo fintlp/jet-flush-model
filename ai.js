@@ -163,10 +163,12 @@
     return [a / s, b / s, c / s];
   }
   const targets = () => { const nz = $('tNoise').value.trim(); return { water: +$('tWater').value, clean: +$('tClean').value, solids: +$('tSolids').value, paper: +$('tPaper').value, noise: nz === '' || !isFinite(+nz) ? null : +nz, pick: $('tPick').value }; };
-  // noise relative to the current design (both at full resolution once re-checked)
-  const nRel = (e) => (O.cur && e.noise != null ? e.noise - O.cur.noise : 0);
+  // noise relative to the current design, at the same resolution: a quick estimate is compared with the current
+  // design's quick estimate, a design checked at full resolution with the current design at full resolution (F-08)
+  const curFor = (e) => (e && !e.full && O.curC ? O.curC : O.cur);
+  const nRel = (e) => { const c = curFor(e); return c && e.noise != null ? e.noise - c.noise : 0; };
   // range of the noise difference over the uncertain coefficients (each variant against the same variant of the current design)
-  const nRng = (e) => (O.cur && e.noiseV && O.cur.noiseV ? A.nRange(e.noiseV, O.cur.noiseV) : { lo: nRel(e), hi: nRel(e) });
+  const nRng = (e) => { const c = curFor(e); return c && e.noiseV && c.noiseV ? A.nRange(e.noiseV, c.noiseV) : { lo: nRel(e), hi: nRel(e) }; };
   const pickCmp = (t) => (a, b) => t.pick === 'water' ? (a.water - b.water || b.score - a.score)
     : t.pick === 'noise' ? (nRng(a).hi - nRng(b).hi || nRel(a) - nRel(b) || b.score - a.score) : (b.score - a.score || a.water - b.water);
   const pickName = (t) => (t.pick === 'water' ? 'lowest water' : t.pick === 'noise' ? 'quietest at the upper end of the sampled noise range' : 'highest score');
@@ -297,8 +299,10 @@
       const e = rate(Object.assign({ x: xOf(vars, des), des, ctx }, evalAny(base, des, mode, SIM, false)));
       seenDes.set(key, e); O.all.push(e); return e;
     };
-    O.cur = null;
+    O.cur = null; O.curC = null;
     O.cur = (() => { const des = {}; vars.forEach((d) => { des[d.k] = base[d.k]; }); return Object.assign({ des, ctx, full: true }, evalAny(base, des, mode, SIM_FULL, true)); })();
+    // the current design at the search's quick resolution, so quick estimates are compared like with like
+    O.curC = (() => { const des = {}; vars.forEach((d) => { des[d.k] = base[d.k]; }); return Object.assign({ des, ctx, full: false }, evalAny(base, des, mode, SIM, false)); })();
     rate(O.cur);   // rated once O.cur is set, so its own noise target check applies
     let pop = [], children = [], gen = 0, queue = lhsN(POP, ND2, r); const t0 = now();
     progress({ phase: 'search', t0, frac: 0, text: searchText(), eta: null, etaHint: O.robust ? 'about a minute or more' : 'about 10 seconds' });
@@ -354,12 +358,12 @@
   function confirmReported(done) {
     if (O.stop) O.stop();
     const tok = ++O.token, base = O.base, mode = O.mode, seen = new Set(), check = [];
-    let nChecked = 0;
+    let nChecked = 0, nearN = 0;
     O.incomplete = false; O.stopCheck = false; O.userStopped = false;
     const tc = now(), within = O.running;   // within: the check that ends a search, otherwise a re-check for new targets or weights
-    const cap = O.cap || 150;
+    const cap = O.cap || 200;
     // How many designs the check needs is not known in advance: checking can move new designs into the ranking.
-    // The bar runs against the limit of 150 and the time left is given as a range, from the designs waiting
+    // The bar runs against the limit of 200 and the time left is given as a range, from the designs waiting
     // now to the limit.
     const checkText = () => `${within ? 'Step 2 of 2, checking' : 'Re-checking for the new targets or weights'} at full resolution: ${nChecked} designs checked, ${check.length} waiting, at most ${cap}${O.robust ? `, each with ${RKF} varied copies` : ''}`;
     const checkEta = () => {
@@ -378,6 +382,11 @@
         const t = targets(), ok = O.all.filter((e) => e.viol === 0);
         ok.sort(pickCmp(t)).slice(0, 12).forEach(add);
         if (!ok.length) O.all.slice().sort((a, b) => a.viol - b.viol || b.score - a.score).slice(0, 6).forEach(add);
+        // designs that miss the targets only by about the quick estimate's error (up to 3 points in one result) may
+        // meet them at full resolution, so the best of them are checked too (F-08)
+        // (at most 24 in one check, so this cannot keep the check going)
+        if (nearN < 24) O.all.filter((e) => !e.full && !seen.has(e) && e.viol > 0 && e.viol <= 0.6 && e.sealOK && !e.overflow && !e.incomplete)
+          .sort((a, b) => a.viol - b.viol || b.score - a.score).slice(0, Math.min(8, 24 - nearN)).forEach((e) => { add(e); nearN++; });
       }
     };
     collect();
@@ -392,7 +401,7 @@
         e = check.shift(); if (!e) return false;
       }
       if (O.stopCheck) { O.incomplete = true; O.userStopped = true; return false; }   // stopped by the user
-      if (nChecked >= (O.cap || 150)) { O.incomplete = true; return false; }   // stop; only checked designs are reported
+      if (nChecked >= cap) { O.incomplete = true; return false; }   // stop; only checked designs are reported
       Object.assign(e, evalAny(base, e.des, mode, SIM_FULL, true), { full: true }); rate(e); nChecked++; O.nChecked = nChecked;
       progress({ frac: nChecked / cap, text: checkText(), eta: checkEta() });
       return true;
