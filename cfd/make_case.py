@@ -7,9 +7,9 @@ The bowl wall is the model's own profile (method section 4): r(z) = Rp + (Rr - R
 static waterline, narrowing cone and sump below it. Coordinates: z up, z = 0 at the static waterline (the trap weir
 crest), rim at z = D. The case is driven by the model's inflow: each jet enters through a patch on the wall just
 upstream of its nozzle point, with the model's jet speed along the rim (tilted down by the jet angle) and an
-inward component that gives the model's flow. The trap is a pressure outlet at the rear of the sump, held at the
-hydrostatic pressure of a water column up to the crest: water leaves when the pool rises above the crest. That is
-an orifice law, not the model's weir law; the run records the outflow so the difference can be seen.
+inward component that gives the model's flow. The trap outlet is either a pressure outlet held at the hydrostatic
+pressure of a water column up to the crest (an orifice law), or the model's trap outflow prescribed (--outlet model).
+It sits on the sump wall, on the pool wall, or at the end of a short trap leg with a swirl breaker (--outlet-at).
 
 Only the Python standard library is used, so the script also runs on a plain macOS python3.
 """
@@ -23,9 +23,10 @@ ap.add_argument('--end', type=float, default=5.0)
 ap.add_argument('--procs', type=int, default=0, help='number of subdomains (0: set by the run script)')
 ap.add_argument('--frames', type=float, default=0.0,
                 help='write the free surface (alpha = 0.5) as VTK every FRAMES seconds for visualisation (0: off)')
-ap.add_argument('--outlet-at', default='sump', choices=['sump', 'ring'],
+ap.add_argument('--outlet-at', default='sump', choices=['sump', 'ring', 'leg'],
                 help='sump: rear sump wall from the bottom up to the seal depth; ring: rear pool wall 10 to 35 mm below '
-                     'the crest, away from the vortex core (the swirl lets air reach a sump outlet)')
+                     'the crest (both draw air once the vortex core reaches them); leg: a straight trap leg below the sump '
+                     'with a cross-shaped swirl breaker, outlet at its lower end (as a trapway, it stops the swirl first)')
 ap.add_argument('--outlet', default='pressure', choices=['pressure', 'model'],
                 help="pressure: total-pressure outlet at crest level (orifice law; blocked by a strong swirl, see cfd-status); "
                      "model: the model's trap outflow Qout(t) prescribed at the outlet")
@@ -65,7 +66,9 @@ def r_of_z(z):
 # profile points, bottom to top, with breaks at the region edges
 jetTop, jetBot = D - 0.001, D - 0.001 - w0     # band from 1 mm below the rim, as the model folds it onto the wall
 # trap opening: on the rear sump wall from the bottom up to the seal depth, or on the rear pool wall higher up
-outBot, outTop = (zBot, -ds) if a.outlet_at == 'sump' else (-0.035, -0.010)
+outBot, outTop = {'sump': (zBot, -ds), 'ring': (-0.035, -0.010), 'leg': (zBot, zBot)}[a.outlet_at]
+LEG = 0.08                             # trap leg length below the sump bottom (outlet-at leg)
+zLeg = zBot - LEG if a.outlet_at == 'leg' else zBot
 zs = set()
 def add_range(z0, z1, dz):
     n = max(1, int(math.ceil((z1 - z0) / dz)))
@@ -108,10 +111,33 @@ for k in range(len(prof) - 1):
         reg = wall_region(0.5 * (t0 + t1), 0.5 * (z0 + z1))
         A, B, C, Dd = P(r0, t0, z0), P(r0, t1, z0), P(r1, t1, z1), P(r1, t0, z1)
         tri(reg, A, B, C); tri(reg, A, C, Dd)
-# sump bottom
+# sump bottom, or the trap leg: a cylinder of the sump-bottom radius down to zLeg, outlet disk at its end, and a
+# cross of two plates (swirl breaker) from the outlet up into the sump. The plates cut through the cylinder wall; the
+# cells inside them are cut off from the fluid by snappyHexMesh.
 rb = prof[0][0]
-for i in range(NT):
-    tri('wall', (0, 0, zBot), P(rb, th[i + 1], zBot), P(rb, th[i], zBot))
+if a.outlet_at == 'leg':
+    nL = int(math.ceil(LEG / 0.002))
+    zl = [zLeg + LEG * k / nL for k in range(nL + 1)]
+    for k in range(nL):
+        for i in range(NT):
+            t0, t1 = th[i], th[i + 1]
+            A, B, C, Dd = P(rb, t0, zl[k]), P(rb, t1, zl[k]), P(rb, t1, zl[k + 1]), P(rb, t0, zl[k + 1])
+            tri('wall', A, B, C); tri('wall', A, C, Dd)
+    for i in range(NT):
+        tri('outlet', (0, 0, zLeg), P(rb, th[i], zLeg), P(rb, th[i + 1], zLeg))
+    hW = {'coarse': 0.006, 'medium': 0.004, 'fine': 0.004}[a.mesh] / 2 ** {'coarse': 1, 'medium': 1, 'fine': 2}[a.mesh]
+    tP = max(0.004, 2 * hW)            # plate thickness: two wall cells
+    zP1 = zBot + 0.02                  # plates reach 20 mm up into the sump
+    rx = r_of_z(zP1) + 0.003
+    def box(x0, x1, y0, y1, z0, z1):
+        v = [(x0, y0, z0), (x1, y0, z0), (x1, y1, z0), (x0, y1, z0), (x0, y0, z1), (x1, y0, z1), (x1, y1, z1), (x0, y1, z1)]
+        for q in ((0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)):
+            tri('wall', v[q[0]], v[q[1]], v[q[2]]); tri('wall', v[q[0]], v[q[2]], v[q[3]])
+    box(-rx, rx, -tP / 2, tP / 2, zLeg - 0.002, zP1)
+    box(-tP / 2, tP / 2, -rx, rx, zLeg - 0.002, zP1)
+else:
+    for i in range(NT):
+        tri('wall', (0, 0, zBot), P(rb, th[i + 1], zBot), P(rb, th[i], zBot))
 # lid (air above the rim) and open top
 for i in range(NT):
     t0, t1 = th[i], th[i + 1]
@@ -178,7 +204,7 @@ jl = lvl
 X = Rr + 0.01
 # the background mesh has a face plane at z = 0 (the crest): whole cells from zLo up, so setFields fills the pool
 # exactly to the crest and no water flows in through the outlet at the start
-zLo = -math.ceil((0.005 - zBot) / h0 - 1e-9) * h0; zHi = math.ceil((zTop + 0.005) / h0 - 1e-9) * h0
+zLo = -math.ceil((0.005 - zLeg) / h0 - 1e-9) * h0; zHi = math.ceil((zTop + 0.005) / h0 - 1e-9) * h0
 nx_ = int(math.ceil(2 * X / h0)); nz_ = int(round((zHi - zLo) / h0))
 write('system/blockMeshDict', 'dictionary', 'blockMeshDict', f'''scale 1;
 vertices ( ({-X} {-X} {zLo:.6f}) ({X} {-X} {zLo:.6f}) ({X} {X} {zLo:.6f}) ({-X} {X} {zLo:.6f})
@@ -496,6 +522,7 @@ write('system/decomposeParDict', 'dictionary', 'decomposeParDict', f'numberOfSub
 import shutil
 if os.path.isdir(os.path.join(a.out, '0')): shutil.rmtree(os.path.join(a.out, '0'))
 shutil.copytree(os.path.join(a.out, '0.orig'), os.path.join(a.out, '0'))   # setFields then fills the pool in 0/
-json.dump({'mesh': a.mesh, 'h0': h0, 'zLo': zLo, 'Vstatic_model': S.get('Vstatic'), 'arrivalPlane': 0.003, 'rWallArrival': r_of_z(0.003), 'level': lvl, 'end': a.end, 'jets': info, 'outlet_deg': [40, 140], 'outlet_z': [outBot, outTop], 'outlet_kind': a.outlet, 'zBot': zBot, 'zTop': zTop,
+json.dump({'mesh': a.mesh, 'h0': h0, 'zLo': zLo, 'Vstatic_model': S.get('Vstatic'), 'arrivalPlane': 0.003, 'rWallArrival': r_of_z(0.003), 'level': lvl, 'end': a.end, 'jets': info, 'outlet_deg': [40, 140], 'outlet_z': [outBot, outTop] if a.outlet_at != 'leg' else [zLeg, zLeg], 'outlet_kind': a.outlet, 'outlet_at': a.outlet_at, 'zLeg': zLeg,
+           'legVolume_est': (math.pi * rb ** 2 * (zBot - zLeg)) if a.outlet_at == 'leg' else 0.0, 'zBot': zBot, 'zTop': zTop,
            'D': D, 'Rr': Rr, 'Rp': Rp, 'ds': ds, 'triangles': {k: len(v) for k, v in tris.items()}}, open(os.path.join(a.out, 'case-info.json'), 'w'), indent=1)
 print(json.dumps(json.load(open(os.path.join(a.out, 'case-info.json')))))
