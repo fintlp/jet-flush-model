@@ -1,3 +1,7 @@
+/* The simulator page: drawing of the bowl from above, the section, the flush traces and the wall cleaning map;
+   sliders, presets, playback, the design sweep, undo, pinned reference and the change chips. No physics here:
+   every result comes from model.js. Other panels use the small API exported as window.FlushApp (results, apply,
+   playback, undo state, pinned reference, colours and fonts). */
 (function () {
   const M = window.FlushModel;
   const $ = (id) => document.getElementById(id);

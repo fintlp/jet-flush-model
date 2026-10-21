@@ -1,9 +1,11 @@
-/* AI lab: three ways machine learning and optimisation work with the physics model.
+/* AI lab: the tab row of all six tools, and four of them (the physics-informed network is in pinn.js, the field
+   surrogate in field.js). Machine learning and optimisation working with the physics model:
    1. Evolutionary multi-objective design search (NSGA-II style)
    2. Neural surrogate trained in the browser on physics-model runs
    3. Hybrid calibration: Nelder-Mead coefficient fit plus a Gaussian-process correction,
       against synthetic reference data that stands in for high-fidelity solver runs
-   4. Noise calibration: the five noise coefficients fitted to recorded flushes (or synthetic demo recordings) */
+   4. Noise calibration: the five noise coefficients fitted to recorded flushes (or synthetic demo recordings)
+   The tab row follows the ARIA tab pattern (arrow keys, Home, End) and announces the shown tool with 'flushaitab'. */
 (function () {
   const A = window.FlushApp, M = window.FlushModel;
   if (!A || !M) return;
@@ -12,7 +14,7 @@
   const SIM = { light: true, coarse: true, Tend: 12 };
   const SIM_FULL = { light: true, Tend: 12 };   // same resolution as the main simulator
 
-  // design variables shared by all three tools
+  // design variables shared by the optimiser, the surrogate and the hybrid calibration
   const DV = [
     { k: 'Anoz', min: 1.5, max: 8 }, { k: 'alpha', min: 0, max: 35 }, { k: 'jetPhase', min: 0, max: 180 },
     { k: 'hNoz', min: 6, max: 20 }, { k: 'Hcr', min: 50, max: 600 }, { k: 'Vfull', min: 3, max: 7 }
