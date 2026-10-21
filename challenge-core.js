@@ -20,8 +20,9 @@
   function make(M, opts) {
     opts = opts || {};
     const DV = [
-      { k: 'Anoz', min: 1.5, max: 8, st: 0.1 }, { k: 'alpha', min: 0, max: 35, st: 1 }, { k: 'jetPhase', min: 0, max: 180, st: 5 },
-      { k: 'hNoz', min: 6, max: 20, st: 1 }, { k: 'Hcr', min: 50, max: 600, st: 10 }, { k: 'Vfull', min: 3, max: 7, st: 0.1 }
+      { k: 'Anoz', min: 1.5, max: 8, st: 0.1, n: 'nozzle area', u: ' cm²' }, { k: 'alpha', min: 0, max: 35, st: 1, n: 'jet angle', u: '°' },
+      { k: 'jetPhase', min: 0, max: 180, st: 5, n: 'jet position', u: '°' }, { k: 'hNoz', min: 6, max: 20, st: 1, n: 'nozzle height', u: ' mm' },
+      { k: 'Hcr', min: 50, max: 600, st: 10, n: 'valve height', u: ' mm' }, { k: 'Vfull', min: 3, max: 7, st: 0.1, n: 'flush volume', u: ' L' }
     ];
     const IV = 5;   // index of the flush volume
     const T = { clean: 87, solids: 95, paper: 80, water: 4.0 };
@@ -145,10 +146,12 @@
               const xn = x.slice(); xn[i] = x[i] + sgn * step[i]; if (i === IV) xn[i] = Math.min(xn[i], xMaxV);
               const xs = snapX(xn); if (key(xs) === key(x)) break;
               const d = DV[i], dv = (xs[i] - x[i]) * (d.max - d.min);
-              const r = rec('classic', runs, xs, { why: `${d.k} ${dv > 0 ? '+' : '−'}${Math.abs(dv).toFixed(d.st < 1 ? 1 : 0)}`, kVar: d.k });
-              yield { kind: 'run', r };
-              if (r.g < cur.g - 1e-9) { r.kept = true; x = xs; cur = r; dir[i] = sgn; moved = progress = true; if (r.ok) return result('classic', runs); }
-              else { r.kept = false; break; }
+              // a design already run is not run again: its result is known
+              const known = runs.find((q) => key(q.x) === key(xs));
+              const r = known || rec('classic', runs, xs, { why: `${d.n} ${dv > 0 ? '+' : '−'}${Math.abs(dv).toFixed(d.st < 1 ? 1 : 0)}${d.u}`, kVar: d.k });
+              if (!known) yield { kind: 'run', r };
+              if (r.g < cur.g - 1e-9) { if (!known) r.kept = true; x = xs; cur = r; dir[i] = sgn; moved = progress = true; if (r.ok) return result('classic', runs); }
+              else { if (!known) r.kept = false; break; }
             }
             if (moved || runs.length >= MAXR) break;
           }
@@ -216,19 +219,38 @@
     // other start designs for the repeat: random jets and valve height, the start's volume
     function starts(n) { const r = rng(99), S = []; for (let i = 0; i < n; i++) { const x = DV.map(() => r()); x[IV] = start[IV]; S.push(snapX(x)); } return S; }
 
-    // Repeated with seeds 0 to 7 (screening and refinement) and start designs: the start above for seed 0, starts(7) for 1 to 7.
-    // Runs to target, minimum, median and maximum; the fast model alone missed within MAXR runs this many times.
-    // checks/challenge.js recomputes these and fails if they differ.
-    const REPEAT = {
-      n: 8, ai: [2, 4.5, 13], classic: [2, 12, 27], fastMiss: 3,
-      rows: { classic: [11, 11, 27, 9, 2, 13, 14, 24], fast: [3, 2, null, null, 10, null, 2, 2], ai: [5, 3, 5, 9, 2, 13, 4, 2] }
-    };
     return {
-      REPEAT, DV, IV, T, base, start, RUN_HOURS, MAXR, HID, count, toDesign, toX, snapX, fast, ref, gapOf, meets, screen, starts,
+      M, DV, IV, T, base, start, RUN_HOURS, MAXR, HID, count, toDesign, toX, snapX, fast, ref, gapOf, meets, screen, starts,
       routes: { classic, fast: fastOnly, ai }, pool: () => POOL
     };
   }
   // run a generator to its end (for the checks)
   function runAll(gen) { let s = gen.next(); while (!s.done) s = gen.next(); return s.value; }
-  root.FlushChallenge = { make, runAll };
+  // The repeat: N races, race i with seed i; race 0 starts from the page's start design with the informed classic
+  // order, races 1 to N-1 from starts(N-1) with random screening, refinement and classic order. The page shows all of
+  // them from challenge-data.js, written by checks/challenge.js --write, and can recompute any one live in a worker.
+  const REPEATS = 8, ROUTES = ['classic', 'fast', 'ai'];
+  function startOf(M, i) { const C0 = make(M); return i === 0 ? C0.start : C0.starts(REPEATS - 1)[i - 1]; }
+  // rounded copy of a race result, the form stored in challenge-data.js and compared by the checks and the page
+  const r2 = (v) => Math.round(v * 100) / 100;
+  function pack(C, i, res) {
+    const out = { seed: i, start: C.toDesign(startOf(C.M, i)), routes: {} };
+    ROUTES.forEach((k) => {
+      const v = res[k];
+      out.routes[k] = { toTarget: v.toTarget, runs: v.runs.map((r) => {
+        const o = { d: C.DV.map((dv) => r.des[dv.k]), e: [r2(r.e.clean), r2(r.e.solids), r2(r.e.paper), r2(r.e.water), r.e.ok ? 1 : 0], f: [r2(r.f.clean), r2(r.f.solids), r2(r.f.paper)], why: r.why, ok: r.ok ? 1 : 0 };
+        if (r.kept != null) o.kept = r.kept ? 1 : 0;
+        if (r.pred) o.pred = [r2(r.pred.m), r2(r.pred.s), r.pred.p != null ? r2(r.pred.p) : null];
+        return o;
+      }) };
+    });
+    return out;
+  }
+  // one race of the repeat as a generator (yields after every simulation), returning the packed result
+  function* race(M, i) {
+    const C = make(M, { seed: i }), x0 = startOf(M, i), res = {};
+    for (const k of ROUTES) res[k] = yield* C.routes[k](x0);
+    return pack(C, i, res);
+  }
+  root.FlushChallenge = { make, runAll, race, pack, startOf, REPEATS, ROUTES };
 })(typeof window !== 'undefined' ? window : globalThis);

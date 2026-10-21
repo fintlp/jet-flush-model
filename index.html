@@ -295,7 +295,13 @@ tr.best td{background:color-mix(in srgb, var(--clean) 12%, transparent)}
 .ch-log summary{cursor:pointer;font-size:13px;margin:6px 0}
 .ch-log tr.ok td{font-weight:600}
 .ch-you{margin-top:14px}
-@media (max-width:560px){ #cvCh{aspect-ratio:1/1} }
+.ch-h{font-size:14px;margin:16px 0 6px}
+#challenge canvas,#chTask,.ch-routes,#chRep,#chVerify,.ch-you,#chHead{scroll-margin-top:64px}
+.ch-cv{aspect-ratio:2.2/1}
+@media (max-width:560px){ .ch-cv{aspect-ratio:1.3/1} }
+.ch-pick{background:none;border:1px solid var(--line);border-radius:6px;padding:1px 6px;font:inherit;color:var(--accent);cursor:pointer}
+.ch-pick.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.ch-rep td.sel{background:color-mix(in srgb,var(--accent) 10%,transparent);font-weight:600}
 .ch-you-log{font-size:13px;padding-left:20px;display:grid;gap:3px}
 .tol-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
 .tol-grp{border:1px solid var(--line);border-radius:8px;padding:6px 10px 8px;margin:0;display:grid;gap:4px}
@@ -512,13 +518,23 @@ td code{font-family:var(--f-mono);font-size:12.5px}
           <li><b>Fast model + learned correction (AI).</b> After every reference run, a Gaussian process learns where and by how much the fast model is off. The next run goes to the design most likely to meet all targets under the corrected model.</li>
         </ul>
         <div class="sweep-ctl" style="margin-top:12px">
-          <button class="btn primary" type="button" id="chRun">Run the race</button>
+          <button class="btn primary" type="button" id="chPlay">Play the race</button>
+          <button class="btn" type="button" id="chTour">Guided tour</button>
           <span class="ai-status" id="chClock" aria-live="off"></span>
         </div>
-        <div class="prog" id="chProg" hidden><div class="prog-bar" role="progressbar" aria-label="Progress of the race" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="prog-fill"></span></div><span class="prog-txt"></span></div>
-        <p class="ai-status" id="chStatus" role="status">Computes about 700 flushes in your browser, typically 15 to 25 seconds, then plays the race back on the virtual clock.</p>
-        <canvas id="cvCh" class="ai-cv-wide" aria-label="Best cleaning reached so far by each route against virtual days of high-fidelity computing, with the target line"></canvas>
-        <div class="ai-results" id="chHead"></div>
+        <h3 class="ch-h">Eight design projects on one clock</h3>
+        <canvas id="cvChAll" class="ch-cv" aria-label="Number of the eight design projects that met the targets, for each route, against virtual days of high-fidelity computing"></canvas>
+        <div class="ai-results" id="chHead"><p class="muted">Press Play: the clock runs ten virtual days, and each route works through its eight projects, one high-fidelity run at a time.</p></div>
+        <div class="tablewrap"><table id="chRep" class="compact ch-rep"></table></div>
+        <div class="ai-results" id="chWhy"></div>
+        <h3 class="ch-h" id="chRaceTitle">Inside race #1</h3>
+        <p class="ai-note">Pick a race by its number in the table above.</p>
+        <div class="ai-two">
+          <canvas id="cvCh" aria-label="Best cleaning reached so far by each route in the chosen race, against virtual days, with the target line"></canvas>
+          <canvas id="cvChPred" aria-label="Cleaning the AI route expected before each of its runs, with its uncertainty, and what the reference then gave"></canvas>
+        </div>
+        <p class="ai-status" id="chVerify" role="status"></p>
+        <div class="sweep-ctl"><button class="btn" type="button" id="chVerifyBtn">Recompute this race live</button></div>
         <div class="tablewrap"><table id="chTable" class="compact"></table></div>
         <details class="ch-log" id="chLog"></details>
         <fieldset class="opt-box ch-you">
@@ -723,12 +739,13 @@ td code{font-family:var(--f-mono);font-size:12.5px}
     <button type="button" class="btn primary" id="mobarBtn" aria-expanded="false" aria-controls="rail">Adjust design</button>
   </div>
 </div>
-<script src="model.js?v=20"></script>
-<script src="app.js?v=20"></script>
-<script src="tolerance.js?v=20"></script>
-<script src="challenge-core.js?v=20"></script>
-<script src="challenge.js?v=20"></script>
-<script src="ai.js?v=20"></script>
-<script src="tour.js?v=20"></script>
+<script src="model.js?v=21"></script>
+<script src="app.js?v=21"></script>
+<script src="tolerance.js?v=21"></script>
+<script src="challenge-core.js?v=21"></script>
+<script src="challenge-data.js?v=21"></script>
+<script src="challenge.js?v=21"></script>
+<script src="ai.js?v=21"></script>
+<script src="tour.js?v=21"></script>
 </body>
 </html>

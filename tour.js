@@ -1,5 +1,5 @@
-/* "Demo me": a guided walkthrough that drives the simulator live.
-   It saves the visitor's design at the start and offers it back at the end. */
+/* Guided walkthroughs that drive the page live: "Demo me" (the simulator and the AI lab) and the engineering
+   challenge tour. Both save the visitor's design at the start and offer it back at the end. */
 (function () {
   const A = window.FlushApp, M = window.FlushModel;
   if (!A || !M) return;
@@ -44,7 +44,7 @@
     return true;
   }
 
-  const STEPS = [
+  const DEMO = [
     {
       t: 'Welcome', el: () => document.querySelector('.top .title'),
       x: async () => { A.stop(); A.apply(Object.assign(M.defaults('washdown'), { flushMode: 'full' })); },
@@ -107,6 +107,59 @@
     }
   ];
 
+  // ---- the engineering challenge tour ----
+  const U = () => window.FlushChallengeUI;
+  const chDays = (n) => { const d = n / 3; return d < 1 ? `${Math.round(n * 8)} hours` : `${+d.toFixed(1)} ${+d.toFixed(1) === 1 ? 'day' : 'days'}`; };
+  const firstLost = () => { const R = U().races(); const i = R.findIndex((r) => !r.routes.fast.toTarget && r.routes.ai.toTarget); return i < 0 ? 0 : i; };
+  const CHALLENGE = [
+    {
+      t: 'An engineering problem', el: () => $('chTask'), block: 'center',
+      x: async () => { U().reveal(false); U().select(0); },
+      h: () => `<p>A bowl that works in the lab, made oval for a new product, now misses its targets: <b>74.5 %</b> of the wall cleaned with 4.5 L. It should reach <b>87 %</b> with at most <b>4.0 L</b>, without losing waste removal.</p><p>Every design candidate is checked with a high-fidelity simulation, and every such run costs <b>8 hours</b> of computing. So the question is: <b>how many runs until the design is done?</b></p>`
+    },
+    {
+      t: 'Three ways to work', el: () => document.querySelector('.ch-routes'), block: 'center',
+      h: () => `<p><b>Classic:</b> an experienced engineer changes one setting per run and keeps what helps.</p><p><b>Fast model alone:</b> our flush model screens hundreds of designs in seconds, and the best ones are sent to the expensive simulation.</p><p><b>AI route:</b> the same fast model, plus a correction that is learned from every expensive run, so the next run goes where success is most likely.</p>`
+    },
+    {
+      t: 'Eight projects, one clock', el: () => $('cvChAll'), block: 'center',
+      during: '<p>The clock runs ten virtual days. Each step of a curve is a project that met all targets.</p><p class="tour-hint">Watch the blue line.</p>',
+      x: async () => { await U().play(); },
+      h: () => { const S = U().stats(), n = U().races().length, aiDone = S.ai.max, clBy = S.classic.v.filter((v) => v != null && v <= aiDone).length;
+        return `<p>The <b>AI route</b> finished all ${n} projects within <b>${chDays(aiDone)}</b>. By then the classic route had finished ${clBy}; it needed <b>${chDays(S.classic.max)}</b> for all ${n}.</p><p>The <b>fast model alone</b> finished ${n - S.fast.miss} quickly, then got stuck: ${S.fast.miss} projects never met the targets.</p>`; }
+    },
+    {
+      t: 'Not luck: the numbers', el: () => $('chRep'), block: 'center',
+      h: () => { const S = U().stats(); const fmtm = (v) => (v % 1 ? v.toFixed(1) : String(v));
+        return `<p>Typical runs to target: <b>AI route ${fmtm(S.ai.med)}</b>, classic <b>${fmtm(S.classic.med)}</b>.</p><p>For all eight projects together, the AI route used <b>${S.ai.sum}</b> expensive runs, the classic route <b>${S.classic.sum}</b>. That is <b>${S.classic.sum - S.ai.sum} runs</b>, or about <b>${Math.round((S.classic.sum - S.ai.sum) / 3)} days</b> of computing, saved.</p>`; }
+    },
+    {
+      t: 'When the fast model gets lost', el: () => $('cvCh'), block: 'center',
+      x: async () => { U().select(firstLost()); },
+      h: () => { const i = firstLost(), r = U().races()[i], fr = r.routes.fast.runs.slice(1), hi = fr.filter((q) => q.des.Hcr >= 300).length, over = fr.reduce((a, q) => a + q.f.clean - q.e.clean, 0) / Math.max(1, fr.length);
+        return `<p>Race #${i + 1}. The fast model likes high valve heights: ${hi} of its ${fr.length} expensive runs had a valve height of 300 mm or more. In the reference, fast jets splash there and lose cleaning, so the fast model overestimated these designs by about <b>${Math.round(over)} points</b>. Alone, it never found out: <b>no success within 60 runs</b>.</p><p>The AI route ran into the same difference, learned it, and reached the targets after <b>${r.routes.ai.toTarget} runs</b>. The classic route needed ${r.routes.classic.toTarget}.</p>`; }
+    },
+    {
+      t: 'How the AI learns', el: () => $('cvChPred'), block: 'center',
+      h: () => `<p>Before each run, the AI route predicts the cleaning with an uncertainty: the <b>blue bars</b>. The <b>dots</b> are what the expensive run then gave.</p><p>Early on, the bars are wide and the dots miss. With every run the correction learns where the fast model is off; the predictions close in, and the run that meets the targets is no surprise.</p>`
+    },
+    {
+      t: 'Computed, not animated', el: () => $('chVerify'), block: 'center',
+      x: async () => { U().select(0); U().verify(0); },
+      h: () => `<p>The races play from stored results so the demo starts at once. But they are not a film: the same code runs in your browser.</p><p>Race #1 is being <b>recomputed live</b> right now, without blocking the page. In about half a minute the line here says whether the result is identical.</p>`
+    },
+    {
+      t: 'Your turn', el: () => document.querySelector('.ch-you'), block: 'center',
+      x: async () => { U().youReset(); U().loadStart(); A.apply({ jetPhase: 90, Vfull: 4.0 }); mem.you = U().youRun(); },
+      h: () => { const r = mem.you; return `<p>We loaded the start design into the simulator and made the move from the first demo: jets to the long sides, flush cut to 4.0 L. One expensive run says <b>${r.e.clean.toFixed(1)} %</b> cleaning: ${r.ok ? 'that already meets the targets.' : `<b>${(87 - r.e.clean).toFixed(1)} points short</b>.`}</p><p>Now it is your turn: change the settings in the simulator, watch the result cards, and send a design to the expensive run. <b>Can you beat the AI route's ${U().races()[0].routes.ai.toTarget} runs?</b></p>`; }
+    },
+    {
+      t: 'What this means', el: () => $('chHead'), block: 'center', last: true,
+      h: () => `<p>A physics model you can trust for the trends, a few expensive runs, and a correction learned from each of them: that is how AI shortens engineering loops. Not by replacing simulation, but by <b>deciding where the next expensive run is worth it</b>.</p><p class="tour-hint">The reference here is synthetic and the task has five settings, so the numbers illustrate the principle. With real CFD at hours per run and more settings to change, every run saved counts more.</p><p>Do you want your own design back, or keep this one? <b>Finish</b> brings your own design back.</p>`
+    }
+  ];
+  let STEPS = DEMO, KIND = 'demo';
+
   function place() {
     if (!active) return;
     const el = target, vw = window.innerWidth, vh = window.innerHeight, phone = vw <= 640;
@@ -142,24 +195,27 @@
     const next = $('tourNext');
     next.disabled = true; next.textContent = s.last ? 'Finish' : (i === 0 ? 'Start' : 'Next');
     target = s.el ? s.el() : null;
-    if (target) target.scrollIntoView({ behavior: reduce() ? 'auto' : 'smooth', block: s.block || 'center' });
-    $('tourText').innerHTML = s.slow ? '<p class="tour-hint" id="tourProgTxt">The AI lab searches about 540 designs and then checks the best ones at full resolution. This takes about 10 to 15 seconds.</p><div class="prog"><div class="prog-bar" role="progressbar" aria-label="Progress of the search" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="prog-fill" id="tourProgFill"></span></div></div>' : '<p class="tour-hint">…</p>';
+    // on phones the card docks at the bottom, so the highlighted part goes to the top of the screen
+    if (target) target.scrollIntoView({ behavior: reduce() ? 'auto' : 'smooth', block: A.isPhone() && KIND === 'challenge' ? 'start' : (s.block || 'center') });
+    $('tourText').innerHTML = s.slow ? '<p class="tour-hint" id="tourProgTxt">The AI lab searches about 540 designs and then checks the best ones at full resolution. This takes about 10 to 15 seconds.</p><div class="prog"><div class="prog-bar" role="progressbar" aria-label="Progress of the search" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="prog-fill" id="tourProgFill"></span></div></div>' : (s.during || '<p class="tour-hint">…</p>');
     if (s.x && !(fromBack && s.slow)) { try { await s.x(); } catch (e) { } }
     await wait(reduce() ? 0 : 350);
     if (ses !== session || idx !== i || !active) return;   // closed, or closed and reopened, meanwhile
     $('tourText').innerHTML = s.h();
     if (s.last) {
-      $('tourText').insertAdjacentHTML('beforeend', `<div class="tour-end"><button class="btn" type="button" id="tourRestore">Bring my design back</button><button class="btn" type="button" id="tourKeep">Keep this design</button></div>`);
+      $('tourText').insertAdjacentHTML('beforeend', `<div class="tour-end"><button class="btn" type="button" id="tourRestore">Bring my design back</button><button class="btn" type="button" id="tourKeep">Keep this design</button>${KIND === 'demo' && window.FlushChallengeUI ? '<button class="btn primary" type="button" id="tourNextTour">Continue: the engineering challenge</button>' : ''}</div>`);
       $('tourRestore').addEventListener('click', () => end(true));
       $('tourKeep').addEventListener('click', () => { end(false); A.save(); });
+      if ($('tourNextTour')) $('tourNextTour').addEventListener('click', () => { end(true); start('challenge'); });
       next.textContent = 'Finish';
     } else next.textContent = i === 0 ? 'Start' : 'Next';
     next.disabled = false; busy = false;
     card.focus({ preventScroll: true });
   }
 
-  function start() {
+  function start(kind) {
     if (active) return;
+    KIND = kind === 'challenge' && window.FlushChallengeUI ? 'challenge' : 'demo'; STEPS = KIND === 'challenge' ? CHALLENGE : DEMO;
     session++; startSnap = A.histState(); mem = {}; active = true; ov.hidden = false; document.body.classList.add('touring');
     startPin = A.pin(); if (startPin) A.setPin(null);   // the demo compares with the preset; a pinned reference comes back at the end
     if (A.isPhone()) A.drawer(false);
@@ -173,7 +229,7 @@
     if (startSnap) A.restoreState(startSnap, !restore);   // undo history and deltas as before the walkthrough
     startSnap = null;
     if (startPin) { A.setPin(startPin); startPin = null; }
-    const b = $('demoBtn'); if (b) b.focus({ preventScroll: true });
+    const b = $(KIND === 'challenge' ? 'chTour' : 'demoBtn'); if (b) b.focus({ preventScroll: true });
   }
   $('tourNext').addEventListener('click', () => { if (busy) return; if (idx >= STEPS.length - 1) end(true); else show(idx + 1); });
   $('tourBack').addEventListener('click', () => { if (busy || idx === 0) return; show(idx - 1, true); });
@@ -184,7 +240,8 @@
     else if (e.key === 'ArrowRight' && !busy) { e.preventDefault(); $('tourNext').click(); }
     else if (e.key === 'ArrowLeft' && !busy) { e.preventDefault(); $('tourBack').click(); }
   });
-  ['demoBtn', 'demoBtn2'].forEach((id) => { const b = $(id); if (b) b.addEventListener('click', start); });
+  ['demoBtn', 'demoBtn2'].forEach((id) => { const b = $(id); if (b) b.addEventListener('click', () => start('demo')); });
+  if ($('chTour')) $('chTour').addEventListener('click', () => start('challenge'));
   // show the small menu button only once the big "Start here" button has scrolled out of view
   (function () {
     const strip = document.querySelector('.starthere'), small = $('demoBtn2');
@@ -193,6 +250,7 @@
     new IntersectionObserver((es) => { es.forEach((e) => { const vis = e.isIntersecting; small.classList.toggle('away', vis); small.tabIndex = vis ? -1 : 0; small.setAttribute('aria-hidden', String(vis)); }); }, { threshold: 0 }).observe(strip);
   })();
   // deep link: …/#demo starts the walkthrough
-  if (location.hash === '#demo') setTimeout(start, 600);
-  window.FlushTour = { start, end };
+  if (location.hash === '#demo') setTimeout(() => start('demo'), 600);
+  if (location.hash === '#challenge-tour') setTimeout(() => start('challenge'), 600);
+  window.FlushTour = { start, end, kind: () => KIND, step: () => idx, active: () => active };
 })();

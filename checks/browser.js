@@ -4,7 +4,7 @@
 //   node checks/browser.js            serves this repository on a free local port and tests it
 //   node checks/browser.js <url>      tests a running copy instead, for example the live site
 // Check names starting with F-numbers or Open refer to the findings of the independent review of 1.3.0, fixed in 1.3.1.
-// Takes about six minutes (the demo, normal and robust optimiser searches, the engineering challenge, a surrogate training run, a noise fit and two tolerance studies). Exits with code 1 on any failure.
+// Takes about six minutes (the demo, normal and robust optimiser searches, the engineering challenge and its tour, a surrogate training run, a noise fit and two tolerance studies). Exits with code 1 on any failure.
 const http = require('http'), fs = require('fs'), path = require('path');
 const { chromium } = require('playwright');
 const ROOT = path.join(__dirname, '..');
@@ -101,6 +101,7 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   const step7 = await page.evaluate(() => document.getElementById('tourText').innerText);
   ok('Demo still loads a winner', /Cleaning \d+ %/.test(step7), step7.replace(/\s+/g, ' ').slice(0, 400));
   await next(); await page.waitForFunction(() => !document.getElementById('tourNext').disabled, null, { timeout: 60000 });
+  ok('Demo me: the last step offers the engineering challenge tour', await page.evaluate(() => !!document.getElementById('tourNextTour')));
   await page.click('#tourNext'); await page.waitForTimeout(300);   // Finish
   ok('F05 finish leaves no undo steps', (await undoInfo()).dis === preUndo.dis, await undoInfo());
   ok('F05 finish leaves no delta chips', (await chips()) === preChips, { before: preChips, after: await chips() });
@@ -258,16 +259,22 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   const pg4 = await page.evaluate(() => ({ st: document.getElementById('optStatus').textContent, inc: FlushAI._test.opt().incomplete, fin: FlushAI._test.opt().final, hidden: document.getElementById('optProg').hidden }));
   ok('Optimiser: Stop during the check reports only checked designs and says so', pg3.txt.startsWith('Step 2 of 2, checking') && pg3.btn.startsWith('Stop check') && pg4.inc && pg4.fin && pg4.hidden && pg4.st.includes('You stopped the full-resolution check'), { pg3, st: pg4.st.slice(0, 120) });
 
-  // Engineering challenge (2.0): the race, its headline and table, the hidden reference, your turn
+  // Engineering challenge (2.0): eight stored races on one clock, a chosen race, live recomputation, your turn, guided tour
   await fresh();
   await page.evaluate(() => document.getElementById('challenge').scrollIntoView());
-  await page.click('#chRun'); await page.waitForTimeout(3000);
-  const chp = await page.evaluate(() => ({ shown: !document.getElementById('chProg').hidden, txt: document.querySelector('#chProg .prog-txt').textContent }));
-  ok('Challenge: progress bar shows what is computed', chp.shown && chp.txt.length > 10, chp);
-  await page.waitForFunction(() => !FlushChallengeUI.busy() && document.getElementById('chHead').innerText.includes('This race'), null, { timeout: 180000 });
-  const chr = await page.evaluate(() => { const R = FlushChallengeUI.result(); return { ai: R.ai.toTarget, classic: R.classic.toTarget, fast: R.fast.toTarget, rows: document.querySelectorAll('#chTable tbody tr').length, rep: document.querySelectorAll('.ch-rep tbody tr').length, head: document.getElementById('chHead').innerText.slice(0, 120) }; });
-  ok('Challenge: the race finishes with a headline, three routes and the repeat table', chr.rows === 3 && chr.rep === 3 && chr.ai && chr.head.startsWith('This race'), chr);
-  ok('Challenge: the race matches checks/challenge.js (AI 5, classic 11, fast model alone 3)', chr.ai === 5 && chr.classic === 11 && chr.fast === 3, chr);
+  const ch0 = await page.evaluate(() => ({ races: FlushChallengeUI.races().length, picks: document.querySelectorAll('#chRep .ch-pick').length, rows: document.querySelectorAll('#chRep tbody tr').length }));
+  ok('Challenge: eight stored races, one button and one column each', ch0.races === 8 && ch0.picks === 8 && ch0.rows === 3, ch0);
+  await page.evaluate(() => FlushChallengeUI.play());
+  const ch1 = await page.evaluate(() => ({ clock: document.getElementById('chClock').textContent, head: document.getElementById('chHead').innerText.slice(0, 160), st: FlushChallengeUI.stats() }));
+  ok('Challenge: Play runs the clock to day 10 and states the result over all races', ch1.clock.includes('day 10.0') && ch1.head.startsWith('Across 8 design projects') && ch1.st.ai.miss === 0, { clock: ch1.clock, head: ch1.head });
+  ok('Challenge: race #1 is AI 5, classic 11, fast model alone 3 (checks/challenge.js)', (await page.evaluate(() => { const r = FlushChallengeUI.races()[0].routes; return [r.ai.toTarget, r.classic.toTarget, r.fast.toTarget].join(); })) === '5,11,3');
+  await page.click('#chRep .ch-pick[data-race="2"]'); await page.waitForTimeout(150);
+  const ch2 = await page.evaluate(() => ({ title: document.getElementById('chRaceTitle').textContent, sel: FlushChallengeUI.sel(), log: document.querySelector('#chLog summary').textContent }));
+  ok('Challenge: picking race #3 shows it below', ch2.sel === 2 && ch2.title.includes('#3') && ch2.log.includes('#3'), ch2);
+  await page.evaluate(() => FlushChallengeUI.select(0));
+  await page.waitForFunction(() => { const v = FlushChallengeUI.verified(0); return v && typeof v.same === 'boolean'; }, null, { timeout: 180000 });
+  const ch3 = await page.evaluate(() => ({ v: FlushChallengeUI.verified(0), line: document.getElementById('chVerify').innerText }));
+  ok('Challenge: race #1 recomputed live in the browser is identical to the stored race', ch3.v.same && ch3.line.includes('identical'), ch3);
   await page.click('#chReveal');
   ok('Challenge: the hidden reference can be shown', await page.evaluate(() => !document.getElementById('chHidden').hidden && document.getElementById('chHidden').innerText.includes('in the reference')));
   await page.click('#chLoad'); await page.waitForTimeout(200);
@@ -278,6 +285,22 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   ok('Challenge: your turn counts reference runs and says what each misses', chy.n === 2 && chy.items >= 2 && chy.txt.includes('misses'), chy);
   await page.click('#chYouReset');
   ok('Challenge: Start over clears your runs', await page.evaluate(() => FlushChallengeUI.you().length === 0));
+  // the guided tour of the challenge: nine steps, leaves the visitor's design as it was
+  await fresh();
+  const pBefore = await P();
+  await page.evaluate(() => document.getElementById('chTour').click());
+  const titles = [];
+  for (let i = 0; i < 9; i++) {
+    await page.waitForFunction(() => !document.getElementById('tourNext').disabled, null, { timeout: 60000 });
+    titles.push(await page.textContent('#tourTitle'));
+    if (i < 8) await page.click('#tourNext');
+  }
+  const lastTxt = await page.evaluate(() => document.getElementById('tourText').innerText);
+  ok('Challenge tour: nine steps from the problem to what it means', titles.length === 9 && titles[0] === 'An engineering problem' && titles[8] === 'What this means' && lastTxt.includes('Bring my design back'), titles);
+  ok('Challenge tour: the your-turn step ran one reference run', (await page.evaluate(() => FlushChallengeUI.you().length)) === 1);
+  await page.click('#tourNext'); await page.waitForTimeout(300);   // Finish
+  const pAfter = await P();
+  ok('Challenge tour: Finish brings the visitor\'s design back', pAfter.ovality === pBefore.ovality && pAfter.jetPhase === pBefore.jetPhase && pAfter.Vfull === pBefore.Vfull && (await page.evaluate(() => document.querySelector('.tour').hidden)), { ovality: pAfter.ovality, Vfull: pAfter.Vfull });
 
   ok('No page errors', errs.length === 0, errs.slice(0, 5));
   console.log(out.join('\n'));
