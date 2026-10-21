@@ -30,7 +30,7 @@ It splits the flush into simple physical sub-models: cistern, rim jets, wall fil
 ## Quick start
 
 1. Open the [live simulator](https://fintlp.github.io/jet-flush-model/) and press **Demo me** for a one-minute guided tour.
-2. Pick a preset (EU washdown 4.5/3 L, or siphonic 4.8 L plus 0.6 L bowl refill) and change the bowl and jets with the sliders. Each slider has an **i** button that explains it.
+2. Pick a preset (EU washdown 4.5/3 L, or siphonic 4.8 L plus 0.8 L bowl refill) and change the bowl and jets with the sliders. Each slider has an **i** button that explains it.
 3. Press **Play flush** and read the result cards. Green and red chips show how much each change helped or hurt.
 4. Use **Undo**, **Reset** and **Pin as reference** to compare designs.
 5. In the **AI lab**, let the optimiser find better settings, or give it targets such as "at most 4.0 L and at least 90 % cleaned".
@@ -47,13 +47,14 @@ On a phone, the sliders open from the **Adjust design** button at the bottom.
 | Flush traces | Flow in and out, bowl level, pool swirl, load left and noise level over time, with air core and siphon events; click to jump to a moment |
 | Wall cleaning map | The bowl wall unrolled, showing dry, wetted and cleaned areas |
 | Design sweep | A 12 × 12 heat map of one result over two settings; click a cell to load that design |
-| AI lab | Design optimiser, neural surrogate and hybrid calibration, all running in the browser |
+| AI lab | Design optimiser, neural surrogate, hybrid calibration and noise calibration, all running in the browser |
 
 ## AI lab
 
 - **Design optimiser:** an evolutionary multi-objective search (NSGA-II style). You choose which jet, flush and bowl geometry settings may change, then either trade a weighted score against water or set targets it must meet, including an optional noise limit such as "no louder than now". About 540 designs take about 4 to 7 seconds, and every recommendation and table row it reports is re-checked at the simulator's own resolution; the other points in its chart are quick estimates.
 - **Neural surrogate:** a small neural network trained in the browser on a few hundred flushes. It answers about 1,000 to 2,000 times faster than the physics model. This stands in for training a network on PreonLab runs.
 - **Hybrid calibration:** the calibration workflow end to end. Six coefficients are fitted with Nelder-Mead to a few reference runs, a Gaussian process corrects what is left, and all versions are checked on hold-out designs. The reference data is synthetic and labelled as such.
+- **Noise calibration:** fits the noise coefficients to recordings of real flushes: audio files or sound level meter readings for a few designs, plus air core times from video. Audio is A-weighted and analysed in the browser, never uploaded. A demo with synthetic recordings from a hidden reference shows the workflow and checks the fit on designs left out.
 
 ![Design optimiser: simulated designs, best trade-off and best design meeting the targets](media/ai-optimiser-chart.png)
 
@@ -114,7 +115,7 @@ Version 2.0 changes model results. Work in progress on branch `dev-2.0`; this en
 - **Film enters the pool where its lower edge meets the waterline.** Each jet is still one spreading band, but the share of its width below the waterline now enters the pool there, with its flow, swirl and splash; the band left on the wall is re-centred on what remains. Before, the whole film entered where its centreline reached the waterline, so a tiny change in jet speed or pool level could switch the film between entering on its first dip and circling once more, and the pool swirl jumped (in the washdown preset by about 15 % at 2.7 s). Flow that stalls on the wall or is still there after 3 m of path counts as lost and brings no swirl or splash (`filmLostPct`).
 - **Film tracer integrates correctly.** The speed comes from the energy balance over each step (gravity work minus friction work), the position uses the mean of old and new velocity, and the velocity is turned into the new tangent plane instead of being cut and rescaled. Without friction a film now keeps its energy and its angular momentum about the bowl axis; in 1.3 it lost up to about a fifth of its kinetic energy over 3 m and was steered downwards. A film that climbs back to the rim loses its upward speed at the rim lip.
 - **Film takes time to reach the pool.** Water on the wall is a store that tends to nozzle flow times the films' mean travel time; nothing arrives before the film front, and the wetted area grows with the front when the flush starts. In the washdown preset about 1 L is on the wall during the flush and the first water reaches the pool after about 0.5 s. Before, all jet flow reached the pool in the step it left the nozzle.
-- **Film traced when the flow changes, not on a fixed clock**, when jet speed or pool level has changed by more than 3 % or 3 mm, and at least every 0.25 s (10 %, 10 mm, 0.6 s in the sweep and the optimiser search). The shear dose of each interval is the mean of the footprints at its start and end. Against retracing at every step, cleaning differs by 0.7 points at the 95th percentile (1.3: 1.8 points at 100 ms); the worst known case, a short strong flush, gives 51.2 % against 49.9 % (1.3: 43 % against 35 %) (`checks/resolution.js`).
+- **Film traced when the flow changes, not on a fixed clock**, when jet speed or pool level has changed by more than 3 % or 3 mm, and at least every 0.25 s (10 %, 10 mm, 0.6 s in the sweep and the optimiser search). The shear dose of each interval is the mean of the footprints at its start and end. Against retracing at every step, cleaning differs by 0.7 points at the 95th percentile (1.3: 1.8 points at 100 ms); the worst known case, a short strong flush, gives 51.2 % against 49.9 % (1.3: 43 % against 35 %) (`checks/resolution.js`). A flush takes about 1.5 times as long as in 1.3, a sweep or search flush about 1.2 to 1.3 times.
 - **Cleaning map counts cells by their centres.** A wall cell counts as covered when its centre lies inside the rectangle a film step sweeps, worked out in wall coordinates. Cleaning now converges as the grid is refined: on the 90 × 40 grid it is within about 0.2 points (median) and 0.9 points (worst) of a grid four times finer with a 1 mm film step. The old any-touch counting overstated cleaning by about 2 points on average and up to about 5.
 - **Rim line measured at exactly 25 mm depth**, weighted by length round the bowl on oval bowls. Before, the row was chosen 25 mm along the wall.
 - Nozzle width above the rim is folded onto the wall, so a wide nozzle loses no flow above the rim.
@@ -125,11 +126,18 @@ Version 2.0 changes model results. Work in progress on branch `dev-2.0`; this en
 - **Siphon break.** The pool level stops exactly at the trap inlet when the siphon breaks (before, it overshot by up to 29 mm and a floor clamp could create water); the draw-down is sub-stepped, so level, break time and spin-up do not depend on the time step. The siphon may prime again, and the break gurgle only sounds while it is broken.
 - **Refill simulated.** The bowl refill runs in at 0.1 L/s once the valve has closed, so the pool level trace ends at the reported seal.
 - **Pool inertia integrated over the narrowing basin.** It was 1.6 to 1.8 times too high, so swirl came out too low and the vortex dip too small. Peak swirl and dip are reported while the trap carries flow.
+- **Siphonic preset refill raised from 0.6 to 0.8 L**, so the simulated refill restores the seal after a partial flush too (0.6 L left it at 48 mm, below the 50 mm flag). The preset now uses 5.6 L per full flush including the refill.
 - The last, capped step of a flush no longer triggers a film trace with its arbitrary small flow; that trace had set how fast the wall water drained and made siphonic results depend on the time step.
+
+**Noise**
+
+- **Noise calibration tab in the AI lab.** Fits the five noise coefficients to recordings of real flushes: audio files (A-weighted per IEC 61672-1 and turned into a fast 125 ms level in the browser) or sound level meter readings, for a few designs set up in the simulator, plus optional air core times from video. Only the differences between designs count, so microphone, room and distance cancel. A leave-one-design-out test says whether the fit carries over. The demo makes synthetic recordings from a hidden reference with a valve click, fill valve noise, scatter and a low-pitched gurgle the model does not know; the fit lowers the error on left-out designs from about 0.9 to about 0.3 dB. Recordings stay in the browser; only peak levels are remembered.
+- **Noise computed from recorded flow series.** The simulation now records the flow quantities the four noise sources need, and a separate `noiseEval` turns them into the noise result. The results are bit-identical to before; the calibration can evaluate any coefficients in well under a millisecond without simulating again.
+- Model description: the plunging-jet entrainment law is stated as an extrapolation to wall films; the wetted pool area and Ramanujan's perimeter are written out.
 
 **Checks**
 
-- **New `checks/physics.js`, 58 checks with pass limits:** conservation and balance (energy and angular momentum of a frictionless film, water balance, physical ranges, smoothness of swirl and main results with refinement that tells jumps, steep slopes and time-step jitter apart); closed-form cases (cistern drain, steady weir level, level table, film on a vertical cylinder, paper decay); Runge-Kutta re-integration of pool level and swirl; and the checks proposed by the review (spatial convergence, siphon break, time step down to 1 ms, partial flush head, film front, monotone waste trends, round-bowl symmetry, rim line depth). `--strict` makes known open issues fail. All pass.
+- **New `checks/physics.js`, 59 checks with pass limits:** conservation and balance (energy and angular momentum of a frictionless film, water balance, physical ranges, smoothness of swirl and main results with refinement that tells jumps, steep slopes and time-step jitter apart); closed-form cases (cistern drain, steady weir level, level table, film on a vertical cylinder, paper decay); Runge-Kutta re-integration of pool level and swirl; and the checks proposed by the review (spatial convergence, siphon break, time step down to 1 ms, partial flush head, film front, monotone waste trends, round-bowl symmetry, rim line depth). `--strict` makes known open issues fail. All pass.
 
 **Effect on results**, 300 random designs against 1.3.1: cleaning +1.9 points in the median (5 % lose more than 4.8 points, 5 % gain more than 20, mostly short, strong flushes); peak pool swirl +28 % in the median and the vortex dip about 12 mm deeper, mainly from the corrected pool inertia; solids and paper change little in most designs. Presets:
 
@@ -138,7 +146,7 @@ Version 2.0 changes model results. Work in progress on branch `dev-2.0`; this en
 | Washdown, full | 87.6 → 86.5 % | 99.4 → 99.2 % | 90.0 → 89.9 % | 0.64 → 0.84 m/s | 21 → 36 mm | 55 mm |
 | Washdown, partial | 87.5 → 86.5 % | 93.3 → 93.4 % | 71.4 → 73.0 % | 0.57 → 0.84 m/s | 16 → 36 mm | 55 mm |
 | Siphonic, full | 96.1 → 89.9 % | 98.9 → 98.7 % | 87.3 → 89.5 % | 0.77 → 1.09 m/s | 30 → 60 mm | 54 → 60 mm |
-| Siphonic, partial | 70.5 → 85.1 % | 93.5 → 95.0 % | 69.2 → 78.7 % | 0.65 → 0.84 m/s | 22 → 36 mm | 55 → 48 mm |
+| Siphonic, partial | 70.5 → 85.1 % | 93.5 → 95.0 % | 69.2 → 78.7 % | 0.65 → 0.84 m/s | 22 → 36 mm | 55 → 59 mm |
 
 Model description: corrected angular momentum statement; new subsections on integration, film entry and transit; partial flush, siphon break, refill, pool inertia, cleaning map, numerics and resolution notes; noise figures for the presets updated; published bowl data (water surface, volume at rest, seal) compared with the presets; new limits.
 

@@ -297,6 +297,17 @@ for (const kind of ['washdown', 'siphonic']) {
   check('D8 rim line row on a flat wall (rim 190 mm, pool 40 mm, depth 90 mm): 25 mm depth lies inside the row', (zTop <= 0.025 && zBot >= 0.025) ? 0 : 1, 0, '', `row from ${(zTop * 1000).toFixed(1)} to ${(zBot * 1000).toFixed(1)} mm deep`);
 }
 
+// D9 the noise calibration evaluates recorded flow series without the 32 combinations; for the same coefficients this
+// must give exactly the simulator's own noise result
+{
+  const r0 = rng(25); let worst = 0;
+  for (let i = 0; i < 20; i++) {
+    const p = fullDesign(M, r0), r = sim(p, { noiseSeries: true }), e = M.noiseEval(r.noiseSeries, p).noise;
+    worst = Math.max(worst, Math.abs(e.peak - r.noise.peak), Math.abs(e.energy - r.noise.energy), (e.airT == null) !== (r.noise.airT == null) ? 99 : 0);
+  }
+  check('D9 noise from recorded flow series against the simulator, peak and energy, 20 random designs', worst, 1e-9, 'dB');
+}
+
 const failed = results.filter((x) => !x).length;
 console.log(`\n${results.length + known.length} checks: ${failed} failed${known.length ? `, ${known.length} known open issue${known.length > 1 ? 's' : ''}` : ''}`);
 const bad = failed || (STRICT && known.length);

@@ -52,10 +52,10 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   ok('F04 reset after undo gives washdown', (await P()).type === 'washdown');
   await page.click('[data-type="siphonic"]'); await page.waitForTimeout(150);
   const p1 = await P(), seal = await page.textContent('#kSeal');
-  ok('F04 trap button to siphonic sets refill and dropdown', p1.refill === 0.6 && (await page.inputValue('#preset')) === 'siphonic', { refill: p1.refill, seal });
+  ok('F04 trap button to siphonic sets refill and dropdown', p1.refill === 0.8 && (await page.inputValue('#preset')) === 'siphonic', { refill: p1.refill, seal });
   await page.click('[data-type="washdown"]'); await page.waitForTimeout(150);
   ok('F04 trap button back to washdown sets dropdown', (await page.inputValue('#preset')) === 'washdown');
-  ok('F10 preset label', (await page.textContent('#preset option[value=siphonic]')).includes('0.6 L refill'));
+  ok('F10 preset label', (await page.textContent('#preset option[value=siphonic]')).includes('0.8 L refill'));
 
   // F-06 rim gap
   await fresh();
@@ -166,6 +166,42 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   // F-15 links
   const hrefs = await page.evaluate(() => [...document.querySelectorAll('a')].map((a) => a.getAttribute('href')).filter((h) => h && h.includes('fintlp.github.io/jet-flush-model')));
   ok('F15 no absolute self links', hrefs.length === 0, hrefs);
+
+  // Noise calibration (2.0): A-weighting of the audio analysis, the demo fit, applying the result, real recordings
+  {
+    const tones = await page.evaluate(() => { const an = FlushAI._test.analyzeSamples, sr = 44100, out = {}; for (const f of [100, 1000, 4000]) { const x = new Float32Array(sr * 2); for (let i = 0; i < x.length; i++) x[i] = 0.5 * Math.sin(2 * Math.PI * f * i / sr); out[f] = an(x, sr).peak - 20 * Math.log10(0.5 / Math.SQRT2); } return out; });
+    // IEC 61672 A-weighting: -19.1 dB at 100 Hz, 0 at 1 kHz, +1.0 at 4 kHz
+    ok('Noise: A-weighting of a 100 Hz, 1 kHz and 4 kHz tone within 0.5 dB', Math.abs(tones[100] + 19.1) < 0.5 && Math.abs(tones[1000]) < 0.05 && Math.abs(tones[4000] - 1.0) < 0.5, tones);
+    await fresh();
+    await page.evaluate(() => document.querySelector('[data-aitab="aiNoise"]').click());
+    await page.click('#nzDemoRun');
+    await page.waitForFunction(() => FlushAI._test.noise().fit && !FlushAI._test.noise().running, null, { timeout: 180000 });
+    const F = await page.evaluate(() => { const f = FlushAI._test.noise().fit; return { loo: f.loo, rms0: f.rms0, rms1: f.rms1, rCore: f.fitted.rCore }; });
+    ok('Noise demo: the fit lowers the error on designs left out', F.loo && F.loo.fit < F.loo.def - 0.2, F);
+    await page.click('#nzApply'); await page.waitForTimeout(200);
+    const after = await P();
+    ok('Noise demo: applying sets the fitted values in the simulator', Math.abs(after.rCore - Math.round(F.rCore / 0.05) * 0.05) < 1e-9, { rCore: after.rCore, fitted: F.rCore });
+    // real recordings: three designs, a generated recording each, then meter readings must not be mixed in
+    await fresh();
+    await page.evaluate(() => document.querySelector('[data-aitab="aiNoise"]').click());
+    await page.click('#nzModeReal');
+    const wav = (amp) => { const sr = 8000, n = sr * 3, b = Buffer.alloc(44 + 2 * n); b.write('RIFF', 0); b.writeUInt32LE(36 + 2 * n, 4); b.write('WAVEfmt ', 8); b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22); b.writeUInt32LE(sr, 24); b.writeUInt32LE(2 * sr, 28); b.writeUInt16LE(2, 32); b.writeUInt16LE(16, 34); b.write('data', 36); b.writeUInt32LE(2 * n, 40);
+      for (let i = 0; i < n; i++) b.writeInt16LE(Math.round(32767 * amp * Math.sin(2 * Math.PI * 1000 * i / sr)), 44 + 2 * i); return b; };
+    for (const [k, v, amp] of [['Vfull', 4.0, 0.2], ['Vfull', 5.0, 0.3], ['Vfull', 6.0, 0.4]]) {
+      await slide(k, v); await page.waitForTimeout(100);
+      await page.setInputFiles('#nzFiles', { name: `tone-${v}.wav`, mimeType: 'audio/wav', buffer: wav(amp) });
+      await page.waitForFunction((n) => FlushAI._test.noise().real.length === n && FlushAI._test.noise().real[n - 1].recs.length === 1, [['4', 1], ['5', 2], ['6', 3]].find((x) => +x[0] === v)[1], { timeout: 20000 });
+    }
+    const peaks = await page.evaluate(() => FlushAI._test.noise().real.map((d) => d.recs[0].peak));
+    ok('Noise recordings: a 1 kHz tone file reads its level within 0.2 dB', Math.abs(peaks[0] - (20 * Math.log10(0.2) - 3.01)) < 0.2 && Math.abs(peaks[2] - (20 * Math.log10(0.4) - 3.01)) < 0.2, peaks);
+    await page.click('#nzFitRun');
+    await page.waitForFunction(() => FlushAI._test.noise().fit && !FlushAI._test.noise().running, null, { timeout: 120000 });
+    ok('Noise recordings: three designs can be fitted', await page.evaluate(() => !!FlushAI._test.noise().fit));
+    await page.fill('#nzMeter', '70'); await page.click('#nzMeterAdd'); await page.click('#nzFitRun'); await page.waitForTimeout(200);
+    ok('Noise recordings: files and meter readings are not mixed in one fit', (await page.textContent('#nzStatus')).includes('cannot be mixed'));
+    const kept = await page.evaluate(() => JSON.parse(localStorage.getItem('tfs-noise-v1') || '[]').length);
+    ok('Noise recordings: the peak levels are remembered in this browser', kept === 3, kept);
+  }
 
   ok('No page errors', errs.length === 0, errs.slice(0, 5));
   console.log(out.join('\n'));

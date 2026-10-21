@@ -14,11 +14,11 @@
       Hs: 250, Ks: 3.0, Qgrav: 0.6, Vtrap: 0.5, refill: 0.0
     },
     siphonic: {
-      label: 'Siphonic, 4.8 L + 0.6 L refill',
+      label: 'Siphonic, 4.8 L + 0.8 L refill',
       type: 'siphonic', Vfull: 4.8, Vpart: 3.0, Hcr: 200, Kpath: 1.0,
       nJets: 2, Anoz: 4.5, hNoz: 12, alpha: 10, jetPhase: 0,
       Rrim: 150, Rpool: 80, ovality: 1.0, Dwall: 130, seal: 60, dTrap: 50,
-      Hs: 250, Ks: 3.0, Qgrav: 0.6, Vtrap: 0.5, refill: 0.6
+      Hs: 250, Ks: 3.0, Qgrav: 0.6, Vtrap: 0.5, refill: 0.8
     }
   };
 
@@ -144,6 +144,68 @@
     let lo = 0, hi = g.NZ - 1;
     while (hi - lo > 1) { const m = (lo + hi) >> 1; if (vt[m] < V) lo = m; else hi = m; }
     return zt[lo] + (V - vt[lo]) / (vt[hi] - vt[lo]) * (zt[hi] - zt[lo]);
+  }
+
+  /* ---------- noise indicator ----------
+     Every source is written as a flow of air into the water (m3/s), weighted by the sound it makes per unit of
+     air: 1 for fine splash bubbles, wTrap for large air pockets in the trap. The weighted sum stands for radiated
+     sound power and is only used relative to a reference.
+       1 jet films plunging into the pool, at their speed relative to the rotating pool surface
+       2 water falling from the trap weir into the outlet (free-surface trap flow only)
+       3 air core: the vortex centre dips down to the top of the trap inlet while water flows out
+       4 siphon break
+     ser holds the flow quantities of a run at every time step (simulate records them); c holds the noise
+     coefficients. With corners, variant 0 is c itself and variants 1..32 are the corners of the uncertainty box
+     from noiseCorners(c); otherwise only c. The flow never depends on these coefficients, so a run's series can
+     be evaluated for any coefficients without simulating again (used by the noise calibration in the AI lab). */
+  function noiseEval(ser, c, opts) {
+    opts = opts || {};
+    const dt = ser.dt, ds = ser.ds, nX = c.nExp, tauF = 0.125, aF = 1 - Math.exp(-dt / tauF);   // exact 125 ms exponential smoothing
+    const NCo = opts.corners ? noiseCorners(c) : null, VAR = NCo ? NCo.list : [{ nUe: c.nUe, hFall: c.hFall, rCore: c.rCore, cCore: c.cCore, wTrap: c.wTrap }], NV = VAR.length;
+    // each uncertain value that enters a source takes one of a few levels; sources are computed once per level
+    const levels = (k, scale) => { const L = [c[k]]; if (NCo) L.push(NCo.lo[k], NCo.hi[k]); return { vals: L, idx: VAR.map((v) => L.indexOf(v[k])), s: L.map(scale) }; };
+    const lUe = levels('nUe', (x) => x), lhF = levels('hFall', (h) => h / 1000), lCv = levels('rCore', coreFactor);
+    const nU = lUe.vals.length, nH = lhF.vals.length, nC = lCv.vals.length;
+    const UeL = lUe.s, hFL = lhF.s, CvL = lCv.s, vUe = lUe.idx, vhF = lhF.idx, vCv = lCv.idx;
+    const ent = (Q, U, Ue) => (U > Ue ? c.nK * Q * Math.pow(U - Ue, nX) : 0);   // air entrained by plunging water, m3/s
+    const WfV = new Float64Array(NV), peakV = new Float64Array(NV), EV = new Float64Array(NV), coreV = new Array(nC).fill(false);
+    let tPeakN = 0, airT = null, airDur = 0;
+    const Esrc = [0, 0, 0, 0], Wsrc = [0, 0, 0, 0], WfS = [0, 0, 0, 0];
+    let peakShare = [0, 0, 0, 0];
+    const s1L = new Array(nU).fill(0), s2L = Array.from({ length: nU }, () => new Array(nH).fill(0)), coreL = new Array(nC).fill(false);
+    const tr = opts.trace ? { t: [], L: [], pl: [], out: [], air: [], brk: [], core: [], Lv: Array.from({ length: NV }, () => []) } : null;
+    for (let n = 0; n < ser.n; n++) {
+      const t = n * dt, Qs = ser.Qs[n], Qfree = ser.Qfree[n], z = ser.z[n], Qout = ser.Qout[n], dip = ser.dip[n], s4 = ser.s4[n];
+      for (let k = 0; k < nU; k++) s1L[k] = Qs > 0 ? ent(Qs, ser.ur[n], UeL[k]) : 0;
+      for (let k = 0; k < nU; k++) for (let h = 0; h < nH; h++) s2L[k][h] = Qfree > 0 ? ent(Qfree, Math.sqrt(2 * G * Math.max(z, 0) / 3 + 2 * G * hFL[h]), UeL[k]) : 0;
+      const subm = z + ds;
+      for (let k = 0; k < nC; k++) { coreL[k] = Qout > 1e-6 && CvL[k] * dip >= subm; if (coreL[k]) coreV[k] = true; }
+      const core = coreL[0];
+      if (core) { airDur += dt; if (airT === null) airT = t; }
+      Wsrc[0] = s1L[0]; Wsrc[1] = s2L[0][0]; Wsrc[2] = c.wTrap * (core ? c.cCore * Qout : 0); Wsrc[3] = c.wTrap * s4;
+      for (let k = 0; k < 4; k++) { Esrc[k] += Wsrc[k] * dt; WfS[k] += (Wsrc[k] - WfS[k]) * aF; }
+      for (let v = 0; v < NV; v++) {
+        const cv = VAR[v], ku = vUe[v];
+        const Wv = s1L[ku] + s2L[ku][vhF[v]] + cv.wTrap * ((coreL[vCv[v]] ? cv.cCore * Qout : 0) + s4);
+        EV[v] += Wv * dt;
+        WfV[v] += (Wv - WfV[v]) * aF;                  // 'fast' time weighting, 125 ms
+        if (WfV[v] > peakV[v]) { peakV[v] = WfV[v]; if (v === 0) { tPeakN = t; const sw = WfS[0] + WfS[1] + WfS[2] + WfS[3]; peakShare = WfS.map((x) => (sw > 0 ? x / sw : 0)); } }
+      }
+      if (tr && n % 2 === 0) {
+        tr.t.push(t); tr.L.push(10 * Math.log10(WfV[0] + 1e-12)); tr.pl.push(Wsrc[0]); tr.out.push(Wsrc[1]); tr.air.push(Wsrc[2]); tr.brk.push(Wsrc[3]); tr.core.push(core ? 1 : 0);
+        for (let v = 0; v < NV; v++) tr.Lv[v].push(10 * Math.log10(WfV[v] + 1e-12));
+      }
+    }
+    const dB = (x) => 10 * Math.log10(x + 1e-12), Es = Esrc[0] + Esrc[1] + Esrc[2] + Esrc[3];
+    const nCore = VAR.reduce((s, v, i) => s + (i > 0 && coreV[vCv[i]] ? 1 : 0), 0);
+    return {
+      noise: {
+        peak: dB(peakV[0]), energy: dB(EV[0]), tPeak: tPeakN,
+        share: Esrc.map((e) => (Es > 0 ? e / Es : 0)), peakShare, airT, airDur, coreFactor: CvL[0],
+        peakV: Array.from(peakV, dB), energyV: Array.from(EV, dB), coreCorners: nCore, nCorners: NV - 1
+      },
+      trace: tr
+    };
   }
 
   /* ---------- main simulation ---------- */
@@ -472,21 +534,11 @@
     const rec = light ? null : { t: [], Qin: [], Qout: [], z: [], Vc: [], vs: [], phi: [], Ms: [], Np: [], primed: [], Vt: [] };
 
     let tEnd = 0, Vspill = 0, overflowT = null;
-    // noise indicator state. Variant 0 uses the current coefficients; variants 1..32 are the corners of the
-    // uncertainty box from noiseCorners(). Each uncertain value takes one of three levels (setting, low, high).
-    const nX = p.nExp, tauF = 0.125, aF = 1 - Math.exp(-dt / tauF);   // exact 125 ms exponential smoothing
-    const NCo = noiseCorners(p), VAR = NCo.list, NV = VAR.length;
-    const lev = (k, v) => (v[k] === NCo.lo[k] ? 1 : 2);
-    const UeL = [p.nUe, NCo.lo.nUe, NCo.hi.nUe], hFL = [p.hFall, NCo.lo.hFall, NCo.hi.hFall].map((h) => h / 1000);
-    const CvL = [p.rCore, NCo.lo.rCore, NCo.hi.rCore].map(coreFactor);
-    const vUe = VAR.map((v, i) => (i === 0 ? 0 : lev('nUe', v))), vhF = VAR.map((v, i) => (i === 0 ? 0 : lev('hFall', v))), vCv = VAR.map((v, i) => (i === 0 ? 0 : lev('rCore', v)));
-    const ent = (Q, U, Ue) => (U > Ue ? p.nK * Q * Math.pow(U - Ue, nX) : 0);   // air entrained by plunging water, m3/s
-    const WfV = new Float64Array(NV), peakV = new Float64Array(NV), EV = new Float64Array(NV), coreV = [false, false, false];
-    let tPeakN = 0, airT = null, airDur = 0, tBrk = null, Qbrk = 0;
-    const Esrc = [0, 0, 0, 0], Wsrc = [0, 0, 0, 0], WfS = [0, 0, 0, 0];
-    let peakShare = [0, 0, 0, 0];
-    const s1L = [0, 0, 0], s2L = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], coreL = [false, false, false];
-    const nrec = light ? null : { t: [], L: [], pl: [], out: [], air: [], brk: [], core: [], Lv: Array.from({ length: NV }, () => []) };
+    // noise indicator: the flow quantities the four sources need are recorded at every step; noiseEval() turns them
+    // into the noise result after the run (they do not feed back into the flow)
+    const NSER = Math.floor(Tmax / dt) + 3;
+    const ser = { n: 0, dt, ds, Qs: new Float64Array(NSER), ur: new Float64Array(NSER), Qfree: new Float64Array(NSER), z: new Float64Array(NSER), Qout: new Float64Array(NSER), dip: new Float64Array(NSER), s4: new Float64Array(NSER) };
+    let tBrk = null, Qbrk = 0;
     for (let n = 0; ; n++) {
       const t = n * dt; tEnd = t;
       // stop once the flush is over: cistern empty and 6 s of settling, but never before Tend or after Tmax
@@ -584,34 +636,15 @@
       if (Qout > 1e-6) { if (vs > vsPeak) vsPeak = vs; if (dip > dipPeak) dipPeak = dip; }
       if (z > zPeak) zPeak = z;
 
-      // noise indicator. Every source is written as a flow of air into the water (m3/s), weighted by the
-      // sound it makes per unit of air: 1 for fine splash bubbles, wTrap for large air pockets in the trap.
-      // The weighted sum stands for radiated sound power and is only used relative to a reference.
-      // 1 jet films plunging into the pool, speed relative to the local surface velocity of the rotating pool
-      s1L[0] = s1L[1] = s1L[2] = 0;
-      if (Qs > 0) {   // film arriving now, with its flow-weighted mean entry velocity
-        const ur = Math.hypot(aVx + om * aY, aVy - om * aX, aVz);   // pool surface moves at om x r
-        for (let k = 0; k < 3; k++) s1L[k] += ent(Qs, ur, UeL[k]);
-      }
-      // 2 water falling from the trap weir into the outlet (free surface flow only)
-      const Qfree = siph && primed ? 0 : Qout;
-      for (let k = 0; k < 3; k++) for (let h = 0; h < 3; h++) s2L[k][h] = Qfree > 0 ? ent(Qfree, Math.sqrt(2 * G * Math.max(z, 0) / 3 + 2 * G * hFL[h]), UeL[k]) : 0;
-      // 3 air core: the vortex centre dips down to the top of the trap inlet while water flows out
-      const subm = z + ds;
-      for (let k = 0; k < 3; k++) { coreL[k] = Qout > 1e-6 && CvL[k] * dip >= subm; if (coreL[k]) coreV[k] = true; }
-      const core = coreL[0];
-      if (core) { airDur += dt; if (airT === null) airT = t; }
-      // 4 siphon break: air replaces the water in the trap leg at the rate the siphon was carrying it out,
-      // decaying once the leg's volume has been replaced (time constant Vtrap / Qbrk)
-      const s4 = !primed && tBrk !== null && t >= tBrk ? Qbrk * Math.exp(-(t - tBrk) * Qbrk / Math.max(1e-9, Vtrap)) : 0;
-      Wsrc[0] = s1L[0]; Wsrc[1] = s2L[0][0]; Wsrc[2] = p.wTrap * (core ? p.cCore * Qout : 0); Wsrc[3] = p.wTrap * s4;
-      for (let k = 0; k < 4; k++) { Esrc[k] += Wsrc[k] * dt; WfS[k] += (Wsrc[k] - WfS[k]) * aF; }
-      for (let v = 0; v < NV; v++) {
-        const c = VAR[v], ku = vUe[v];
-        const Wv = s1L[ku] + s2L[ku][vhF[v]] + c.wTrap * ((coreL[vCv[v]] ? c.cCore * Qout : 0) + s4);
-        EV[v] += Wv * dt;
-        WfV[v] += (Wv - WfV[v]) * aF;                  // 'fast' time weighting, 125 ms
-        if (WfV[v] > peakV[v]) { peakV[v] = WfV[v]; if (v === 0) { tPeakN = t; const sw = WfS[0] + WfS[1] + WfS[2] + WfS[3]; peakShare = WfS.map((x) => (sw > 0 ? x / sw : 0)); } }
+      // noise indicator inputs (see noiseEval)
+      {
+        const i = n; ser.n = n + 1;
+        ser.Qs[i] = Qs; ser.ur[i] = Qs > 0 ? Math.hypot(aVx + om * aY, aVy - om * aX, aVz) : 0;   // film speed relative to the pool surface (om x r)
+        ser.Qfree[i] = siph && primed ? 0 : Qout;   // water falling into the outlet: free-surface trap flow only
+        ser.z[i] = z; ser.Qout[i] = Qout; ser.dip[i] = dip;
+        // siphon break: air replaces the water in the trap leg at the rate the siphon was carrying it out,
+        // decaying once the leg's volume has been replaced (time constant Vtrap / Qbrk)
+        ser.s4[i] = !primed && tBrk !== null && t >= tBrk ? Qbrk * Math.exp(-(t - tBrk) * Qbrk / Math.max(1e-9, Vtrap)) : 0;
       }
 
       // waste transport
@@ -629,8 +662,6 @@
         rec.t.push(t); rec.Qin.push(Qin * 1000); rec.Qout.push(Qout * 1000); rec.z.push(z * 1000);
         rec.Vc.push(Vc * 1000); rec.vs.push(vs); rec.phi.push(phi); rec.Ms.push(Ms); rec.Np.push(Np);
         rec.primed.push(primed ? 1 : 0); rec.Vt.push(Vt / Math.max(1e-9, Vtrap));
-        nrec.t.push(t); nrec.L.push(10 * Math.log10(WfV[0] + 1e-12)); nrec.pl.push(Wsrc[0]); nrec.out.push(Wsrc[1]); nrec.air.push(Wsrc[2]); nrec.brk.push(Wsrc[3]); nrec.core.push(core ? 1 : 0);
-        for (let v = 0; v < NV; v++) nrec.Lv[v].push(10 * Math.log10(WfV[v] + 1e-12));
       }
     }
 
@@ -662,21 +693,16 @@
       tEnd, incomplete, cisternLeft: Vgo * 1000, nPrimes, refillIn: Vref * 1000, overflow: overflowT !== null, overflowT, spill: Vspill * 1000, valid: overflowT === null && !incomplete,
       cleanPerL: 100 * Aclean / Atot / water,
       filmLostPct: film.allQ > 0 ? 100 * film.lostQ / film.allQ : 0, filmRetraces: film.nR,
-      noise: (() => {
-        const dB = (x) => 10 * Math.log10(x + 1e-12), Es = Esrc[0] + Esrc[1] + Esrc[2] + Esrc[3];
-        const nCore = VAR.reduce((s, v, i) => s + (i > 0 && coreV[vCv[i]] ? 1 : 0), 0);
-        return {
-          peak: dB(peakV[0]), energy: dB(EV[0]), tPeak: tPeakN,
-          share: Esrc.map((e) => (Es > 0 ? e / Es : 0)), peakShare, airT, airDur, coreFactor: CvL[0],
-          peakV: Array.from(peakV, dB), energyV: Array.from(EV, dB), coreCorners: nCore, nCorners: NV - 1
-        };
-      })(),
+      noise: null,
       runMs: 0
     };
-    if (!light) Object.assign(out, { J, tWet, tClean, lines, rec, nrec });
+    const NZ = noiseEval(ser, p, { corners: true, trace: !light });
+    out.noise = NZ.noise;
+    if (opts.noiseSeries) out.noiseSeries = ser;
+    if (!light) Object.assign(out, { J, tWet, tClean, lines, rec, nrec: NZ.trace });
     out.runMs = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0;
     return out;
   }
 
-  root.FlushModel = { simulate, defaults, PRESETS, COEFFS, buildGeom, geomAt, sAtDepth, levelFromVol, volAtLevel, q4AtLevel, coreFactor, rankineF, noiseCorners, NTH: NTH0, NS: NS0 };
+  root.FlushModel = { simulate, defaults, PRESETS, COEFFS, buildGeom, geomAt, sAtDepth, levelFromVol, volAtLevel, q4AtLevel, coreFactor, rankineF, noiseCorners, noiseEval, NTH: NTH0, NS: NS0 };
 })(typeof window !== 'undefined' ? window : globalThis);

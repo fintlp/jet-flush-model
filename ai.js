@@ -2,7 +2,8 @@
    1. Evolutionary multi-objective design search (NSGA-II style)
    2. Neural surrogate trained in the browser on physics-model runs
    3. Hybrid calibration: Nelder-Mead coefficient fit plus a Gaussian-process correction,
-      against synthetic reference data that stands in for PreonLab runs */
+      against synthetic reference data that stands in for PreonLab runs
+   4. Noise calibration: the five noise coefficients fitted to recorded flushes (or synthetic demo recordings) */
 (function () {
   const A = window.FlushApp, M = window.FlushModel;
   if (!A || !M) return;
@@ -63,7 +64,7 @@
   const tabs = document.querySelectorAll('[data-aitab]');
   tabs.forEach((b) => b.addEventListener('click', () => {
     tabs.forEach((x) => { x.setAttribute('aria-selected', String(x === b)); x.setAttribute('aria-pressed', String(x === b)); });
-    ['aiOpt', 'aiSur', 'aiHyb'].forEach((id) => { $(id).hidden = id !== b.dataset.aitab; });
+    ['aiOpt', 'aiSur', 'aiHyb', 'aiNoise'].forEach((id) => { $(id).hidden = id !== b.dataset.aitab; });
     redraw();
   }));
 
@@ -599,7 +600,8 @@
   const thetaToCoef = (th) => { const o = {}; CAL.forEach((c, i) => { const u = 1 / (1 + Math.exp(-th[i])); o[c.k] = Math.exp(Math.log(c.lo) + u * (Math.log(c.hi) - Math.log(c.lo))); }); return o; };
   const coefToTheta = (o) => CAL.map((c) => { const u = (Math.log(o[c.k]) - Math.log(c.lo)) / (Math.log(c.hi) - Math.log(c.lo)); const uu = Math.min(0.999, Math.max(0.001, u)); return Math.log(uu / (1 - uu)); });
   // Nelder-Mead as a generator, so it can run in time slices
-  function* nelderMead(f, x0, iters) {
+  function* nelderMead(f, x0, iters, sink) {
+    sink = sink || H;
     const n = x0.length; let simplex = [x0.slice()];
     for (let i = 0; i < n; i++) { const p = x0.slice(); p[i] += 0.8; simplex.push(p); }
     let fs = []; for (const p of simplex) { fs.push(f(p)); yield; }
@@ -611,9 +613,9 @@
       if (fr < fs[0]) { const xe = pt(-2), fe = f(xe); yield; if (fe < fr) { simplex[n] = xe; fs[n] = fe; } else { simplex[n] = xr; fs[n] = fr; } }
       else if (fr < fs[n - 1]) { simplex[n] = xr; fs[n] = fr; }
       else { const xc = pt(fr < fs[n] ? -0.5 : 0.5), fc = f(xc); yield; if (fc < Math.min(fr, fs[n])) { simplex[n] = xc; fs[n] = fc; } else { for (let i = 1; i <= n; i++) { simplex[i] = simplex[i].map((v, j) => simplex[0][j] + 0.5 * (v - simplex[0][j])); fs[i] = f(simplex[i]); yield; } } }
-      H.best = { x: simplex[0], f: fs[0], it: it + 1 };
+      sink.best = { x: simplex[0], f: fs[0], it: it + 1 };
     }
-    const i0 = fs.indexOf(Math.min(...fs)); H.best = { x: simplex[i0], f: fs[i0], it: iters };
+    const i0 = fs.indexOf(Math.min(...fs)); sink.best = { x: simplex[i0], f: fs[i0], it: iters };
   }
   // Gaussian process regression with an RBF kernel on the design inputs
   function gpFit(X, y, ell, noise) {
@@ -720,10 +722,320 @@
   }
   $('hybRun').addEventListener('click', runHyb);
 
+  /* =====================================================================
+     4. Noise calibration
+        - recordings of real flushes (audio files or sound level meter readings) per design, or synthetic
+          recordings made from a hidden reference in the demo
+        - audio is A-weighted and turned into a 'fast' level (125 ms), as a sound level meter does; the peak is used
+        - each design is simulated once; its flow series are re-evaluated by FlushModel.noiseEval for any noise
+          coefficients, so the fit costs almost nothing per step
+        - the fit matches the model's peak differences between designs to the measured ones (a free offset absorbs
+          microphone, room and distance), plus optional air core times from video, with a weak pull towards the
+          current values so a few designs cannot drive coefficients to their limits
+     ===================================================================== */
+  const NZK = ['nUe', 'hFall', 'rCore', 'cCore', 'wTrap'];
+  const NZB = { nUe: [0.4, 1.5], hFall: [40, 300], rCore: [0.3, 1], cCore: [0.003, 0.3], wTrap: [0.01, 1] };   // the slider ranges (cCore above 0 for the log scale)
+  const NZ_HIDDEN = { nUe: 1.0, hFall: 170, rCore: 0.5, cCore: 0.1, wTrap: 0.22 };
+  const NZ_STORE = 'tfs-noise-v1';
+  const NZ = { mode: 'demo', demo: [], real: [], fit: null, running: false, sel: 0 };
+  const nzList = () => (NZ.mode === 'demo' ? NZ.demo : NZ.real);
+  const coefOf = (p) => ({ nUe: p.nUe, nExp: p.nExp, nK: p.nK, hFall: p.hFall, rCore: p.rCore, cCore: p.cCore, wTrap: p.wTrap });
+
+  // ---- audio: A-weighting (IEC 61672 poles, bilinear with prewarping) and 'fast' exponential level ----
+  function aWeightSections(sr) {
+    const fs2 = 2 * sr, pw = (f) => fs2 * Math.tan(Math.PI * f / sr);
+    const secs = [['h', 20.6], ['h', 20.6], ['h', 107.7], ['h', 737.9], ['l', 12194], ['l', 12194]].filter(([, f]) => f < 0.45 * sr).map(([k, f]) => ({ k, w: pw(f) }));
+    // normalise to 0 dB at 1 kHz
+    const Om = 2 * Math.PI * 1000 / sr, c = Math.cos(Om), sn = Math.sin(Om);
+    let g = 1;
+    for (const q of secs) {
+      const den = Math.hypot(fs2 + q.w - (fs2 - q.w) * c, (fs2 - q.w) * sn);
+      g *= (q.k === 'h' ? fs2 * 2 * Math.sin(Om / 2) : q.w * 2 * Math.cos(Om / 2)) / den;
+    }
+    return { secs, fs2, g };
+  }
+  // level over time in dB (relative to full scale for audio): A-weighted, 125 ms exponential, every 10 ms
+  function analyzeSamples(x, sr) {
+    const { secs, fs2, g } = aWeightSections(sr), y = Float64Array.from(x);
+    for (const q of secs) {
+      let xp = 0, yp = 0; const a = fs2 + q.w, b = fs2 - q.w;
+      for (let i = 0; i < y.length; i++) { const xi = y[i], yi = q.k === 'h' ? (fs2 * (xi - xp) + b * yp) / a : (q.w * (xi + xp) + b * yp) / a; xp = xi; yp = yi; y[i] = yi; }
+    }
+    const aF = 1 - Math.exp(-1 / (sr * 0.125)), step = Math.max(1, Math.round(sr * 0.01)), t = [], L = [];
+    let e = 0, emax = 0;
+    for (let i = 0; i < y.length; i++) { const v = y[i] / g; e += (v * v - e) * aF; if (e > emax) emax = e; if (i % step === 0) { t.push(i / sr); L.push(10 * Math.log10(e + 1e-15)); } }
+    return { t, L, peak: 10 * Math.log10(emax + 1e-15), dur: y.length / sr };
+  }
+  function decodeFile(file) {
+    return file.arrayBuffer().then((buf) => new Promise((res, rej) => {
+      const Ctx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+      if (!Ctx) { rej(new Error('This browser cannot decode audio.')); return; }
+      const ctx = new Ctx(1, 1, 44100);
+      const done = (ab) => { const n = ab.length, x = new Float32Array(n); for (let ch = 0; ch < ab.numberOfChannels; ch++) { const d = ab.getChannelData(ch); for (let i = 0; i < n; i++) x[i] += d[i] / ab.numberOfChannels; } res({ x, sr: ab.sampleRate }); };
+      const pr = ctx.decodeAudioData(buf, done, (e) => rej(e || new Error('The file could not be decoded.')));
+      if (pr && pr.catch) pr.catch(() => { });
+    }));
+  }
+
+  // ---- designs ----
+  const DKEYS = ['Vfull', 'Vpart', 'Hcr', 'Kpath', 'nJets', 'Anoz', 'hNoz', 'alpha', 'jetPhase', 'ovality', 'Rrim', 'Rpool', 'Dwall', 'seal', 'dTrap', 'Hs', 'Ks', 'Qgrav', 'Vtrap', 'refill'];
+  function nzLabel(p) {
+    const d = M.defaults(p.type === 'siphonic' ? 'siphonic' : 'washdown');
+    const ch = DKEYS.filter((k) => Math.abs((+p[k]) - (+d[k])) > 1e-9).map((k) => { const s = A.SPECK[k]; return `${s.l.toLowerCase()} ${fmt(p[k], s.d)}${s.u ? ' ' + s.u : ''}`; });
+    return `${p.type === 'siphonic' ? 'Siphonic' : 'Washdown'}${p.flushMode === 'partial' ? ', partial flush' : ''}${ch.length ? ' · ' + ch.slice(0, 3).join(', ') + (ch.length > 3 ? ` and ${ch.length - 3} more` : '') : ' · preset'}`;
+  }
+  const sameDesign = (a, b) => DKEYS.concat(['type', 'flushMode']).every((k) => a[k] === b[k]);
+  function nzSeries(d) { if (!d.ser) { const r = M.simulate(Object.assign({}, d.p), { light: true, Tend: 12, noiseSeries: true }); d.ser = r.noiseSeries; d.tEnd = r.tEnd; d.tEmpty = r.tEmpty; } return d.ser; }
+  const nzMeas = (d) => { const v = d.recs.map((r) => r.peak); return v.length ? { m: v.reduce((a, b) => a + b, 0) / v.length, lo: Math.min(...v), hi: Math.max(...v) } : null; };
+  function nzAirObs(d) { const s = String(d.air == null ? '' : d.air).trim().toLowerCase(); if (!s) return null; if (s === 'none' || s === 'no' || s === '-') return { none: true }; const v = parseFloat(s.replace(',', '.')); return isFinite(v) && v >= 0 ? { t: v } : null; }
+  function nzSave() {
+    try { localStorage.setItem(NZ_STORE, JSON.stringify(NZ.real.map((d) => ({ p: d.p, air: d.air, recs: d.recs.map((r) => ({ name: r.name, peak: r.peak, unit: r.unit })) })))); } catch (e) { }
+  }
+  try { const o = JSON.parse(localStorage.getItem(NZ_STORE) || '[]'); if (Array.isArray(o)) NZ.real = o.filter((d) => d && d.p && Array.isArray(d.recs)).map((d) => ({ p: d.p, air: d.air || '', recs: d.recs.filter((r) => r && isFinite(r.peak)) })); } catch (e) { }
+
+  // ---- fit ----
+  const nzTh = (k, v) => { const [lo, hi] = NZB[k], u = Math.min(0.999, Math.max(0.001, (Math.log(v) - Math.log(lo)) / (Math.log(hi) - Math.log(lo)))); return Math.log(u / (1 - u)); };
+  const nzVal = (k, th) => { const [lo, hi] = NZB[k], u = 1 / (1 + Math.exp(-th)); return Math.exp(Math.log(lo) + u * (Math.log(hi) - Math.log(lo))); };
+  function nzPredict(designs, coef) {
+    return designs.map((d) => { const r = M.noiseEval(nzSeries(d), coef).noise; return { P: r.peak, airT: r.airT }; });
+  }
+  // squared error of the model's peak differences (free offset) plus air core timing, per design
+  function nzErr(designs, coef, prior0, keys) {
+    const pr = nzPredict(designs, coef), ms = designs.map((d) => nzMeas(d).m);
+    const c = ms.reduce((s, m, i) => s + m - pr[i].P, 0) / ms.length;
+    let e = 0;
+    pr.forEach((q, i) => {
+      e += (q.P + c - ms[i]) ** 2;
+      const ob = nzAirObs(designs[i]);
+      if (ob) { if (ob.none) e += q.airT == null ? 0 : 4; else e += q.airT == null ? 4 : Math.min(4, ((q.airT - ob.t) / 0.25) ** 2); }   // 0.25 s off counts like 1 dB off
+    });
+    if (prior0) keys.forEach((k) => { e += 0.1 * Math.log(coef[k] / prior0[k]) ** 2; });
+    return { e: e / designs.length, c, pr };
+  }
+  // Nelder-Mead from several starts (the error has flat parts where a threshold such as the air core is not
+  // crossed), as a generator that yields between objective evaluations so the page stays responsive
+  function* nzFitGen(designs, base, keys, iters, starts, out) {
+    const mk = (th) => { const c = Object.assign({}, base); keys.forEach((k, i) => { c[k] = nzVal(k, th[i]); }); return c; };
+    const f = (th) => nzErr(designs, mk(th), base, keys).e;
+    let best = null;
+    for (const st of starts) {
+      const x0 = keys.map((k) => nzTh(k, st[k])), sink = {};
+      yield* nelderMead(f, x0, iters, sink);
+      if (!best || sink.best.f < best.f) best = sink.best;
+    }
+    out.coef = mk(best.x);
+  }
+  const shifted = (base, keys, s) => { const o = Object.assign({}, base); keys.forEach((k) => { o[k] = nzVal(k, nzTh(k, base[k]) + s); }); return o; };
+  function nzRunFit() {
+    const designs = nzList().filter((d) => d.recs.length);
+    const keys = NZK.filter((k) => $('nzv_' + k).checked);
+    if (designs.length < 3) { $('nzStatus').textContent = 'At least three designs with recordings are needed: the fit uses the differences between them.'; return; }
+    const units = new Set(designs.flatMap((d) => d.recs.map((r) => r.unit)));
+    if (units.size > 1) { $('nzStatus').textContent = 'Audio files and meter readings have different zero points and cannot be mixed in one fit. Remove one kind.'; return; }
+    const kinds = new Set(designs.map((d) => d.p.type));
+    if (!keys.length) { $('nzStatus').textContent = 'Tick at least one coefficient to fit.'; return; }
+    $('nzStatus').textContent = 'Simulating each design once…';
+    NZ.running = true; $('nzFitRun').disabled = true; $('nzDemoRun').disabled = true;
+    const t0 = now(), base = coefOf(A.getP()), m = designs.length;
+    let di = 0, stage = 'sim', gen = null, j = -1, main = {}, cur = {}; const r0 = [], r1 = [];
+    NZ.stop = slices(() => {
+      if (stage === 'sim') { if (di < m) { nzSeries(designs[di++]); return true; } stage = 'fit'; gen = nzFitGen(designs, base, keys, 250, [base, shifted(base, keys, 0.7), shifted(base, keys, -0.7)], main); $('nzStatus').textContent = 'Fitting…'; return true; }
+      if (stage === 'fit') { if (!gen.next().done) return true; stage = m >= 4 ? 'loo' : 'done'; return true; }
+      if (stage === 'loo') {
+        // leave one design out: fit on the others (started from the full fit), predict the one left out with the others' offset
+        if (gen && j >= 0 && !gen.next().done) return true;
+        if (j >= 0) {
+          const d = designs[j], rest = designs.filter((_, i) => i !== j), mm = nzMeas(d).m;
+          r0.push((nzErr(rest, base, null, keys).c + M.noiseEval(nzSeries(d), base).noise.peak - mm) ** 2);
+          r1.push((nzErr(rest, cur.coef, null, keys).c + M.noiseEval(nzSeries(d), cur.coef).noise.peak - mm) ** 2);
+        }
+        j++;
+        if (j >= m) { stage = 'done'; return true; }
+        $('nzStatus').textContent = `Checking on designs left out of the fit: ${j + 1} of ${m}…`;
+        cur = {}; gen = nzFitGen(designs.filter((_, i) => i !== j), base, keys, 150, [main.coef, base], cur);
+        return true;
+      }
+      return false;
+    }, () => {
+      const fitted = main.coef, e0 = nzErr(designs, base, null, keys), e1 = nzErr(designs, fitted, null, keys);
+      const loo = r0.length ? { def: Math.sqrt(r0.reduce((a, b) => a + b, 0) / r0.length), fit: Math.sqrt(r1.reduce((a, b) => a + b, 0) / r1.length) } : null;
+      const rms = (E) => Math.sqrt(E.pr.reduce((sq, q, i) => sq + (q.P + E.c - nzMeas(designs[i]).m) ** 2, 0) / m);
+      NZ.fit = { keys, base, fitted, designs, e0, e1, rms0: rms(e0), rms1: rms(e1), loo, mixed: kinds.size > 1, demo: NZ.mode === 'demo', ms: now() - t0, unit: [...units][0] };
+      NZ.running = false; $('nzFitRun').disabled = false; $('nzDemoRun').disabled = false;
+      $('nzStatus').textContent = `Fitted ${keys.length} coefficient${keys.length > 1 ? 's' : ''} to ${m} designs in ${(NZ.fit.ms / 1000).toFixed(1)} s${m >= 4 ? `, with ${m} leave-one-out fits` : '; the leave-one-out check needs four designs'}.`;
+      nzRender();
+    });
+  }
+
+  // ---- demo: synthetic recordings from a hidden reference ----
+  function nzMakeDemo() {
+    if (NZ.running) return;
+    NZ.running = true; $('nzDemoRun').disabled = true; $('nzFitRun').disabled = true; NZ.fit = null;
+    // the demo uses the siphonic preset with the current model coefficients: its gurgle separates the trap sources
+    // from the splash sources, so the recordings carry information about all of them
+    const cur = A.getP(), base = Object.assign(M.defaults('siphonic'), coefOf(cur)), n = +$('nzDemoN').value, r = rng(77), X = lhs(n, rng(78)), sr = 16000;
+    const hid = Object.assign(coefOf(base), NZ_HIDDEN);
+    NZ.demo = X.map((x) => ({ p: Object.assign({}, base, toDesign(x), { flushMode: 'full' }), air: '', recs: [] }));
+    $('nzStatus').textContent = 'Simulating the designs…';
+    let i = 0, rep = 0, Wref = null, gain = 1;
+    NZ.stop = slices(() => {
+      if (i >= NZ.demo.length) return false;
+      const d = NZ.demo[i];
+      nzSeries(d);
+      const nz = M.noiseEval(d.ser, hid, { trace: true }), tr = nz.trace;
+      if (Wref === null) { Wref = Math.pow(10, Math.max(...tr.L) / 10); gain = 0.18 / Math.sqrt(Wref); }
+      // the 'video' sees the hidden reference's air core, with a little timing error
+      if (rep === 0) d.air = nz.noise.airT == null ? 'none' : (nz.noise.airT + 0.08 * gauss(r)).toFixed(2);
+      // one recording: random pre-roll, flush-to-flush scatter, splash as white noise, trap sources as a low-pitched
+      // gurgle (300 Hz low-pass, so A-weighting takes about 7 dB off it, which the model does not know), a valve
+      // click, fill valve noise after the valve closes and a noise floor
+      const pre = 0.5 + r(), tEndS = tr.t[tr.t.length - 1], N = Math.round((pre + tEndS + 0.5) * sr), x = new Float32Array(N);
+      const sc = Math.pow(10, gauss(r) * 0.5 / 20), aLP = Math.exp(-2 * Math.PI * 300 / sr), nLP = Math.sqrt((1 + aLP) / (1 - aLP));
+      const tEmpty = d.tEmpty || 3;
+      let lp = 0;
+      for (let k = 0; k < N; k++) {
+        const t = k / sr - pre, j = Math.min(tr.t.length - 1, Math.max(0, Math.floor(t / 0.02)));
+        const Ws = t < 0 ? 0 : tr.pl[j] + tr.out[j], Wt = t < 0 ? 0 : tr.air[j] + tr.brk[j];
+        const Wx = Wref * (1e-5 + (t >= 0 && t < 0.04 ? 0.1 : 0) + (t > tEmpty ? 1e-3 : 0));
+        const u1 = (r() * 2 - 1) * 1.7320508, u2 = (r() * 2 - 1) * 1.7320508, u3 = (r() * 2 - 1) * 1.7320508;
+        lp = aLP * lp + (1 - aLP) * u2;
+        x[k] = gain * sc * (Math.sqrt(Ws) * u1 + Math.sqrt(Wt) * lp * nLP + Math.sqrt(Wx) * u3);
+      }
+      const an = analyzeSamples(x, sr);
+      d.recs.push({ name: `synthetic recording ${rep + 1}`, peak: an.peak, unit: 'file', trace: { t: an.t, L: an.L } });
+      $('nzStatus').textContent = `Making synthetic recordings: design ${i + 1} of ${NZ.demo.length}, recording ${rep + 1} of 3…`;
+      rep++; if (rep === 3) { rep = 0; i++; }
+      return true;
+    }, () => {
+      NZ.running = false; $('nzDemoRun').disabled = false; $('nzFitRun').disabled = false;
+      $('nzv_rCore').checked = true;
+      nzRender(); nzRunFit();
+    }, 30);
+  }
+
+  // ---- adding real recordings ----
+  function nzCurrentEntry() {
+    const p = A.getP(); let d = NZ.real.find((x) => sameDesign(x.p, p));
+    if (!d) { d = { p: JSON.parse(JSON.stringify(p)), air: '', recs: [] }; NZ.real.push(d); }
+    return d;
+  }
+  $('nzFiles').addEventListener('change', async (ev) => {
+    const files = [...ev.target.files]; if (!files.length) return;
+    const d = nzCurrentEntry(); NZ.fit = null;
+    for (const file of files) {
+      $('nzStatus').textContent = `Analysing ${file.name}…`;
+      try { const a = await decodeFile(file), an = analyzeSamples(a.x, a.sr); d.recs.push({ name: file.name, peak: an.peak, unit: 'file', trace: { t: an.t, L: an.L } }); }
+      catch (e) { $('nzStatus').textContent = `${file.name} could not be read: ${e && e.message ? e.message : 'unknown format'}.`; }
+    }
+    ev.target.value = ''; nzSave(); nzRender();
+    if (!/could not/.test($('nzStatus').textContent)) $('nzStatus').textContent = `Added ${files.length} recording${files.length > 1 ? 's' : ''} for this design. Audio is analysed in this browser and not kept; only the peak levels are remembered.`;
+  });
+  $('nzMeterAdd').addEventListener('click', () => {
+    const v = parseFloat(String($('nzMeter').value).replace(',', '.'));
+    if (!isFinite(v)) { $('nzStatus').textContent = 'Type the meter reading in dB(A) first.'; return; }
+    const d = nzCurrentEntry(); d.recs.push({ name: 'meter reading', peak: v, unit: 'meter' }); NZ.fit = null;
+    $('nzMeter').value = ''; nzSave(); nzRender();
+  });
+  $('nzClear').addEventListener('click', () => { NZ.real = []; NZ.fit = null; nzSave(); nzRender(); });
+  const setMode = (m) => {
+    NZ.mode = m; NZ.fit = null;
+    $('nzModeDemo').setAttribute('aria-pressed', String(m === 'demo')); $('nzModeReal').setAttribute('aria-pressed', String(m === 'real'));
+    $('nzDemoBox').hidden = m !== 'demo'; $('nzRealBox').hidden = m !== 'real';
+    nzRender();
+  };
+  $('nzModeDemo').addEventListener('click', () => setMode('demo'));
+  $('nzModeReal').addEventListener('click', () => setMode('real'));
+  $('nzDemoRun').addEventListener('click', nzMakeDemo);
+  $('nzFitRun').addEventListener('click', nzRunFit);
+  $('nzFitVars').innerHTML = NZK.map((k) => `<label><input type="checkbox" id="nzv_${k}"${['nUe', 'cCore', 'wTrap'].includes(k) ? ' checked' : ''}> ${A.SPECK[k].l}</label>`).join('');
+  $('nzTraceSel').addEventListener('change', (e) => { NZ.sel = +e.target.value; drawNz(); });
+
+  // ---- output ----
+  function nzRender() {
+    const L = nzList(), F = NZ.fit, unit = F ? (F.unit === 'meter' ? 'dB(A)' : 'dB') : 'dB';
+    const pred = F ? { d: new Map(F.designs.map((d, i) => [d, [F.e0.pr[i].P + F.e0.c, F.e1.pr[i].P + F.e1.c, F.e0.pr[i].airT, F.e1.pr[i].airT]])) } : null;
+    const real = NZ.mode === 'real';
+    $('nzTable').innerHTML = L.length ? `<thead><tr><th>Design</th><th>Recordings</th><th>Measured peak, ${unit}</th><th>Air core at, s</th><th>Model, current coefficients</th><th>Model, fitted</th>${real ? '<th></th>' : ''}</tr></thead><tbody>` +
+      L.map((d, i) => {
+        const m = nzMeas(d), q = pred && pred.d.get(d);
+        const air = `<input type="text" data-nzair="${i}" value="${d.air == null ? '' : d.air}" aria-label="Air core time for design ${i + 1}"${real ? '' : ' readonly'}>`;
+        const at = (v) => (v == null ? 'no air core' : `air core ${fmt(v, 2)} s`);
+        return `<tr><td>${i + 1}. ${nzLabel(d.p)}</td><td class="num">${d.recs.length}</td><td class="num">${m ? `${fmt(m.m, 1)}${d.recs.length > 1 ? ` (${fmt(m.lo, 1)} to ${fmt(m.hi, 1)})` : ''}` : '–'}</td><td>${air}</td><td class="num">${q ? `${fmt(q[0], 1)}, ${at(q[2])}` : '–'}</td><td class="num">${q ? `${fmt(q[1], 1)}, ${at(q[3])}` : '–'}</td>${real ? `<td><button class="btn mini" type="button" data-nzdel="${i}">Remove</button></td>` : ''}</tr>`;
+      }).join('') + '</tbody>' : `<tbody><tr><td>${real ? 'No recordings yet. Set a design up in the simulator and add its recordings above.' : 'Press "Make recordings and fit" to run the demo.'}</td></tr></tbody>`;
+    $('nzTable').querySelectorAll('[data-nzair]').forEach((el) => el.addEventListener('change', () => { const d = L[+el.dataset.nzair]; d.air = el.value; NZ.fit = null; nzSave(); if (nzAirObs(d)) $('nzv_rCore').checked = true; nzRender(); }));
+    $('nzTable').querySelectorAll('[data-nzdel]').forEach((el) => el.addEventListener('click', () => { NZ.real.splice(+el.dataset.nzdel, 1); NZ.fit = null; nzSave(); nzRender(); }));
+    const sel = $('nzTraceSel'); sel.innerHTML = L.map((d, i) => `<option value="${i}"${i === NZ.sel ? ' selected' : ''}>Design ${i + 1}</option>`).join('');
+    if (NZ.sel >= L.length) NZ.sel = 0;
+    if (!F) { $('nzSum').innerHTML = ''; $('nzCoefTable').innerHTML = ''; drawNz(); return; }
+    const better = F.loo ? F.loo.fit < F.loo.def - 0.1 : F.rms1 < F.rms0 - 0.1;
+    $('nzSum').innerHTML = `<p>How well the model matches the measured differences between designs, root mean square in dB: current coefficients <b>${fmt(F.rms0, 2)}</b>, fitted <b>${fmt(F.rms1, 2)}</b>${F.loo ? `. On designs left out of the fit one at a time: current <b>${fmt(F.loo.def, 2)}</b>, fitted <b>${fmt(F.loo.fit, 2)}</b>` : ''}.</p>` +
+      `<p>${better ? 'The fit improves the prediction for designs it did not see, so the fitted coefficients carry over.' : 'The fit does not clearly improve the prediction for designs it did not see. Add more designs, or fit fewer coefficients, before using the result.'}${F.mixed ? ' The designs mix both trap types; differences across trap types are not robust.' : ''}</p>` +
+      `<p class="muted">Recordings can only show what differs between the designs. A coefficient that changes all designs alike, or none of them, cannot be fitted from them and stays close to its current value.${F.demo ? ' The hidden reference adds a valve click, fill valve noise and a low-pitched gurgle the model does not know about, so the fitted values need not equal the hidden ones; what counts is the error on designs left out. The gurgle, for example, is low-pitched, so A-weighting takes about 7 dB off it, and the fit lowers the trap weight to match: that is what a calibration against real recordings should do too.' : ''}</p>` +
+      `<p><button class="btn primary mini" type="button" id="nzApply">Use fitted coefficients in the simulator</button></p>`;
+    $('nzApply').addEventListener('click', () => { const v = {}; F.keys.forEach((k) => { const s = A.SPECK[k]; v[k] = +(Math.round(F.fitted[k] / s.st) * s.st).toFixed(4); }); A.apply(v); $('nzStatus').textContent = 'The fitted values are now set in the noise model sliders. Undo brings the previous ones back.'; });
+    $('nzCoefTable').innerHTML = `<thead><tr><th>Coefficient</th><th>Current</th><th>Fitted</th>${F.demo ? '<th>Hidden reference</th>' : ''}</tr></thead><tbody>` +
+      NZK.map((k) => { const s = A.SPECK[k], dp = s.d === 0 ? 0 : Math.max(2, s.d); return `<tr><td>${s.l}${s.u ? ', ' + s.u : ''}</td><td class="num">${fmt(F.base[k], dp)}</td><td class="num">${F.keys.includes(k) ? fmt(F.fitted[k], dp) : 'not fitted'}</td>${F.demo ? `<td class="num">${fmt(NZ_HIDDEN[k], dp)}</td>` : ''}</tr>`; }).join('') + '</tbody>';
+    drawNz();
+  }
+  // best time shift of a measured level trace against a model trace (maximum correlation)
+  function nzAlign(meas, mod) {
+    const dtm = meas.t[1] - meas.t[0] || 0.01, top = Math.max(...mod.L), use = [];
+    mod.t.forEach((t, i) => { if (mod.L[i] > top - 40) use.push(i); });
+    let best = { s: 0, r: -Infinity };
+    for (let s = 0; s <= meas.t[meas.t.length - 1] - 0.5; s += 0.02) {
+      let sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0, n = 0;
+      for (const i of use) { const k = Math.round((mod.t[i] + s) / dtm); if (k < 0 || k >= meas.L.length) continue; const x = mod.L[i], y = meas.L[k]; sx += x; sy += y; sxx += x * x; syy += y * y; sxy += x * y; n++; }
+      if (n < 20) continue;
+      const r = (n * sxy - sx * sy) / Math.sqrt(Math.max(1e-12, (n * sxx - sx * sx) * (n * syy - sy * sy)));
+      if (r > best.r) best = { s, r };
+    }
+    return best.s;
+  }
+  function drawNz() {
+    if ($('aiNoise').hidden) return;
+    const F = NZ.fit, L = nzList();
+    { // measured against model, relative to the mean of the measured peaks
+      const cv = $('cvNzPar');
+      let pts = [];
+      if (F) { const mm = F.designs.reduce((s, d) => s + nzMeas(d).m, 0) / F.designs.length; pts = F.designs.map((d, i) => { const m = nzMeas(d); return { x: m.m - mm, lo: m.lo - mm, hi: m.hi - mm, y0: F.e0.pr[i].P + F.e0.c - mm, y1: F.e1.pr[i].P + F.e1.c - mm }; }); }
+      const ext = Math.max(3, ...pts.flatMap((q) => [Math.abs(q.lo), Math.abs(q.hi), Math.abs(q.y0), Math.abs(q.y1)])), lim = Math.ceil(ext + 0.5);
+      const f = frame(cv, { x: [-lim, lim], y: [-lim, lim], xt: [-lim, 0, lim], yt: [-lim, 0, lim], xl: 'Measured peak, dB against the mean', yl: 'Model peak, dB against the mean' });
+      const { ctx, X, Y, C, d } = f;
+      ctx.strokeStyle = A.rgba(C.muted, 0.7); ctx.setLineDash([4 * d, 4 * d]); ctx.beginPath(); ctx.moveTo(X(-lim), Y(-lim)); ctx.lineTo(X(lim), Y(lim)); ctx.stroke(); ctx.setLineDash([]);
+      pts.forEach((q) => { ctx.strokeStyle = A.rgba(C.muted, 0.8); ctx.lineWidth = 1 * d; ctx.beginPath(); ctx.moveTo(X(q.lo), Y(q.y1)); ctx.lineTo(X(q.hi), Y(q.y1)); ctx.stroke(); });
+      [['y0', C.lineStrong], ['y1', C.accent]].forEach(([k, col]) => { ctx.fillStyle = A.rgba(col, 0.9); pts.forEach((q) => { ctx.beginPath(); ctx.arc(X(q.x), Y(q[k]), 3.5 * d, 0, TAU2); ctx.fill(); }); });
+      legend(f, [['current coefficients', C.lineStrong, true], ['fitted', C.accent, true]]);
+      if (!F) { ctx.fillStyle = A.rgba(C.muted); ctx.font = A.font(11); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('Fit the coefficients to compare', X(0), Y(0)); }
+    }
+    { // level over time for one design
+      const cv = $('cvNzTrace'), dsg = L[NZ.sel];
+      const rec = dsg && dsg.recs.find((r) => r.trace);
+      let curves = [], tMax = 10, yTop = 0, yBot = -40;
+      if (dsg && (rec || F)) {
+        const coefNow = coefOf(A.getP());
+        const tr0 = M.noiseEval(nzSeries(dsg), F ? F.base : coefNow, { trace: true }).trace;
+        const tr1 = F ? M.noiseEval(nzSeries(dsg), F.fitted, { trace: true }).trace : null;
+        const off0 = F ? F.e0.c : 0, off1 = F ? F.e1.c : 0;
+        tMax = Math.min(14, tr0.t[tr0.t.length - 1]);
+        if (rec) { const s = nzAlign(rec.trace, { t: tr1 ? tr1.t : tr0.t, L: (tr1 ? tr1.L : tr0.L).map((v) => v + (tr1 ? off1 : off0)) }); curves.push(['measured (' + rec.name + ')', A.readColors().ink, rec.trace.t.map((t) => t - s), rec.trace.L]); }
+        if (F) { curves.push(['model, current coefficients', A.readColors().lineStrong, tr0.t, tr0.L.map((v) => v + off0)]); curves.push(['model, fitted', A.readColors().accent, tr1.t, tr1.L.map((v) => v + off1)]); }
+        const all = curves.flatMap((c) => c[3].filter((_, i) => c[2][i] >= 0 && c[2][i] <= tMax));
+        if (all.length) { yTop = Math.ceil((Math.max(...all) + 3) / 5) * 5; yBot = yTop - 45; }
+      }
+      const f = frame(cv, { x: [0, tMax], y: [yBot, yTop], xt: [0, tMax / 2, tMax].map((v) => +v.toFixed(1)), yt: [yBot, (yBot + yTop) / 2, yTop], xl: 'Time after the flush starts, s', yl: `Level, ${F && F.unit === 'meter' ? 'dB(A)' : 'dB'}` });
+      const { ctx, X, Y, C, d, pad, w, h } = f;
+      ctx.save(); ctx.beginPath(); ctx.rect(pad.l, pad.t, w, h); ctx.clip();
+      curves.forEach(([, col, ts, Ls]) => { ctx.strokeStyle = A.rgba(col, 0.9); ctx.lineWidth = 1.6 * d; ctx.beginPath(); let on = false; ts.forEach((t, i) => { if (t < 0 || t > tMax) return; const x = X(t), y = Y(Math.max(yBot, Ls[i])); if (on) ctx.lineTo(x, y); else { ctx.moveTo(x, y); on = true; } }); ctx.stroke(); });
+      ctx.restore();
+      legend(f, curves.map(([l, col]) => [l, col]));
+      if (!curves.length) { ctx.fillStyle = A.rgba(C.muted); ctx.font = A.font(11); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(dsg ? 'Meter readings have no level over time' : 'No recordings yet', pad.l + w / 2, pad.t + h / 2); }
+    }
+  }
+
   /* ---------------- redraw on resize, theme and design changes ---------------- */
-  function redraw() { drawOpt(); drawSurLoss(); drawSurParity(); drawHyb(); }
+  function redraw() { drawOpt(); drawSurLoss(); drawSurParity(); drawHyb(); drawNz(); }
   const ro = new ResizeObserver(() => requestAnimationFrame(redraw));
-  ['cvOpt', 'cvSurLoss', 'cvSurPar', 'cvHybBars', 'cvHybPar'].forEach((id) => ro.observe($(id)));
+  ['cvOpt', 'cvSurLoss', 'cvSurPar', 'cvHybBars', 'cvHybPar', 'cvNzPar', 'cvNzTrace'].forEach((id) => ro.observe($(id)));
   const mq = window.matchMedia('(prefers-color-scheme: dark)'); if (mq.addEventListener) mq.addEventListener('change', redraw);
   new MutationObserver(redraw).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   A.onChange(() => requestAnimationFrame(() => {
@@ -733,7 +1045,7 @@
     if (H.fp && H.res) staleNote('hybStale', fingerprint(p, DV.map((d) => d.k).concat(CAL.map((c) => c.k), FULL_ONLY)) !== H.fp, 'calibration');
   }));
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(redraw);
-  redraw();
+  nzRender(); redraw();
   function optStaleCheck() { if (O.fp && O.all.length && !O.running) staleNote('optStale', fingerprint(A.getP(), O.vars.map((d) => d.k).concat(['flushMode'])) !== O.fp, 'search'); }
   window.FlushAI = {
     busy: () => O.running || !!O.checking,
@@ -749,6 +1061,6 @@
       const e = O.best || closest(); if (!e) return null;
       return loadOpt(e) ? (O.best ? 'best' : 'closest') : null;
     },
-    _test: { opt: () => O }
+    _test: { opt: () => O, noise: () => NZ, analyzeSamples }
   };
 })();

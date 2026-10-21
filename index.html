@@ -273,6 +273,13 @@ table.compact{min-width:420px}
 .opt-table-title{font-size:14px;margin-top:4px}
 tr.best td{background:color-mix(in srgb, var(--clean) 12%, transparent)}
 .btn.mini{padding:3px 8px;font-size:12px}
+.nz-how{font-size:13px;max-width:78ch}
+.nz-how ol{margin:6px 0 0;padding-left:20px;display:grid;gap:3px}
+.nz-fit{border:1px solid var(--line);border-radius:8px;padding:6px 10px;margin:0;display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--muted)}
+.nz-fit legend{padding:0 4px}
+.nz-fit label{display:inline-flex;gap:5px;align-items:center;color:var(--ink)}
+#nzTable input{width:5.5em}
+#nzRealBox input[type=file]{max-width:100%}
 /* method */
 .method{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px 24px}
 .method p{max-width:65ch;color:var(--ink)}
@@ -301,7 +308,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
     <div class="actions">
       <select id="preset" aria-label="Design preset">
         <option value="washdown">Preset: EU washdown, 4.5/3 L</option>
-        <option value="siphonic">Preset: Siphonic, 4.8 L + 0.6 L refill</option>
+        <option value="siphonic">Preset: Siphonic, 4.8 L + 0.8 L refill</option>
       </select>
       <div class="seg" role="group" aria-label="Flush button">
         <button type="button" id="mFull" aria-pressed="true">Full flush</button>
@@ -450,11 +457,12 @@ td code{font-family:var(--f-mono);font-size:12.5px}
       </section>
 
       <section class="panel" aria-label="AI lab" id="ai-lab">
-        <div class="panel-head"><h2>AI lab</h2><span class="muted" style="font-size:12.5px">Three ways AI works with the physics model. Everything runs in your browser.</span></div>
+        <div class="panel-head"><h2>AI lab</h2><span class="muted" style="font-size:12.5px">Four ways AI and data work with the physics model. Everything runs in your browser.</span></div>
         <div class="seg ai-tabs" role="tablist" aria-label="AI tools">
           <button type="button" role="tab" data-aitab="aiOpt" aria-selected="true" aria-pressed="true">Design optimiser</button>
           <button type="button" role="tab" data-aitab="aiSur" aria-selected="false" aria-pressed="false">Neural surrogate</button>
           <button type="button" role="tab" data-aitab="aiHyb" aria-selected="false" aria-pressed="false">Hybrid calibration</button>
+          <button type="button" role="tab" data-aitab="aiNoise" aria-selected="false" aria-pressed="false">Noise calibration</button>
         </div>
 
         <div id="aiOpt" role="tabpanel" class="ai-pane">
@@ -540,6 +548,50 @@ td code{font-family:var(--f-mono);font-size:12.5px}
             <div class="tablewrap"><table id="hybTable" class="compact"></table></div>
           </div>
         </div>
+
+        <div id="aiNoise" role="tabpanel" class="ai-pane" hidden>
+          <p class="ai-lede">Fits the noise coefficients to recordings of real flushes. Record a few flushes of each of several designs, add them here with the design set up in the simulator, and the tool fits the coefficients so that the model's peak differences between the designs match the recorded ones. Only differences count: the microphone, the room and the distance cancel out. Audio is analysed in your browser and never uploaded.</p>
+          <div class="seg" role="group" aria-label="Data for the noise calibration">
+            <button type="button" id="nzModeDemo" aria-pressed="true">Demo with synthetic recordings</button>
+            <button type="button" id="nzModeReal" aria-pressed="false">My recordings</button>
+          </div>
+          <div id="nzDemoBox" class="ai-ctl">
+            <label class="f" for="nzDemoN">Designs<select id="nzDemoN"><option value="4">4</option><option value="6" selected>6</option><option value="8">8</option></select></label>
+            <button class="btn primary" type="button" id="nzDemoRun">Make recordings and fit</button>
+          </div>
+          <div id="nzRealBox" hidden>
+            <details class="nz-how"><summary>How to record</summary>
+              <ol>
+                <li>Use one trap type. Comparisons across trap types are not robust.</li>
+                <li>Put the phone or sound level meter at a fixed point, for example 1 m above the bowl, in a quiet room. Keep it there for all recordings.</li>
+                <li>Start recording, flush, and stop once the bowl has refilled. Record three flushes of each design.</li>
+                <li>Set the design up in the simulator, then add its recordings below. A sound level meter reading (A-weighted, fast, maximum) can be typed in instead of a file.</li>
+                <li>If you also film the pool from above, note when an air core reaches the trap, in seconds after the flush starts, or type <i>none</i>.</li>
+              </ol>
+            </details>
+            <div class="ai-ctl">
+              <label class="f" for="nzFiles">Recordings of the current design<input type="file" id="nzFiles" accept="audio/*,.wav,.mp3,.m4a,.ogg,.flac" multiple></label>
+              <label class="f" for="nzMeter">or a meter reading, dB(A)<input type="number" id="nzMeter" step="0.1" inputmode="decimal" placeholder="e.g. 68.5"></label>
+              <button class="btn" type="button" id="nzMeterAdd">Add reading</button>
+              <button class="btn" type="button" id="nzClear">Remove all</button>
+            </div>
+          </div>
+          <div class="ai-ctl">
+            <fieldset class="nz-fit"><legend>Coefficients to fit</legend><span id="nzFitVars"></span></fieldset>
+            <button class="btn primary" type="button" id="nzFitRun">Fit coefficients</button>
+          </div>
+          <p class="ai-status" id="nzStatus" role="status">The demo makes synthetic recordings from a hidden reference: different coefficients, a valve click, fill valve noise, a low-pitched gurgle the model does not know about, and flush-to-flush scatter.</p>
+          <div class="tablewrap"><table id="nzTable" class="compact"></table></div>
+          <div class="ai-two">
+            <canvas id="cvNzPar" aria-label="Measured against model peak noise per design, before and after the fit"></canvas>
+            <canvas id="cvNzTrace" aria-label="Measured noise level over time against the model for one design"></canvas>
+          </div>
+          <div class="ai-ctl"><label class="f" for="nzTraceSel">Level over time for<select id="nzTraceSel"></select></label></div>
+          <div class="ai-results">
+            <div id="nzSum"></div>
+            <div class="tablewrap"><table id="nzCoefTable" class="compact"></table></div>
+          </div>
+        </div>
       </section>
 
       <section class="panel" aria-label="How the model works" id="how">
@@ -549,7 +601,7 @@ td code{font-family:var(--f-mono);font-size:12.5px}
           <div class="blk"><h3>2 · Wall film and cleaning</h3><p>Each jet is traced as a spreading band on the oval bowl wall. Gravity and turbulent wall friction act on it, and the wall holds it on its curved path. Where the band's lower edge meets the waterline, that part of it enters the pool with its swirl; the rest goes on round the wall. Wall shear τ = ½ρc<sub>f</sub>u² is accumulated per cell over the flush.</p></div>
           <div class="blk"><h3>3 · Pool swirl</h3><p>Film arriving at the pool brings angular momentum. The pool is treated as a rotating body that loses momentum through wall friction and outflow. Its swirl speed sets the vortex dip and how well floating paper is drawn to the outlet.</p></div>
           <div class="blk"><h3>4 · Outflow and waste</h3><p>A washdown bowl spills over the trap weir. A siphonic bowl first fills its trapway, then primes and draws the pool down until air breaks the siphon. Waste leaves when trapway velocity exceeds a transport threshold, limited by a maximum solids concentration.</p></div>
-          <div class="blk"><h3>5 · AI lab</h3><p>Three tools use the model as their engine. An evolutionary optimiser searches the settings you allow for the best trade-off or for targets you set. A small neural network learns the model and answers about a thousand times faster. A hybrid calibration fits the coefficients to reference runs and adds a data-driven correction.</p></div>
+          <div class="blk"><h3>5 · AI lab</h3><p>Four tools use the model as their engine. An evolutionary optimiser searches the settings you allow for the best trade-off or for targets you set. A small neural network learns the model and answers about a thousand times faster. A hybrid calibration fits the coefficients to reference runs and adds a data-driven correction. A noise calibration fits the noise coefficients to recordings of real flushes.</p></div>
         </div>
         <h3 style="margin-top:20px">Calibrating it</h3>
         <p class="muted" style="margin-top:4px;max-width:80ch">A handful of reference runs should be enough to start fitting them; how many are really needed is still open. Fit in this order, because later groups depend on earlier ones.</p>

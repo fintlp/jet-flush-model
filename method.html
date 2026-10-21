@@ -94,7 +94,7 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
     <span class="eyebrow">Model description · Tangential Jet Flush Model</span>
     <h1>How the jet flush model works</h1>
     <p class="lede">A reduced-order model of a rimless WC flushed by tangential rim jets. It traces each jet as a film on the bowl wall, follows the pool level, swirl and trap flow, and estimates cleaning, waste removal, water use and relative noise. One flush takes about 5 to 20 milliseconds to compute in a web browser.</p>
-    <p class="meta">Version 2.0.0 preview · 20 October 2026 · <a href="https://github.com/fintlp/jet-flush-model#change-log">change log</a> · model code: <a href="https://github.com/fintlp/jet-flush-model/blob/main/model.js">model.js</a></p>
+    <p class="meta">Version 2.0.0 preview · 21 October 2026 · <a href="https://github.com/fintlp/jet-flush-model#change-log">change log</a> · model code: <a href="https://github.com/fintlp/jet-flush-model/blob/main/model.js">model.js</a></p>
   </header>
 
   <div class="layout">
@@ -154,7 +154,7 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
 
         <h3>Changing the design</h3>
         <ul>
-          <li><strong>Presets:</strong> EU washdown (4.5/3 L) and siphonic (4.8 L flush plus 0.6 L bowl refill, so 5.4 L per flush in the water use). Full or partial flush is switched next to the preset.</li>
+          <li><strong>Presets:</strong> EU washdown (4.5/3 L) and siphonic (4.8 L flush plus 0.8 L bowl refill, so 5.6 L per full flush in the water use; the refill restores the full seal after both flush buttons). Full or partial flush is switched next to the preset.</li>
           <li><strong>Sliders:</strong> grouped into cistern and flush, tangential jets, bowl and trap, siphon, test load, model coefficients and noise model. Each has an <strong>i</strong> button with a one-line explanation. The coefficient and noise groups are marked advanced; they hold the values that calibration would fit, not design choices.</li>
           <li><strong>Rim and pool radius:</strong> the pool radius always stays at least 25 mm smaller than the rim radius, so the bowl wall keeps a width. The slider being moved stops at that gap; the other radius is never changed. In the design sweep, cells that break it are hatched and not simulated.</li>
           <li><strong>On phones:</strong> the sliders open in a drawer from the Adjust design button. The bar at the bottom always shows cleaning, solids and water with their change, so the effect is visible while you edit.</li>
@@ -334,11 +334,13 @@ siphon breaks when z_p reaches −d_s       <span class="c">air reaches the trap
         <p>Film entering the pool brings angular momentum about the bowl axis, <span class="sym">ℓ = x·v<sub>y</sub> − y·v<sub>x</sub></span> per unit mass, taken where each part of the band enters; <span class="sym">ℓ<sub>arr</sub></span> is the flow-weighted mean over the jets, with lost flow counted as zero, and it arrives with the film water <span class="sym">Q<sub>arr</sub></span> (section 7). The pool is treated as a body rotating at angular speed ω with angular momentum <span class="sym">L = I·ω</span>:</p>
         <div class="eq">dL/dt = η · ρ · Q_arr · ℓ_arr  −  (Q_out / V_p) · L  −  T_f
 I     = ¼ · ρ · (e + 1/e) · ∫ π r(z)⁴ dz      <span class="c">elliptic sections, from the bottom of the basin to the level</span>
-T_f   = ½ · ρ · c_fp · (1 + k_ov (e − 1)) · A_wet · (ω R_c)² · R_c</div>
+T_f   = ½ · ρ · c_fp · (1 + k_ov (e − 1)) · A_wet · (ω R_c)² · R_c
+A_wet = π R_c² + P_e · (d_s + 0.03 m + max(z_p, 0))       <span class="c">floor plus side wall of the pool</span>
+P_e   = π R_c · [ 3 (a + b) − √((3a + b)(a + 3b)) ]       <span class="c">Ramanujan's perimeter, a = √e, b = 1/√e</span></div>
         <ul>
           <li>η is the share of the incoming angular momentum that survives the impact and mixing at the waterline.</li>
           <li>The outflow term removes angular momentum with the water that leaves.</li>
-          <li><span class="sym">T<sub>f</sub></span> is turbulent friction on the wetted pool surface <span class="sym">A<sub>wet</sub></span>. The ovality term <span class="sym">k<sub>ov</sub></span> represents the extra loss of a rotating flow in a non-circular basin, where the flow must keep changing direction.</li>
+          <li><span class="sym">T<sub>f</sub></span> is turbulent friction on the wetted pool surface <span class="sym">A<sub>wet</sub></span>: the water surface area plus a side wall as high as the seal depth, 30 mm below the trap inlet and the level above the crest. The perimeter of the elliptic section with the same area as a circle of radius <span class="sym">R<sub>c</sub></span> uses Ramanujan's approximation, which is accurate to better than 0.01 % for these ovalities. The ovality term <span class="sym">k<sub>ov</sub></span> represents the extra loss of a rotating flow in a non-circular basin, where the flow must keep changing direction.</li>
         </ul>
         <p>The moment of inertia is integrated over the narrowing basin. In 1.3 it used the surface radius for the whole pool, which overstated it by a factor of 1.6 to 1.8, so the swirl came out too low and the dip too small.</p>
         <p>The results shown are the swirl speed at the pool edge, <span class="sym">v<sub>s</sub> = ω R<sub>c</sub></span>, and the solid-body vortex dip, <span class="sym">v<sub>s</sub>² / 2g</span>, both as peaks over the time the trap carries flow. After a siphon break the sump left in the bowl can spin up while nothing drains; the solid-body pool does not describe that state well, and the swirl then affects neither waste removal nor the air core. The dip is a lower bound, because a real vortex has a concentrated core that dips deeper.</p>
@@ -376,7 +378,7 @@ dN/dt = −f_P · k_P · N · ( φ₀ + (1 − φ₀) · C_s )</div>
         <p>This proportionality is the central assumption. It is reasonable for comparing similar flushes, where the bubbles are of similar size, and weakest when sources of very different character are compared, such as splash against a siphon gurgle.</p>
 
         <h3>The four sources</h3>
-        <p><strong>1 · Jet films entering the pool.</strong> Where a film meets the pool, the model knows the film velocity from the film trace and the velocity of the pool surface at that point, which rotates as a solid body with angular speed ω. What counts is the speed relative to the surface: a film that slides into a pool turning the same way pulls in much less air than one that hits still water. Plunging water starts to entrain air above an onset speed <span class="sym">U<sub>e</sub></span> of about 0.8 to 1 m/s for turbulent jets, and the air flow then grows with about the 1.8th power of the excess speed up to about 4 m/s (Brattberg and Chanson, reviewed by Kiger and Duncan). Applying this plunging-jet law to a wall film that enters at a shallow angle is an assumption.</p>
+        <p><strong>1 · Jet films entering the pool.</strong> Where a film meets the pool, the model knows the film velocity from the film trace and the velocity of the pool surface at that point, which rotates as a solid body with angular speed ω. What counts is the speed relative to the surface: a film that slides into a pool turning the same way pulls in much less air than one that hits still water. Plunging water starts to entrain air above an onset speed <span class="sym">U<sub>e</sub></span> of about 0.8 to 1 m/s for turbulent jets, and the air flow then grows with about the 1.8th power of the excess speed up to about 4 m/s (Brattberg and Chanson, reviewed by Kiger and Duncan). Applying this law to a wall film is an extrapolation beyond the conditions it was measured for: the correlation comes from free jets that fall several jet thicknesses and plunge steeply, while a wall film slides into the pool at a shallow angle with no free fall. The model uses it because no correlation for wall films entering a pool was found. In the presets this source is small (section 10, below), so the extrapolation matters most for designs where films hit a slow pool hard.</p>
         <div class="eq">U_rel = | u_film − ω ẑ × r |
 Q_a1  = k_e · Σ_parts Q_k · (U_rel − U_e)^n    <span class="c">U_rel &gt; U_e, over the parts of each film entering the pool</span></div>
         <p><strong>2 · Water falling into the outlet.</strong> Water that passes the trap weir drops by <span class="sym">h<sub>fall</sub></span> before it lands in the outlet. Its landing speed combines critical flow over the crest with the free fall, and the same entrainment law applies. This source runs only while the trap flows with a free surface: always in a washdown bowl, and before priming and after the break in a siphonic bowl. While a siphon runs full, it is silent in the model.</p>
@@ -454,6 +456,7 @@ F(a) = (2/a² − 1)(1 − a²) + ½ + 2 ln a + 1 − a²
           <li>Fit h<sub>fall</sub> to the trapway drawing, then w<sub>trap</sub> and c<sub>core</sub> to the recordings, starting with a siphonic bowl if there is one, because its gurgle separates the trap sources from the splash sources.</li>
           <li>Once fitted, narrow the uncertainty spans in <code>noiseCorners()</code> in model.js to what the fit supports.</li>
         </ol>
+        <p>The <strong>Noise calibration</strong> tab of the AI lab carries out steps 2 to 4 (section 14). It takes audio files or sound level meter readings per design, together with the air core times from video, and fits the chosen coefficients.</p>
 
         <h3>Limits</h3>
         <ul>
@@ -486,7 +489,7 @@ F(a) = (2/a² − 1)(1 − a²) + ½ + 2 ln a + 1 − a²
         <div class="box note">
           <p><strong>Resolution of the film updates.</strong> The reference retraces the films at every 10 ms step. Against it, for 300 random jet and flush designs (<code>checks/resolution.js</code>, seed 7, settings drawn uniformly over the slider ranges), cleaning in the simulator differs by about 0.2 points in the median, 0.7 points at the 95th percentile and at most 1.3 points, with about 53 traces per flush instead of about 450. The coarser setting of the sweep and the optimiser search gives about 0.6, 2.6 and 5.4 points with about 27 traces. With bowl geometry, both trap types and both flush buttons varied as well (seed 11), the figures are 0.2, 0.8 and 1.5 points for the simulator and 0.7, 2.8 and 6.3 points for the coarse setting. The noise peak differs by less than 0.4 dB in the simulator and 0.5 dB in the coarse setting. In 1.3, with fixed 100 ms and 200 ms updates, the short, strong flush used as the worst known case gave 43 % and 69 % against 35 % at 10 ms; in 2.0 it gives 51.2 %, 52.7 % and 49.9 % in the three settings. These figures are numerical sensitivity, not physical accuracy. The optimiser re-checks its recommendations and table rows at the simulator's own resolution, and a promising sweep cell should be checked in the simulator.</p>
         </div>
-        <p>In 1.3, a full flush with recorded traces took about 5 to 20 ms in a current browser on a laptop, and the sweep mode about 4 to 7 ms. Version 2.0 takes about 1.5 times as long on average over random designs, and about 1.1 times as long in the sweep mode, so a 12 × 12 sweep of 144 designs still finishes in about one second. The model is deterministic: the same inputs always give the same result.</p>
+        <p>In 1.3, a full flush with recorded traces took about 5 to 20 ms in a current browser on a laptop, and the sweep mode about 4 to 7 ms. Version 2.0 takes about 1.5 times as long on average over random designs, and about 1.2 to 1.3 times as long in the sweep mode, so a 12 × 12 sweep of 144 designs still finishes in one to two seconds. Splitting the noise calculation from the time loop (section 14) did not change the run time. The model is deterministic: the same inputs always give the same result.</p>
       </section>
 
       <section id="coefficients">
@@ -570,7 +573,7 @@ F(a) = (2/a² − 1)(1 − a²) + ½ + 2 ln a + 1 − a²
 
       <section id="ailab">
         <h2>14 · AI lab</h2>
-        <p>The simulator has an AI lab with three tools. All of them use the physics model described above as their engine, and all run in the browser. They show three different roles AI can play next to a physics model: searching designs, replacing the model with a faster learned copy, and correcting the model with data.</p>
+        <p>The simulator has an AI lab with four tools. All of them use the physics model described above as their engine, and all run in the browser. They show different roles AI and data can play next to a physics model: searching designs, replacing the model with a faster learned copy, correcting the model with data, and fitting it to measurements.</p>
 
         <h3>Design optimiser</h3>
         <p>An evolutionary multi-objective search in the style of NSGA-II. The user decides what it may change and what counts as good.</p>
@@ -605,6 +608,17 @@ F(a) = (2/a² − 1)(1 − a²) + ½ + 2 ln a + 1 − a²
           <li><strong>Test:</strong> all three versions, uncalibrated, calibrated and hybrid, are scored on 24 hold-out designs the fit never saw.</li>
         </ul>
         <p>In typical runs on this synthetic data, calibration cuts the hold-out error by a factor of about two to eight. With real data the gain is unknown until tried. The correction adds a smaller gain and only when there are enough reference runs to see a pattern in what is left. That matches what to expect with real data: get the physics right first, then let a small data model handle the rest.</p>
+
+        <h3>Noise calibration</h3>
+        <p>Fits the five noise coefficients to recordings of real flushes, following the procedure in section 10. With synthetic recordings it shows the whole workflow; with the visitor's own recordings it is the real calibration.</p>
+        <ul>
+          <li><strong>Recordings:</strong> for each design, set up in the simulator, audio files of a few flushes or sound level meter readings (A-weighted, fast, maximum), and optionally the time an air core reaches the trap from a video, or <i>none</i>. Audio files and meter readings have different zero points and cannot be mixed in one fit. Audio is decoded and analysed in the browser and not kept; only the peak levels and the designs are remembered, in this browser.</li>
+          <li><strong>Analysis of audio:</strong> the signal is A-weighted with the pole frequencies of IEC 61672-1 (20.6, 107.7, 737.9 and 12,194 Hz), each turned into a digital filter by the bilinear transform with prewarping; up to 10 kHz the weighting is within 0.85 dB of the standard curve. The level is the 125 ms exponential average of the squared signal, as the "fast" setting of a sound level meter, and the peak of a flush is its maximum. Levels are relative to the recording's full scale; only differences are used.</li>
+          <li><strong>Model:</strong> each design is simulated once. The noise sources only read the flow (film arrival, outflow, pool level, swirl, siphon state), and the flow does not depend on the noise coefficients, so <code>noiseEval</code> in model.js turns the recorded flow series into the noise result for any coefficients in well under a millisecond. The simulator itself uses the same function, so the two cannot drift apart.</li>
+          <li><strong>Fit:</strong> Nelder-Mead in a bounded log space over the slider ranges, from three starting points, minimises the squared difference between the model's and the measured peaks after removing a common offset (microphone, room, distance), plus the air core timing: 0.25 s off counts like 1 dB off, a missing or extra air core like 2 dB. A weak pull towards the current values keeps coefficients that the recordings cannot see from wandering to their limits. The coefficients to fit are chosen by the user; the fall into the outlet is left out by default, because it is best taken from a trapway drawing.</li>
+          <li><strong>Test:</strong> with four or more designs, each design is left out in turn, the fit is repeated on the others, and the left-out design is predicted. The root mean square of these errors, with the current and the fitted coefficients, is the main result. <strong>Use fitted coefficients</strong> sets the values in the noise model sliders.</li>
+          <li><strong>Demo:</strong> six designs around the siphonic preset, three synthetic recordings each, made from a hidden reference with different coefficients and things the model does not know: a valve click, fill valve noise after the valve closes, a noise floor, flush-to-flush scatter of about 0.5 dB, and a gurgle that is low-pitched (300 Hz), so A-weighting takes about 7 dB off it. The recordings go through the same audio analysis as real files. In the default run the fit lowers the error on left-out designs from about 0.9 dB to about 0.3 dB, finds the hidden vortex core size, and lowers the trap weight to absorb the A-weighting of the gurgle. The siphonic bowl is used because its gurgle separates the trap sources from the splash sources; in a washdown bowl almost all of the noise comes from the outlet and the recordings say little about the other coefficients.</li>
+        </ul>
       </section>
 
       <section id="approaches">
@@ -658,6 +672,7 @@ F(a) = (2/a² − 1)(1 − a²) + ½ + 2 ln a + 1 − a²
               <tr><td><code>wallNormal</code>, <code>computeFilm</code>, <code>mark</code></td><td>Inside <code>simulate</code>: wall surface, film tracer, footprint stamping</td></tr>
               <tr><td><code>coreFactor(a)</code>, <code>rankineF(a)</code></td><td>Depth factor G(a) of the momentum-consistent Rankine vortex used for the air core check</td></tr>
               <tr><td><code>noiseCorners(p)</code></td><td>Low and high values of the five uncertain noise coefficients and their 32 combinations</td></tr>
+              <tr><td><code>noiseEval(series, c, opts)</code></td><td>The noise result from a run's flow series for any noise coefficients, optionally with the 32 combinations and the time traces; <code>simulate</code> returns the series with the option <code>noiseSeries</code></td></tr>
               <tr><td><a href="https://github.com/fintlp/jet-flush-model/tree/main/checks">checks/</a></td><td>Deterministic scripts behind the quoted check figures: physics checks (conservation, closed-form cases, independent re-integration), film update resolution, time step, preset figures, noise range, run time, regression against another model version, and browser checks of the page</td></tr>
             </tbody>
           </table>
