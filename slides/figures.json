@@ -12,7 +12,7 @@
   "wallClock_s": 7420,
   "cores": 12,
   "end": 3.2,
-  "msModel": 39,
+  "msModel": 37.5,
   "cClean": 88.78646150318369,
   "mClean": 86.46323329820373,
   "cWet": 98.4348514964505,
@@ -112,145 +112,266 @@
   }
  },
  "optimiser": "Current design: cleaned 86 %, solids 99 %, paper 90 %, 4.5 L, score 91.0 (water 0.5 L over, cleaned 2 points short). Best design meeting all targets (highest score): cleaned 89 %, solids 99 %, paper 86 %, 4.0 L, noise −1.0 dB vs now (range −1.3 to −0.8), score 91.5. Load this design",
- "surrogate": "32.3 ms per flush with the physics model, 8.8 µs with the network: about 3,662 times faster.",
+ "surrogate": "26.0 ms per flush with the physics model, 5.3 µs with the network: about 4,908 times faster.",
  "demo": [
   {
-   "step": "Part 1 of 3 · The fast model · Step 1 of 9",
+   "step": "Part 1 of 4 · The fast model · Step 1 of 9",
    "title": "Welcome",
    "text": "This first part takes about two minutes. It plays a flush, changes the bowl, and lets the AI lab find a better design, all live in the browser. Part 2 checks the fast model against a full CFD simulation; part 3 shows what AI does with it in an engineering project. We start from the EU washdown preset. Your own design is saved, and you can bring it back at the end.",
    "cont": false
   },
   {
-   "step": "Part 1 of 3 · The fast model · Step 2 of 9",
+   "step": "Part 1 of 4 · The fast model · Step 2 of 9",
    "title": "Watch the flush",
    "text": "Two rim jets enter the bowl along the wall. The white dashed lines are the jet films sliding round and down the bowl. Wall areas turn green once the film's shear has been strong enough for long enough to clean them. In the middle, the pool starts to swirl. On the right, the section shows the cistern emptying and the water level in the bowl.",
    "cont": false
   },
   {
-   "step": "Part 1 of 3 · The fast model · Step 3 of 9",
+   "step": "Part 1 of 4 · The fast model · Step 3 of 9",
    "title": "Read the results",
    "text": "For this bowl the model gives: 86 % of the wall cleaned 99 % of the solid test load and 90 % of the paper removed 4.5 L of water ±0.0 dB noise against the preset. It reads zero because this is the preset itself; most of its noise comes from water falling into the outlet. These cards update on every change, with a green or red chip showing how much it helped or hurt. Noise is a relative indicator, not a sound level.",
    "cont": false
   },
   {
-   "step": "Part 1 of 3 · The fast model · Step 4 of 9",
+   "step": "Part 1 of 4 · The fast model · Step 4 of 9",
    "title": "Make the bowl oval",
    "text": "Real bowls are oval. We set the ovality to 1.35 and kept the jets at the ends of the long axis. Cleaning drops to 79 % (−8 points). The film is pushed hard against the tight ends and misses parts of the flat sides.",
    "cont": false
   },
   {
-   "step": "Part 1 of 3 · The fast model · Step 5 of 9",
+   "step": "Part 1 of 4 · The fast model · Step 5 of 9",
    "title": "Move the jets",
    "text": "Now the jets sit on the long sides instead (jet position 90°). Cleaning recovers to 88 % (+9 points). In an oval bowl, where the jets sit matters as much as how strong they are.",
    "cont": false
   },
   {
-   "step": "Part 1 of 3 · The fast model · Step 6 of 9",
+   "step": "Part 1 of 4 · The fast model · Step 6 of 9",
    "title": "Where it cleans",
    "text": "The wall map unrolls the bowl: left to right is the way round the rim, top to bottom is the depth below the rim. Green is cleaned, grey-blue got wet but not enough shear, beige stayed dry. Gaps like these are what a designer would fix next.",
    "cont": false
   },
   {
-   "step": "Part 1 of 3 · The fast model · Step 7 of 9",
+   "step": "Part 1 of 4 · The fast model · Step 7 of 9",
    "title": "Let the AI find a better design",
-   "text": "We asked the AI lab for a design that uses at most 4.0 L, less than now, and still cleans at least 89 %, with 95 % solids and 80 % paper removed, and is no louder than now. It may change the nozzles, jet angle and position, valve height and flush volume, but not the bowl. Done: 534 different designs simulated in 18.2 s, 34.0 ms each. Every recommendation and table row is checked at full resolution; the other points in the chart are quick estimates. 33 checked designs meet all targets. Best design meeting all targets (highest score): cleaned 89 %, solids 99 %, paper 84 %, 4.0 L, noise −1.1 dB vs now (range −1.3 to −1.0), score 91.0.",
+   "text": "We asked the AI lab for a design that uses at most 4.0 L, less than now, and still cleans at least 89 %, with 95 % solids and 80 % paper removed, and is no louder than now. It may change the nozzles, jet angle and position, valve height and flush volume, but not the bowl. Done: 534 different designs simulated in 23.2 s, 43.4 ms each. Every recommendation and table row is checked at full resolution; the other points in the chart are quick estimates. 33 checked designs meet all targets. Best design meeting all targets (highest score): cleaned 89 %, solids 99 %, paper 84 %, 4.0 L, noise −1.1 dB vs now (range −1.3 to −1.0), score 91.0.",
    "cont": false
   },
   {
-   "step": "Part 1 of 3 · The fast model · Step 8 of 9",
+   "step": "Part 1 of 4 · The fast model · Step 8 of 9",
    "title": "Load the winner",
    "text": "The suggested design is now loaded in the simulator: Cleaning 89 % (+1) Solids 99 % (−1) Water 4.0 L (−0.5 L) Noise −1.1 dB against the design before, range −1.3 to −1.0 dB The model is not calibrated yet, so a suggestion like this is a candidate for a CFD or rig check, not a final answer.",
    "cont": false
   },
   {
-   "step": "Part 1 of 3 · The fast model · Step 9 of 9",
+   "step": "Part 1 of 4 · The fast model · Step 9 of 9",
    "title": "Your turn",
    "text": "Undo steps back one change at a time, Reset returns to the preset, and Pin as reference above the results compares every change with one fixed design. Each slider has an i button that explains it. Next: can we trust a model that answers in milliseconds? Part 2 puts it next to a full CFD simulation. Or end here: Finish brings your own design back. Bring my design back Keep this design Continue with part 2: Checked against CFD",
    "cont": true
   },
   {
-   "step": "Part 2 of 3 · Checked against CFD · Step 1 of 5",
+   "step": "Part 2 of 4 · Checked against CFD · Step 1 of 5",
    "title": "How far can we trust the fast model?",
-   "text": "The fast model simplifies to answer in milliseconds. To see what that costs, we simulated the same bowl with the same jets in OpenFOAM, a full CFD code that simulates water and air in about 430,000 cells. For 3.2 s of flush, the CFD needed about 2 hours on 12 processor cores. The fast model: 59 ms.",
+   "text": "The fast model simplifies to answer in milliseconds. To see what that costs, we simulated the same bowl with the same jets in OpenFOAM, a full CFD code that simulates water and air in about 430,000 cells. For 3.2 s of flush, the CFD needed about 2 hours on 12 processor cores. The fast model: 68 ms.",
    "cont": false
   },
   {
-   "step": "Part 2 of 3 · Checked against CFD · Step 2 of 5",
+   "step": "Part 2 of 4 · Checked against CFD · Step 2 of 5",
    "title": "When the water gets there",
-   "text": "Left the CFD, right the fast model, on the same colour scale. Dark means wetted early. In the end both wet nearly the whole wall: 98 % in the CFD, 96 % in the fast model by 3.2 s. The CFD gets there sooner: by 0.5 s 97 % against 87 %. The CFD wets most of the wall within half a second; the fast model reaches the lower wall later. The fast model gets this picture about 127 thousand times faster.",
+   "text": "Left the CFD, right the fast model, on the same colour scale. Dark means wetted early. In the end both wet nearly the whole wall: 98 % in the CFD, 96 % in the fast model by 3.2 s. The CFD gets there sooner: by 0.5 s 97 % against 87 %. The CFD wets most of the wall within half a second; the fast model reaches the lower wall later. The fast model gets this picture about 110 thousand times faster.",
    "cont": false
   },
   {
-   "step": "Part 2 of 3 · Checked against CFD · Step 3 of 5",
+   "step": "Part 2 of 4 · Checked against CFD · Step 3 of 5",
    "title": "What gets cleaned",
    "text": "Green: where the water's shear was strong enough for long enough to clean, by 3.2 s. CFD 89 %, fast model 86 %, the fast model about 2 points more cautious. The patterns differ more than the totals: the CFD leaves streaks behind each jet, and it also counts the swirling pool washing the wall near the waterline, which the fast model does not. After 1.3 s the CFD bowl also holds more water than the fast model's, which helps there. This is a second simulation, not a measurement of a real bowl, and thin films are smoothed at this mesh size. Agreement shows consistency, not truth.",
    "cont": false
   },
   {
-   "step": "Part 2 of 3 · Checked against CFD · Step 4 of 5",
+   "step": "Part 2 of 4 · Checked against CFD · Step 4 of 5",
    "title": "Where they differ",
    "text": "So: close on the totals, different in the details. The first water reaches the pool after 0.14 s in the CFD, but only after 0.54 s in the fast model. The CFD wets the lower wall sooner, its pool spins faster and washes the wall near the waterline. On a coarser CFD mesh these differences stay the same; where the wall stays uncleaned changes with the mesh. For this one design the fast model is close on the totals, off in places. Whether it gets the effect of a design change right is not shown yet: that needs CFD runs of several designs. Two ways to correct a fast model: calibrate the model from measurements of a real flush, next, or let a few expensive runs correct it during the design, in part 3.",
    "cont": false
   },
   {
-   "step": "Part 2 of 3 · Checked against CFD · Step 5 of 5",
+   "step": "Part 2 of 4 · Checked against CFD · Step 5 of 5",
    "title": "From a phone video to the model",
    "text": "The \"measured\" flush is simulated: the full model with a weir coefficient of 1.45, hidden from the network; the model assumes 1.7. From 81 noisy readings the network found 1.44, and estimated the unmeasured water on the wall. For an equation this small, least squares is quicker (1.50). PINNs pay off for expensive or partly unknown equations; for a full 3D flush, CFD plus surrogates is the realistic route. Continue with part 3: AI in the engineering loop",
    "cont": true
   },
   {
-   "step": "Part 3 of 3 · AI in the engineering loop · Step 1 of 9",
+   "step": "Part 3 of 4 · AI in the engineering loop · Step 1 of 9",
    "title": "An engineering problem",
    "text": "A bowl that works in the lab, made oval for a new product, now misses its targets: 74.5 % of the wall cleaned with 4.5 L. It should reach 87 % with at most 4.0 L, without losing waste removal. Every design candidate is checked with a high-fidelity simulation, and every such run costs 8 hours of computing. Here a synthetic reference model plays that simulation, so the numbers that follow show the workflow, not results of real projects. The question is: how many runs until the design is done?",
    "cont": false
   },
   {
-   "step": "Part 3 of 3 · AI in the engineering loop · Step 2 of 9",
+   "step": "Part 3 of 4 · AI in the engineering loop · Step 2 of 9",
    "title": "Three ways to work",
    "text": "Classic: an automated one-change-at-a-time search, the way an engineer works without a model: change one setting per run, keep what helps, in a sensible order. Fast model alone: our flush model screens hundreds of designs in seconds, and the best ones are sent to the expensive simulation. AI route: the same fast model, plus a correction that is learned from every expensive run, so the next run goes where success is most likely. Here the fast model is close to the reference but off in places, as the synthetic reference is built to be; the correction learns where.",
    "cont": false
   },
   {
-   "step": "Part 3 of 3 · AI in the engineering loop · Step 3 of 9",
+   "step": "Part 3 of 4 · AI in the engineering loop · Step 3 of 9",
    "title": "Eight projects, one clock",
    "text": "The AI route finished all 8 projects within 4.3 days. By then the classic route had finished 6; it needed 8.7 days for all 8. The fast model alone finished 5 quickly, then got stuck: 3 projects never met the targets.",
    "cont": false
   },
   {
-   "step": "Part 3 of 3 · AI in the engineering loop · Step 4 of 9",
+   "step": "Part 3 of 4 · AI in the engineering loop · Step 4 of 9",
    "title": "Not luck: the numbers",
    "text": "Typical runs to target: AI route 4.5, classic 10.5. For all eight projects together, the AI route used 43 expensive runs, the classic route 97. That is 54 runs, or about 18 days of computing, saved.",
    "cont": false
   },
   {
-   "step": "Part 3 of 3 · AI in the engineering loop · Step 5 of 9",
+   "step": "Part 3 of 4 · AI in the engineering loop · Step 5 of 9",
    "title": "When the fast model gets lost",
    "text": "Race #3. The fast model likes high valve heights: 59 of its 59 expensive runs had a valve height of 300 mm or more. In the reference, fast jets splash there and lose cleaning, so the fast model overestimated these designs by about 14 points. Alone, it never found out: no success within 60 runs. The AI route ran into the same difference, learned it, and reached the targets after 5 runs. The classic route needed 19.",
    "cont": false
   },
   {
-   "step": "Part 3 of 3 · AI in the engineering loop · Step 6 of 9",
+   "step": "Part 3 of 4 · AI in the engineering loop · Step 6 of 9",
    "title": "How the AI learns",
    "text": "Before each run, the AI route predicts the cleaning with an uncertainty: the blue bars. The dots are what the expensive run then gave. Early on, the bars are wide and the dots miss. With every run the correction learns where the fast model is off; the predictions close in, and the run that meets the targets is no surprise.",
    "cont": false
   },
   {
-   "step": "Part 3 of 3 · AI in the engineering loop · Step 7 of 9",
+   "step": "Part 3 of 4 · AI in the engineering loop · Step 7 of 9",
    "title": "Computed, not animated",
    "text": "The races play from stored results so the demo starts at once. But they are not a film: the same code runs in your browser. Race #1 is being recomputed live right now, without blocking the page. In about half a minute the line here says whether the result is identical.",
    "cont": false
   },
   {
-   "step": "Part 3 of 3 · AI in the engineering loop · Step 8 of 9",
+   "step": "Part 3 of 4 · AI in the engineering loop · Step 8 of 9",
    "title": "Your turn",
    "text": "We loaded the start design into the simulator and made the move from the first demo: jets to the long sides, flush cut to 4.0 L. One expensive run says 85.7 % cleaning: 1.3 points short. Now it is your turn: change the settings in the simulator, watch the result cards, and send a design to the expensive run. Can you beat the AI route's 5 runs?",
    "cont": false
   },
   {
-   "step": "Part 3 of 3 · AI in the engineering loop · Step 9 of 9",
+   "step": "Part 3 of 4 · AI in the engineering loop · Step 9 of 9",
    "title": "What this means",
-   "text": "A fast physics model, a few expensive runs, and a correction learned from each of them: that is how AI shortens engineering loops. Not by replacing simulation, but by deciding where the next expensive run is worth it. At one working day per iteration, as Geberit reported for its bowl development, the median project takes 4.5 days instead of 10.5; over the eight projects, 54 working days of iterations are saved. The timeline. The reference here is synthetic and the task has five settings, so the numbers illustrate the principle. With real CFD at hours per run and more settings to change, every run saved counts more. Do you want your own design back, or keep this one? Finish brings your own design back. Bring my design back Keep this design",
+   "text": "A fast physics model, a few expensive runs, and a correction learned from each of them: that is how AI shortens engineering loops. Not by replacing simulation, but by deciding where the next expensive run is worth it. At one working day per iteration, as Geberit reported for its bowl development, the typical project takes 4.5 days instead of 10.5: about 6 working days saved on one design question. Part 4 turns this into your own team's numbers. The reference here is synthetic and the task has five settings, so the numbers illustrate the principle. With real CFD at hours per run and more settings to change, every run saved counts more. Do you want your own design back, or keep this one? Finish brings your own design back. Bring my design back Keep this design Continue with part 4: What it means for your team",
+   "cont": true
+  },
+  {
+   "step": "Part 4 of 4 · What it means for your team · Step 1 of 7",
+   "title": "Where the time goes",
+   "text": "Engineering rarely waits for ideas. It waits for answers: every design question goes through expensive simulations or prototypes, and each iteration (set up, run, evaluate, decide) takes time. Geberit reported about one working day per iteration in its CFD-led bowl development. So the question for a manager is not how fast the solver is. It is: how many iterations does one design question need?",
+   "cont": false
+  },
+  {
+   "step": "Part 4 of 4 · What it means for your team · Step 2 of 7",
+   "title": "The typical project",
+   "text": "In the engineering challenge, the same design question was worked eight times. The typical project needed 10.5 iterations with an automated one-change-at-a-time search, and 4.5 with the fast model and a correction learned from every expensive run. That is 6 iterations fewer per design question: about 6 working days at a day each. The expensive runs come from a synthetic reference, not real CFD; the task has five settings.",
+   "cont": false
+  },
+  {
+   "step": "Part 4 of 4 · What it means for your team · Step 3 of 7",
+   "title": "Not every race is a win",
+   "text": "The AI route needed fewer iterations in 6 of 8 races, the same number in 1, and more in 1 (up to 4 more). Race by race, it saved between −4 and 24 iterations. The fast model alone, without learning, never met the targets in 3 of 8. A fast model is not enough: it has to learn from the expensive runs.",
+   "cont": false
+  },
+  {
+   "step": "Part 4 of 4 · What it means for your team · Step 4 of 7",
+   "title": "Two clocks",
+   "text": "Computing time: in the challenge each expensive run costs 8 hours of computing, so 6 runs are 48 hours of machine time. Working time: what a manager feels is the whole iteration, with people in it. That differs from team to team, so the next steps use the reader's own figures.",
+   "cont": false
+  },
+  {
+   "step": "Part 4 of 4 · What it means for your team · Step 5 of 7",
+   "title": "Your numbers",
+   "text": "We filled in example values, each with its source below the fields: 1 working day and 8 person hours per iteration, 95 € per hour. One design question then saves 6 working days and 4,560 €: 6 iterations × 8 h × 95 €. Every result shows its calculation in small print. Replace the examples with your own figures; nothing you enter leaves the browser.",
+   "cont": false
+  },
+  {
+   "step": "Part 4 of 4 · What it means for your team · Step 6 of 7",
+   "title": "When it pays off",
+   "text": "With 10 design questions like this a year (an example), the team saves 60 working days and 45,600 € a year. So a fast model pays for itself within a year if building and calibrating it costs less than 45,600 €. Enter your own effort in person weeks, and the calculator gives the payback time. Time to market is not priced in. Finding a weak design weeks earlier is often worth more than the hours.",
+   "cont": false
+  },
+  {
+   "step": "Part 4 of 4 · What it means for your team · Step 7 of 7",
+   "title": "How a team would start",
+   "text": "Pick one recurring design question that today waits for CFD or tests. Build a fast model of its main mechanisms with the people who know them. Calibrate it with CFD or test data you already have. Close the loop: let every new expensive run correct it. The toilet is the example; the pattern fits wherever design loops wait for simulation or tests. Try it on this page, and contact Peter Fintl to look at one of your own design questions in a workshop.",
    "cont": false
   }
- ]
+ ],
+ "value": {
+  "stats": {
+   "n": 8,
+   "classic": [
+    11,
+    11,
+    19,
+    10,
+    2,
+    9,
+    9,
+    26
+   ],
+   "ai": [
+    5,
+    3,
+    5,
+    9,
+    2,
+    13,
+    4,
+    2
+   ],
+   "fast": [
+    3,
+    2,
+    null,
+    null,
+    10,
+    null,
+    2,
+    2
+   ],
+   "saved": [
+    6,
+    8,
+    14,
+    1,
+    0,
+    -4,
+    5,
+    24
+   ],
+   "medClassic": 10.5,
+   "medAi": 4.5,
+   "perProject": 6,
+   "medSaved": 5.5,
+   "meanSaved": 6.75,
+   "minSaved": -4,
+   "maxSaved": 24,
+   "fewer": 6,
+   "tie": 1,
+   "more": 1,
+   "sumClassic": 97,
+   "sumAi": 43,
+   "sumSaved": 54,
+   "fastMiss": 3,
+   "challengeHoursPerRun": 8
+  },
+  "example": {
+   "k": 6,
+   "given": {
+    "d": 1,
+    "h": 8,
+    "r": 95,
+    "c": 0,
+    "q": 10,
+    "w": null
+   },
+   "daysPerQ": 6,
+   "costPerIter": 760,
+   "costPerQ": 4560,
+   "itersPerYear": 60,
+   "daysPerYear": 60,
+   "monthsPerYear": 2.857142857142857,
+   "costPerYear": 45600,
+   "breakEven": 45600
+  }
+ }
 }

@@ -109,7 +109,7 @@ h1,h2,h3,h4{letter-spacing:0}
     <span class="eyebrow">Sources and references · Tangential Jet Flush Model</span>
     <h1>Sources and references</h1>
     <p class="lede">The standards, papers, books and web sources behind the simulator and its model description, grouped by topic. Each entry says what it is used for.</p>
-    <p class="meta">October 2026 · web sources checked on 19 and 21 October 2026</p>
+    <p class="meta">October 2026 · web sources checked on 19, 21 and 22 October 2026</p>
   </header>
 
   <div class="layout">
@@ -180,7 +180,7 @@ h1,h2,h3,h4{letter-spacing:0}
       <section id="toiletcfd">
         <h2>5 · Toilet flushing CFD</h2>
         <ol class="refs">
-          <li><span class="tag cited">Cited</span><cite>CADFEM. Simulation leads Geberit to design a toilet bowl with asymmetrical geometry.</cite> CADFEM Journal. Describes CFD-led development of an asymmetrical bowl with a lateral inlet, more than 100 virtual design drafts, and about one day per design iteration. <span class="use">Used for: the industrial turnaround time in the comparison of approaches, and the peak flow range in <code>checks/literature.js</code> (free-outlet cisterns up to 2.4 L/s, about 2.0 L/s in the TurboFlush bowl, below 1.0 L/s in some bowls). It also links the quieter flush to low-turbulence flow with less air mixed in, the idea behind the noise indicator.</span> <a href="https://www.cadfem.net/en/cadfem-informs/media-center/cadfem-journal/geberit.html" target="_blank" rel="noopener">Article</a></li>
+          <li><span class="tag cited">Cited</span><cite>CADFEM. Simulation leads Geberit to design a toilet bowl with asymmetrical geometry.</cite> CADFEM Journal. Describes CFD-led development of an asymmetrical bowl with a lateral inlet, more than 100 virtual design drafts, and about one day per design iteration. <span class="use">Used for: the industrial turnaround time in the comparison of approaches and the example of one working day per iteration in the savings calculator, and the peak flow range in <code>checks/literature.js</code> (free-outlet cisterns up to 2.4 L/s, about 2.0 L/s in the TurboFlush bowl, below 1.0 L/s in some bowls). It also links the quieter flush to low-turbulence flow with less air mixed in, the idea behind the noise indicator.</span> <a href="https://www.cadfem.net/en/cadfem-informs/media-center/cadfem-journal/geberit.html" target="_blank" rel="noopener">Article</a></li>
           <li><span class="tag cited">Cited</span><cite>Li et al. (2020). Siphon pipe parameter optimization of the toilet using CFD-DEM coupling method.</cite> Uses Ansys Fluent with the VOF model coupled to EDEM for polypropylene test balls, with a mesh of about 2.3 million cells and a 0.2 ms time step. <span class="use">Used for: the example of mesh-based CFD with discrete solids for toilets.</span> <a href="https://www.scipedia.com/public/Li_et_al_2020c" target="_blank" rel="noopener">Paper page</a></li>
           <li><span class="tag">Background</span><cite>Lopes, A. G., &amp; Costa, V. A. F. (2019). Using CFD in the design process of a toilet bowl.</cite> Journal of Fluid Flow, Heat and Mass Transfer, 6, 1–8. Transient free-surface CFD in Ansys CFX, validated against flow visualisation. <span class="use">Used for: typical CFD setup and validation of bowl flushing, and the lower end of the mean flush flow in <code>checks/literature.js</code> (flushes simulated at 0.85 and 0.58 L/s).</span> <a href="https://doi.org/10.11159/jffhmt.2019.001" target="_blank" rel="noopener">doi:10.11159/jffhmt.2019.001</a></li>
           <li><span class="tag cited">Cited</span><cite>Manav, S., Kemaneci, H. İ., &amp; Şimşir, B. (2023). Comparison of two toilet bowls with the use of CFD.</cite> Journal of Fluid Flow, Heat and Mass Transfer, 10. Ansys CFX with VOF and the k-ε model, about 0.8 to 0.9 million nodes, a 0.1 ms time step over 10 s; compared qualitatively with a sawdust test after EN 997. <span class="use">Used for: typical mesh, time step and validation level of VOF toilet studies, and most comparisons in <code>checks/literature.js</code>: peak inflow 1.3 and 1.5 L/s, inflow over after 6.5 and 5.4 s, about three turns of the water on the bowl wall, up to 1.6 and 3.1 L in the bowl, 1.0 to 1.3 L at rest, outflow from 0.5 and 1.75 s, and peak wall shear of 1.75 and 2.95 Pa. The paper also states that the wall was treated as frictionless, so its shear figures are indicative only.</span> <a href="https://jffhmt.avestia.com/2023/PDF/017.pdf" target="_blank" rel="noopener">PDF</a></li>
@@ -258,13 +258,14 @@ h1,h2,h3,h4{letter-spacing:0}
       <section id="other">
         <h2>10 · Other</h2>
         <ol class="refs">
+          <li><span class="tag cited">Cited</span><cite>freelancermap. Ingenieur Stundensatz 2026: Wie viel kann ich verlangen?</cite> Blog article of 9 February 2026 with average hourly rates of freelance engineers in Germany from the Freelancer-Kompass survey: 95.07 € on average; the sample size is not stated. <span class="use">Used for: the example cost per person hour in the savings calculator (95 €), labelled as an example; a company's internal cost per hour can be higher or lower.</span> <a href="https://www.freelancermap.de/blog/?p=68600" target="_blank" rel="noopener">Article</a></li>
           <li><span class="tag cited">Cited</span><cite>Justia Trademarks. TORNADO FLUSH, trademark details.</cite> Lists TORNADO FLUSH as a TOTO mark, with related marks such as 3D TORNADO FLUSH. <span class="use">Used for: the reason the simulator uses the neutral name "tangential jet flush".</span> <a href="https://trademarks.justia.com/867/63/tornado-86763394.html" target="_blank" rel="noopener">Record</a></li>
         </ol>
       </section>
 
       <footer class="foot">
         <span class="navl"><a href="./">← Simulator</a><a href="why.html">Why</a><a href="method.html">Model description</a></span>
-        <span>Tangential Jet Flush Model · v2.0.0 · Peter Fintl</span>
+        <span>Tangential Jet Flush Model · v2.1.0 · Peter Fintl</span>
       </footer>
     </main>
   </div>

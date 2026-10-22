@@ -136,6 +136,18 @@ figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
 .btn:hover{border-color:var(--accent)}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--raised)}
 .muted{color:var(--muted);font-size:14px;margin-top:14px}
+.stat{align-content:start}
+details.calc{margin-top:4px;font-size:13.5px}
+details.calc summary{cursor:pointer;color:var(--accent);font-weight:500;min-height:24px}
+details.calc p,details.calc ul{margin-top:8px;max-width:none}
+details.calc ul{padding-left:18px}
+details.calc table.races{min-width:0;font-size:13px}
+details.calc table.races th,details.calc table.races td{padding:4px 6px}
+details.calc tr.tot td{font-weight:500;border-top:2px solid var(--line-strong)}
+@media (min-width:721px){ .statrow:has(details[open]){align-items:start} }
+.box.clocks p{margin-top:8px}
+table.map{min-width:720px}
+table.map td{font-size:14px}
 
 /* Capgemini-inspired look: Ubuntu, brand blues, a thin brand gradient across the top, pill-shaped buttons */
 body::before{content:"";display:block;height:4px;background:linear-gradient(90deg,var(--brand-1),var(--brand-2))}
@@ -155,7 +167,7 @@ h1,h2,h3,h4{letter-spacing:0}
     <span class="eyebrow">Why we built this · Tangential Jet Flush Model</span>
     <h1>Why are we doing this?</h1>
     <p class="lede">Engineering rarely slows down because people run out of ideas. It slows down because every idea waits for a simulation, a prototype or a test slot. This simulator is a small, concrete example of a different way to work: answer most questions in seconds, and spend the slow, expensive tools only where they make the decision.</p>
-    <p class="meta">Peter Fintl · 19 October 2026, updated 21 October 2026</p>
+    <p class="meta">Peter Fintl · 19 October 2026, updated 22 October 2026</p>
   </header>
 
   <div class="why">
@@ -171,19 +183,38 @@ h1,h2,h3,h4{letter-spacing:0}
     </section>
 
     <section id="loop">
-      <h2>One design loop, two clocks</h2>
-      <p>The <a href="./#challenge">engineering challenge</a> on the simulator page plays out a design project: an oval bowl misses its targets, and every candidate design has to be checked with an expensive, high-fidelity run. Eight such projects were simulated with two ways of working, against a synthetic reference that stands in for CFD. Counting one working day per iteration, as Geberit reported for its CFD-led bowl development, the median project looks like this:</p>
-      <div class="loop" id="loopFig" role="img" aria-label="Timeline of a median design project: the classic route needs 10.5 iterations of about a day, the AI-assisted route 4.5">
+      <h2>One design question, two ways of working</h2>
+      <p>The <a href="./#challenge">engineering challenge</a> on the simulator page plays out a design question: an oval bowl misses its targets, and every candidate design has to be checked with an expensive, high-fidelity run. Two ways of working were played eight times each, against a synthetic reference that stands in for CFD:</p>
+      <ul class="ticks">
+        <li><b>Classic:</b> an automated search that changes one setting per run, keeps what helps, in a sensible order.</li>
+        <li><b>AI-assisted:</b> the fast model screens hundreds of designs in seconds, and a correction learned from every expensive run decides where the next one is worth it.</li>
+      </ul>
+      <p>Counting one working day per iteration, as Geberit reported for its CFD-led bowl development, the typical project looks like this:</p>
+      <div class="loop" id="loopFig" role="img" aria-label="Timeline of a typical design project: the classic route needs 10.5 iterations of about a day, the AI-assisted route 4.5">
         <div class="loop-row"><span class="loop-l">Classic: one change at a time (automated)</span><span class="loop-bar" data-route="classic"></span><span class="loop-v" data-v="classic">10.5 days</span></div>
         <div class="loop-row"><span class="loop-l">AI-assisted: fast model + learned correction</span><span class="loop-bar ai" data-route="ai"></span><span class="loop-v" data-v="ai">4.5 days</span></div>
         <div class="loop-scale"><span>each block: one high-fidelity iteration, about a working day</span><span>the fast model's screening: seconds, too small to draw</span></div>
       </div>
       <div class="statrow">
-        <div class="stat"><span class="v" data-v="sum">97 → 43</span><span class="l">high-fidelity iterations for all eight synthetic projects, classic against AI-assisted</span></div>
-        <div class="stat"><span class="v" data-v="saved">≈ 2.5 months</span><span class="l">of iterations saved over the eight synthetic projects, at an assumed working day each</span></div>
-        <div class="stat"><span class="v" data-v="miss">3 of 8</span><span class="l">synthetic projects in which the fast model alone, without learning from the expensive runs, never met the targets</span></div>
+        <div class="stat"><span class="v" data-v="per">6 fewer</span><span class="l">expensive iterations in the typical project: about <span data-v="perdays">6 working days</span> saved on one design question</span>
+          <details class="calc"><summary>How this is calculated</summary><div data-v="calcPer"><p>Median iterations to reach the targets: classic 10.5, AI-assisted 4.5. 10.5 − 4.5 = 6 iterations, at about one working day each.</p></div></details></div>
+        <div class="stat"><span class="v" data-v="fewer">6 of 8</span><span class="l">races in which the AI route needed fewer iterations; <span data-v="fewerRest">one tie, and one in which it needed 4 more</span></span>
+          <details class="calc"><summary>All eight races</summary><div data-v="calcRaces"><p>The table needs the stored races (challenge-data.js).</p></div></details></div>
+        <div class="stat"><span class="v" data-v="miss">3 of 8</span><span class="l">races in which the fast model alone, without learning from the expensive runs, never met the targets</span>
+          <details class="calc"><summary>Why it gets stuck</summary><div data-v="calcMiss"><p>The fast model keeps sending the designs it rates best to the expensive run. Where it is wrong about a region of the design space, it never finds out, because it does not learn from the results. The AI route uses the same fast model and learns a correction after every run.</p></div></details></div>
       </div>
-      <p class="note">How these numbers come about: the iteration counts are measured in the challenge (eight starts of the same synthetic design task, <code>checks/challenge.js</code>); the day per iteration is Geberit's figure and is an assumption here. The challenge panel on the simulator page uses a second clock: computing time only, 8 hours per run. Here a whole iteration counts, from setting up a run to deciding on the next design, which Geberit put at about a working day. The classic route is a simple automated one-change-at-a-time search; a team using design of experiments would need fewer runs than it does. The expensive runs in the challenge come from a synthetic reference, the flush model with other coefficients and effects it does not have, and the task has five settings to change; with more settings to change, the classic route would typically need more iterations. The point is the mechanism: a fast physics model, a few expensive runs, and a correction learned from each of them decide where the next expensive run is worth it.</p>
+      <div class="box clocks">
+        <h4>Two clocks</h4>
+        <p><b>Computing time.</b> In the challenge panel each expensive run costs 8 hours of computing, so <span data-v="clockRuns">6 runs are 48 hours</span> of machine time.</p>
+        <p><b>Working time.</b> On this page a whole iteration counts: setting up the run, running it, evaluating it and deciding on the next design. Geberit put that at about one working day; here it is an assumption. Your own figure goes into the calculator below.</p>
+      </div>
+      <p class="note">What the numbers rest on: the iteration counts are measured in the challenge (eight starts of the same synthetic design task, <code>checks/challenge.js</code>). The expensive runs come from a synthetic reference, the flush model with other coefficients and effects it does not have, not from real CFD. The task has five settings to change; with more settings, the classic route would typically need more iterations. The classic route is a simple automated search; a team using design of experiments would need fewer runs than it does. The point is the mechanism: a fast physics model, a few expensive runs, and a correction learned from each of them decide where the next expensive run is worth it.</p>
+    </section>
+
+    <section id="value">
+      <h2>What would it save in your team?</h2>
+      <p>Enter your own figures. The iteration counts come from the challenge above; everything else is yours. If you have no figures at hand, the example values show how the calculation works, each with its source.</p>
+      <div data-value-calc></div>
     </section>
 
     <section id="approach">
@@ -242,15 +273,19 @@ h1,h2,h3,h4{letter-spacing:0}
 
     <section id="elsewhere">
       <h2>The toilet is the example, not the limit</h2>
-      <p>A flush is a good showcase because it combines free-surface flow, thin films, swirl and transport of solids, and everyone understands the result. The same pattern applies wherever fluids or other physics make design loops slow:</p>
-      <div class="uses">
-        <div><b>Vehicle water management</b><span>rain, wading and washer fluid on body, sensors and seals</span></div>
-        <div><b>Lubrication and cooling</b><span>oil splash in gearboxes, e-motor and battery cooling</span></div>
-        <div><b>Appliances</b><span>dishwashers, washing machines, coffee machines</span></div>
-        <div><b>Process and cleaning</b><span>tank cleaning, spray systems, clean-in-place</span></div>
-        <div><b>Building services</b><span>drainage, HVAC, water-saving fittings</span></div>
-        <div><b>Sensors and ADAS</b><span>keeping cameras and lidar clean and dry</span></div>
-      </div>
+      <p>A flush is a good showcase because it combines free-surface flow, thin films, swirl and transport of solids, and everyone understands the result. The same pattern applies wherever fluids or other physics make design loops slow. To use the calculator for another product, read the three words in the header row as they apply there:</p>
+      <div class="tablewrap"><table class="map">
+        <thead><tr><th>Product area</th><th>Fast model</th><th>Expensive run</th><th>One iteration</th></tr></thead>
+        <tbody>
+          <tr><td><b>Sanitary ware</b> (this page)</td><td>Reduced-order flush model: jets, wall film, pool, trap</td><td>Free-surface CFD (VOF or SPH), or a ceramic prototype on the test rig</td><td>One bowl variant simulated or tested and evaluated</td></tr>
+          <tr><td><b>Vehicle water management</b></td><td>Film and droplet paths over the body, wiper and seal zones</td><td>Full-vehicle CFD of rain, spray or wading; climatic wind tunnel test</td><td>One body, seal or drain variant checked</td></tr>
+          <tr><td><b>Lubrication and cooling</b></td><td>Network model of oil flow and splash in a gearbox or e-motor</td><td>Particle (SPH) simulation of oil splash; rig with a transparent housing</td><td>One housing, baffle or nozzle variant checked</td></tr>
+          <tr><td><b>Appliances</b></td><td>Spray and drainage model of a dishwasher or washing machine</td><td>CFD of spray arms or drum flow; wash test with a soiled load</td><td>One spray arm, nozzle or programme variant checked</td></tr>
+          <tr><td><b>Process and cleaning</b></td><td>Coverage model of spray devices in tanks and pipes</td><td>CFD of the spray; coverage test with a tracer</td><td>One device position or flow rate checked</td></tr>
+          <tr><td><b>Sensors and ADAS</b></td><td>Droplet and airflow model over camera and lidar covers</td><td>CFD of droplets in airflow; wind tunnel spray test</td><td>One cover shape or cleaning nozzle checked</td></tr>
+        </tbody>
+      </table></div>
+      <p class="note">These rows are examples of where the pattern fits, not results: none of these fast models is part of this page.</p>
     </section>
 
     <section id="start">
@@ -265,43 +300,62 @@ h1,h2,h3,h4{letter-spacing:0}
     </section>
 
     <section id="next" class="cta">
-      <h2>See it for yourself</h2>
+      <h2>See it for yourself, and talk to us</h2>
+      <p>Try the guided demo, then bring one of your own design questions. In a workshop we look at where your design loops wait for simulation or tests, and what a fast model would need to know.</p>
       <div class="cta-row">
         <a class="btn primary" href="./#demo">▶ Start the guided demo</a>
         <a class="btn" href="./">Open the simulator</a>
+        <a class="btn" href="https://fintlp.github.io/latest-news/#contact" target="_blank" rel="noopener">Contact Peter Fintl · ask for a workshop</a>
         <a class="btn" href="slides/jet-flush-model.pptx" download>Slides, PowerPoint</a>
         <a class="btn" href="slides/jet-flush-model.pdf" target="_blank" rel="noopener">Slides, PDF</a>
       </div>
-      <p class="muted">Sources for the figures on this page are on the <a href="sources.html">sources and references page</a>. The flush times, the 540-design search and the iteration counts were measured with this simulator; the 2-hour CFD run is the medium-mesh OpenFOAM run of the CFD check (its computing time, without time the computer was asleep; a coarser mesh took 23 minutes); the one-day iteration comes from the Geberit report by CADFEM.</p>
+      <p class="muted">Sources for the figures on this page are on the <a href="sources.html">sources and references page</a>. The flush times, the 540-design search and the iteration counts were measured with this simulator; the 2-hour CFD run is the medium-mesh OpenFOAM run of the CFD check (its computing time, without time the computer was asleep; a coarser mesh took 23 minutes); the one-day iteration comes from the Geberit report by CADFEM; the example hourly rate in the calculator from freelancermap's survey of freelance engineers in Germany.</p>
     </section>
 
     <footer class="foot">
       <span class="navl"><a href="./">← Simulator</a><a href="method.html">Model description</a><a href="sources.html">Sources and references</a></span>
-      <span>Tangential Jet Flush Model · v2.0.0 · Peter Fintl</span>
+      <span>Tangential Jet Flush Model · v2.1.0 · Peter Fintl</span>
     </footer>
   </div>
 </div>
-<script src="challenge-data.js?v=25"></script>
+<script src="challenge-data.js?v=26"></script>
+<script src="value-core.js?v=26"></script>
 <script>
-/* The timeline figures from the eight stored races of the engineering challenge (challenge-data.js), so they stay
-   in step with the simulator page. Without the data, the numbers written into the page above stay as they are. */
+/* The figures of "One design question" from the eight stored races of the engineering challenge (challenge-data.js,
+   through value-core.js), so they stay in step with the simulator page. Without the data, the numbers written into
+   the page above stay as they are. */
 (function () {
-  const D = window.FlushChallengeData; if (!D || !D.races) return;
-  const tt = (k) => D.races.map((r) => r.routes[k].toTarget);
-  const med = (v) => { const s = v.slice().sort((a, b) => a - b), n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; };
-  const cl = tt('classic'), ai = tt('ai'), fa = tt('fast');
-  if (cl.some((v) => v == null) || ai.some((v) => v == null)) return;
-  const mc = med(cl), ma = med(ai), sc = cl.reduce((a, b) => a + b, 0), sa = ai.reduce((a, b) => a + b, 0), saved = sc - sa;
-  const fmtd = (v) => `${v % 1 ? v.toFixed(1) : v} ${v === 1 ? 'day' : 'days'}`;
+  const V = window.FlushValue, st = V && V.stats(); if (!st) return;
+  const f = (v) => { const x = Math.round(v * 100) / 100; return x.toLocaleString('en', { maximumFractionDigits: 2 }); };
+  const days = (v) => `${f(v)} ${v === 1 ? 'day' : 'days'}`;
+  const words = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'];
+  const w = (n) => words[n] || String(n);
+  const mc = st.medClassic, ma = st.medAi;
   const blocks = (n) => Array.from({ length: Math.floor(n) }, () => '<i></i>').join('') + (n % 1 ? '<i class="half"></i>' : '');
   const scale = Math.max(mc, ma);
   document.querySelectorAll('.loop-bar').forEach((b) => { const n = b.dataset.route === 'ai' ? ma : mc; b.innerHTML = blocks(n); b.style.setProperty('--n', scale); });
   document.querySelectorAll('.loop-bar i').forEach((i) => { i.style.width = `calc((100% - ${3 * (Math.ceil(scale) - 1)}px) / ${Math.ceil(scale)}${i.classList.contains('half') ? ' / 2' : ''})`; });
-  const set = (k, t) => { const el = document.querySelector(`[data-v="${k}"]`); if (el) el.textContent = t; };
-  set('classic', fmtd(mc)); set('ai', fmtd(ma)); set('sum', `${sc} → ${sa}`);
-  set('saved', saved >= 40 ? `≈ ${Math.round(saved / 21 * 2) / 2} months` : `${saved} days`);   // 21 working days a month, to the half month set('miss', `${fa.filter((v) => v == null).length} of ${fa.length}`);
-  const fig = document.getElementById('loopFig'); if (fig) fig.setAttribute('aria-label', `Timeline of a median design project: the classic route needs ${mc} iterations of about a day, the AI-assisted route ${ma}`);
+  const el = (k) => document.querySelector(`[data-v="${k}"]`);
+  const set = (k, t) => { const e = el(k); if (e) e.textContent = t; };
+  const html = (k, t) => { const e = el(k); if (e) e.innerHTML = t; };
+  set('classic', days(mc)); set('ai', days(ma));
+  set('per', `${f(st.perProject)} fewer`); set('perdays', `${f(st.perProject)} working ${st.perProject === 1 ? 'day' : 'days'}`);
+  set('fewer', `${st.fewer} of ${st.n}`);
+  const rest = [];
+  if (st.tie) rest.push(st.tie === 1 ? 'one tie' : `${w(st.tie)} ties`);
+  if (st.more) { const worst = -st.minSaved; rest.push(st.more === 1 ? `one in which it needed ${worst} more` : `${w(st.more)} in which it needed more, up to ${worst}`); }
+  set('fewerRest', rest.length ? rest.join(', and ') : 'it was never slower');
+  set('miss', `${st.fastMiss} of ${st.n}`);
+  set('clockRuns', `${f(st.perProject)} runs are ${f(st.perProject * st.challengeHoursPerRun)} hours`);
+  const sorted = (v) => v.slice().sort((a, b) => a - b).join(', ');
+  const mid = (v) => { const s = v.slice().sort((a, b) => a - b), n = s.length; return n % 2 ? `the middle value, ${f(s[(n - 1) / 2])}` : `halfway between ${s[n / 2 - 1]} and ${s[n / 2]}, ${f((s[n / 2 - 1] + s[n / 2]) / 2)}`; };
+  html('calcPer', `<p>Iterations each route needed to reach the targets in the ${w(st.n)} races, sorted:</p><ul><li>Classic: ${sorted(st.classic)}. The typical project (median) is ${mid(st.classic)}.</li><li>AI-assisted: ${sorted(st.ai)}. The typical project is ${mid(st.ai)}.</li></ul><p><b>${f(mc)} − ${f(ma)} = ${f(st.perProject)} iterations</b> fewer. At about one working day per iteration (Geberit's figure, an assumption here): <b>${f(st.perProject)} working days</b> per design question.</p><p>Matched race by race, the savings are ${st.saved.map((v) => (v < 0 ? '−' + -v : v)).join(', ')}: their median is ${f(st.medSaved)}, their average ${f(st.meanSaved)}. We use ${f(st.perProject)}, the difference between the two typical projects, which sits between the two.</p>`);
+  const rows = st.classic.map((c, i) => `<tr><td class="num">${i + 1}</td><td class="num">${c}</td><td class="num">${st.ai[i]}</td><td class="num">${st.saved[i] > 0 ? '+' : st.saved[i] < 0 ? '−' : ''}${Math.abs(st.saved[i])}</td><td class="num">${st.fast[i] == null ? 'never' : st.fast[i]}</td></tr>`).join('');
+  const sd = st.sumSaved, months = sd / V.DAYS_PER_MONTH;
+  html('calcRaces', `<div class="tablewrap"><table class="races"><thead><tr><th>Race</th><th>Classic</th><th>AI</th><th>Saved</th><th>Fast alone</th></tr></thead><tbody>${rows}<tr class="tot"><td>All</td><td class="num">${st.sumClassic}</td><td class="num">${st.sumAi}</td><td class="num">+${sd}</td><td class="num">${st.fastMiss} never</td></tr></tbody></table></div><p>Over all ${w(st.n)} races together, ${st.sumClassic} − ${st.sumAi} = ${sd} iterations saved: ${sd} working days at a day each, about ${f(Math.round(months * 10) / 10)} months at ${V.DAYS_PER_MONTH} working days a month. The races are eight starts of the same task, not eight different products, so the page leads with the typical project.</p>`);
+  const fig = document.getElementById('loopFig'); if (fig) fig.setAttribute('aria-label', `Timeline of a typical design project: the classic route needs ${f(mc)} iterations of about a day, the AI-assisted route ${f(ma)}`);
 })();
 </script>
+<script src="value.js?v=26"></script>
 </body>
 </html>

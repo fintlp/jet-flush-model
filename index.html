@@ -61,7 +61,15 @@ button,select,input{font:inherit;color:inherit}
 .site a{font-family:var(--f-display);font-weight:500;font-size:13px;letter-spacing:.02em;color:var(--accent);text-decoration:none;border-bottom:1px solid transparent}
 .site a:hover{border-bottom-color:currentColor}
 /* header */
-.top{display:flex;flex-wrap:wrap;gap:16px 28px;align-items:flex-end;justify-content:space-between;padding-bottom:18px;border-bottom:1px solid var(--line);margin-bottom:20px}
+.top{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,400px);gap:16px 40px;align-items:start;padding-bottom:18px;border-bottom:1px solid var(--line);margin-bottom:20px}
+.top .actions{grid-column:1 / -1;justify-content:flex-end}
+.whycard{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px;display:grid;gap:6px;align-self:start;margin-top:22px}
+.whycard .why-v{margin:0;font-size:17px;color:var(--ink)}
+.whycard .why-v b{font-family:var(--f-display);font-size:30px;color:var(--accent);margin-right:4px}
+.whycard .why-l{margin:0;font-size:13.5px;color:var(--muted)}
+.whycard .why-btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.whycard .btn{text-decoration:none}
+@media (max-width:860px){ .top{grid-template-columns:minmax(0,1fr)} .whycard{margin-top:0} .top .actions{justify-content:flex-start} }
 .top .title{display:grid;gap:6px;min-width:0;max-width:68ch}
 .top .lede{color:var(--muted);font-size:14px}
 .top .lede{color:var(--ink);font-size:15px}
@@ -354,11 +362,17 @@ a{color:var(--accent)}
   </nav>
   <header class="top">
     <div class="title">
-      <span class="eyebrow">Flush simulator · physics model + AI</span>
-      <h1>Tangential Jet Flush Model</h1>
-      <p class="lede">A fast model of how a rimless toilet flushes. Rim jets wash the bowl, swirl the pool and carry waste through the trap. Each flush computes in milliseconds, so you can change the design and see the effect on cleaning, waste removal, water use and relative noise right away. An AI lab searches for better designs and shows how the model would be trained and calibrated with high-fidelity simulation such as PreonLab, Ansys Fluent, Simcenter STAR-CCM+ or OpenFOAM. The coefficients are not calibrated yet, so read the results as indications for comparing designs, not as validated values.</p>
-      <p class="lede-detail">Under the hood: a reduced-order model from cistern to trap, covering jet films on an oval bowl wall, pool swirl, washdown or siphonic outflow and waste transport. One flush takes about 20 to 40 ms in the browser; a free-surface CFD case of a flush runs for minutes to hours. <a href="method.html" target="_blank" rel="noopener">How the model works</a> · <a href="why.html" target="_blank" rel="noopener">Why we built this</a> · Slides: <a href="slides/jet-flush-model.pptx" target="_blank" rel="noopener">PowerPoint</a>, <a href="slides/jet-flush-model.pdf" target="_blank" rel="noopener">PDF</a></p>
+      <span class="eyebrow">Tangential Jet Flush Model · physics model + AI</span>
+      <h1>Faster design loops, shown on a toilet flush</h1>
+      <p class="lede">Engineering waits for answers: every design question goes through slow simulations or prototypes. This page shows a different way to work, on a rimless toilet flush. A fast physics model answers in milliseconds, AI searches the designs and learns from each expensive run, and the slow tools are spent only where they decide.</p>
+      <p class="lede-detail">The model covers the flush from cistern to trap: rim jets, wall films, pool swirl, trap and waste. Its coefficients are not calibrated yet, so compare designs with it rather than reading values as validated. <a href="method.html" target="_blank" rel="noopener">How the model works</a> · Slides: <a href="slides/jet-flush-model.pptx" target="_blank" rel="noopener">PowerPoint</a>, <a href="slides/jet-flush-model.pdf" target="_blank" rel="noopener">PDF</a></p>
     </div>
+    <aside class="whycard" aria-label="Why this matters">
+      <span class="eyebrow">Why this matters</span>
+      <p class="why-v"><b data-vv="per">6 fewer</b> expensive iterations</p>
+      <p class="why-l">per design question in the typical project of our engineering challenge: <span data-vv="cl">10.5</span> → <span data-vv="ai">4.5</span>, about <span data-vv="days">6 working days</span>. Synthetic reference, explained step by step.</p>
+      <div class="why-btns"><a class="btn primary" href="why.html" target="_blank" rel="noopener">Why we do this →</a><a class="btn" href="#value">What it saves your team</a></div>
+    </aside>
     <div class="actions">
       <select id="preset" aria-label="Design preset">
         <option value="washdown">Preset: EU washdown, 4.5/3 L</option>
@@ -388,7 +402,7 @@ a{color:var(--accent)}
   </section>
 
   <nav class="jump" aria-label="Page sections">
-    <a href="#sim">Simulate</a><a href="#results">Results</a><a href="#traces">Traces</a><a href="#wallmap">Wall map</a><a href="#sweep">Sweep</a><a href="#tolerance">Tolerances</a><a href="#cfd">CFD check</a><a href="#challenge">Challenge</a><a href="#ai-lab">AI lab</a><a href="#how">How it works</a><a href="why.html" target="_blank" rel="noopener">Why</a>
+    <a href="#sim">Simulate</a><a href="#results">Results</a><a href="#traces">Traces</a><a href="#wallmap">Wall map</a><a href="#sweep">Sweep</a><a href="#tolerance">Tolerances</a><a href="#cfd">CFD check</a><a href="#challenge">Challenge</a><a href="#value">What it saves</a><a href="#ai-lab">AI lab</a><a href="#how">How it works</a><a href="why.html" target="_blank" rel="noopener">Why</a>
     <button type="button" class="jump-demo" id="demoBtn2">Demo me</button>
   </nav>
 
@@ -599,6 +613,13 @@ a{color:var(--accent)}
           <ol class="ch-you-log" id="chYouLog"></ol>
           <div class="ai-results" id="chYouSum"></div>
         </fieldset>
+      </section>
+
+      <section class="panel" aria-label="What it saves" id="value">
+        <div class="panel-head"><h2>What it saves</h2><span class="muted" style="font-size:12.5px">From the engineering challenge to your team: working days and money per design question</span></div>
+        <div class="ai-results" id="vHead"><p>In the <a href="#challenge">engineering challenge</a> the typical project needed <b data-vv="cl">10.5</b> expensive iterations with the classic route and <b data-vv="ai">4.5</b> with the AI route: <b data-vv="per">6 fewer</b> per design question. What that is worth depends on your figures: how long one iteration takes in your team, and what it costs. Enter them below, or start with the example values. <a href="why.html#loop" target="_blank" rel="noopener">How each figure is calculated</a>.</p></div>
+        <div class="sweep-ctl"><button class="btn" type="button" id="vTour">Guided tour</button></div>
+        <div data-value-calc></div>
       </section>
 
       <section class="panel" aria-label="AI lab" id="ai-lab">
@@ -817,7 +838,7 @@ a{color:var(--accent)}
       </section>
       <footer class="foot">
         <span class="footlinks"><a href="why.html" target="_blank" rel="noopener">Why we built this</a><a href="method.html" target="_blank" rel="noopener">Model details</a><a href="sources.html" target="_blank" rel="noopener">Sources and references</a><a href="slides/jet-flush-model.pptx" target="_blank" rel="noopener">Slides, PowerPoint</a><a href="slides/jet-flush-model.pdf" target="_blank" rel="noopener">Slides, PDF</a></span>
-        <span class="muted">Tangential Jet Flush Model · v2.0.0 · Peter Fintl</span>
+        <span class="muted">Tangential Jet Flush Model · v2.1.0 · Peter Fintl</span>
       </footer>
     </div>
   </div>
@@ -826,18 +847,20 @@ a{color:var(--accent)}
     <button type="button" class="btn primary" id="mobarBtn" aria-expanded="false" aria-controls="rail">Adjust design</button>
   </div>
 </div>
-<script src="model.js?v=25"></script>
-<script src="app.js?v=25"></script>
-<script src="tolerance.js?v=25"></script>
-<script src="cfdcheck.js?v=25"></script>
-<script src="pinn-core.js?v=25"></script>
-<script src="field-core.js?v=25"></script>
-<script src="challenge-core.js?v=25"></script>
-<script src="challenge-data.js?v=25"></script>
-<script src="challenge.js?v=25"></script>
-<script src="ai.js?v=25"></script>
-<script src="pinn.js?v=25"></script>
-<script src="field.js?v=25"></script>
-<script src="tour.js?v=25"></script>
+<script src="model.js?v=26"></script>
+<script src="app.js?v=26"></script>
+<script src="tolerance.js?v=26"></script>
+<script src="cfdcheck.js?v=26"></script>
+<script src="pinn-core.js?v=26"></script>
+<script src="field-core.js?v=26"></script>
+<script src="challenge-core.js?v=26"></script>
+<script src="challenge-data.js?v=26"></script>
+<script src="challenge.js?v=26"></script>
+<script src="ai.js?v=26"></script>
+<script src="pinn.js?v=26"></script>
+<script src="field.js?v=26"></script>
+<script src="value-core.js?v=26"></script>
+<script src="value.js?v=26"></script>
+<script src="tour.js?v=26"></script>
 </body>
 </html>

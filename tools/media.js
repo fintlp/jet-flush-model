@@ -4,7 +4,7 @@
 //   node tools/media.js              all: stills, flush video, guided story video
 //   node tools/media.js stills       only the stills and figures
 //   node tools/media.js flush        only media/flush-playback.mp4
-//   node tools/media.js story        only media/demo-walkthrough.mp4 (the three-part guided story)
+//   node tools/media.js story        only media/demo-walkthrough.mp4 (the four-part guided story)
 // Serves this repository on a free local port, like checks/browser.js. Deterministic apart from timings.
 const http = require('http'), fs = require('fs'), path = require('path'), os = require('os'), { execFileSync } = require('child_process');
 const { chromium } = require('playwright');
@@ -46,6 +46,11 @@ async function stills(browser, base) {
   await page.evaluate(() => FlushChallengeUI.play()); await done(() => !FlushChallengeUI.playing());
   await page.waitForTimeout(500); await shot('#cvChAll', 'challenge.png');
   fig.challenge = await page.evaluate(() => FlushChallengeUI.stats());
+  // what it saves: the calculator with its example values
+  await page.evaluate(() => FlushValueUI.first().fill(true));
+  await shot('#value', 'value.png');
+  fig.value = await page.evaluate(() => ({ stats: FlushValueUI.stats(), example: FlushValueUI.first().result() }));
+  await page.evaluate(() => FlushValueUI.first().fill(false));
   // AI lab: optimiser with targets from the washdown preset, surrogate, hybrid calibration, PINN, field surrogate
   await page.evaluate(() => { document.querySelector('[data-aitab="aiOpt"]').click(); document.getElementById('goalTargets').click();
     const v = (id, x) => { const e = document.getElementById(id); if (e) e.value = x; };
@@ -82,7 +87,7 @@ async function flush(browser, base) {
   await ctx.close();
 }
 
-// the guided story, all three parts, as a visitor sees it: each step stays on screen long enough to read
+// the guided story, all four parts, as a visitor sees it: each step stays on screen long enough to read
 async function story(browser, base) {
   const vdir = fs.mkdtempSync(path.join(os.tmpdir(), 'story-'));
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: 'light', recordVideo: { dir: vdir, size: { width: 1440, height: 900 } } });
@@ -96,13 +101,13 @@ async function story(browser, base) {
   const ready = () => page.waitForFunction(() => !document.getElementById('tourNext').disabled, null, { timeout: 180000 });
   const read = async () => { const n = await page.evaluate(() => document.getElementById('tourText').innerText.split(/\s+/).length); await page.waitForTimeout(Math.min(9000, Math.max(4000, 2000 + n * 60))); };
   await page.click('#demoBtn');
-  for (let part = 1; part <= 3; part++) {
+  for (let part = 1; part <= 9; part++) {
     for (;;) {
       await ready(); await read();
       const st = await page.evaluate(() => ({ step: document.getElementById('tourStep').textContent, title: document.getElementById('tourTitle').textContent, text: document.getElementById('tourText').innerText.replace(/\s+/g, ' ').trim(), cont: !!document.getElementById('tourNextTour') }));
       fig.demo.push(st);
       if (st.cont) { await page.click('#tourNextTour'); break; }
-      if (/Step (\d+) of \1$/.test(st.step)) { await page.click('#tourNext'); part = 4; break; }
+      if (/Step (\d+) of \1$/.test(st.step)) { await page.click('#tourNext'); part = 99; break; }
       await page.click('#tourNext');
     }
   }
