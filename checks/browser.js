@@ -363,6 +363,8 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
 
   // simulator page (2.1): What it saves, and part 4 of the story for managers
   await fresh();
+  const hd = await page.evaluate(() => { const c = document.querySelector('.whycard'); return { h1: document.querySelector('h1').textContent, card: c && c.innerText, why: c && c.querySelector('a[href="why.html"]') && c.querySelector('a[href="why.html"]').textContent, val: c && !!c.querySelector('a[href="#value"]') }; });
+  ok('Header (2.1): the heading carries the message, and the why card names the saving with links to the why page and What it saves', hd.h1.startsWith('Faster design loops') && hd.card.includes('6 fewer') && hd.card.includes('10.5') && hd.card.includes('6 working days') && hd.why.includes('Why we do this') && hd.val, hd);
   const vh = await page.evaluate(() => ({ head: document.getElementById('vHead').innerText, n: FlushValueUI.all().length }));
   ok('What it saves: the panel names the typical project and holds the calculator', vh.n === 1 && vh.head.includes('10.5') && vh.head.includes('4.5') && vh.head.includes('6 fewer'), vh);
   await page.evaluate(() => document.getElementById('vTour').click());

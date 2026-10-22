@@ -104,7 +104,7 @@
   }
   hosts.forEach(render);
   // short figures in the text around a calculator (simulator page)
-  const short = { cl: f1(st.medClassic), ai: f1(st.medAi), per: `${f1(st.perProject)} fewer` };
+  const short = { cl: f1(st.medClassic), ai: f1(st.medAi), per: `${f1(st.perProject)} fewer`, days: `${f1(st.perProject)} working days` };
   document.querySelectorAll('[data-vv]').forEach((e) => { const t = short[e.dataset.vv]; if (t != null) e.textContent = t; });
   window.FlushValueUI = { stats: () => st, all: () => insts, first: () => insts[0] };
 })();

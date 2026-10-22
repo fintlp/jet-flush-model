@@ -131,6 +131,11 @@ The coefficients that describe physics the model does not resolve (film friction
 
 Version 2.1 explains to managers what a faster design loop is worth and how each figure is calculated. The model and its results are unchanged from 2.0.0.
 
+**Simulator page: the why first**
+
+- **The heading carries the message:** "Faster design loops, shown on a toilet flush", with the model's name above it. The intro says in three sentences why: engineering waits for answers, and a fast physics model with AI on top spends the slow tools only where they decide. The technical description is shorter.
+- **"Why this matters" card** at the top: 6 fewer expensive iterations per design question (10.5 → 4.5, about 6 working days, synthetic reference), with "Why we do this →" (the why page) and "What it saves your team". Before, the why page was the second of five small links at the end of the intro.
+
 **Why page: every figure traceable**
 
 - **Per design question first.** The headline is the typical project of the engineering challenge: 10.5 expensive iterations with the classic route, 4.5 with the AI route, **6 fewer**, about 6 working days at a day each. Before, the page led with the total over the eight races as "≈ 2.5 months", which read like a portfolio of eight products (they are eight starts of one task) and rounded 54 working days, 2.57 months, down.
