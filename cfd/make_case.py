@@ -27,9 +27,13 @@ ap.add_argument('--outlet-at', default='sump', choices=['sump', 'ring', 'leg'],
                 help='sump: rear sump wall from the bottom up to the seal depth; ring: rear pool wall 10 to 35 mm below '
                      'the crest (both draw air once the vortex core reaches them); leg: a straight trap leg below the sump '
                      'with a cross-shaped swirl breaker, outlet at its lower end (as a trapway, it stops the swirl first)')
-ap.add_argument('--outlet', default='pressure', choices=['pressure', 'model'],
+ap.add_argument('--outlet', default='pressure', choices=['pressure', 'model', 'trap'],
                 help="pressure: total-pressure outlet at crest level (orifice law; blocked by a strong swirl, see cfd-status); "
-                     "model: the model's trap outflow Qout(t) prescribed at the outlet")
+                     "model: the model's trap outflow Qout(t) prescribed at the outlet; "
+                     "trap: a trapway (inlet at the bottom of the sump, up-leg to the weir crest at z = 0, down-leg) "
+                     "with an atmospheric pressure outlet at its end, so the trap outflow is a result (--outlet-at is ignored)")
+ap.add_argument('--trap-d', type=float, default=0.048, help='trapway inner diameter, m (preset value 48 mm)')
+ap.add_argument('--trap-fall', type=float, default=0.120, help='fall from the weir crest to the outlet plane, m (preset hFall 120 mm)')
 a = ap.parse_args()
 if not os.path.exists(a.series):   # also look relative to this script's folder (the runner keeps both in tools/)
     a.series = os.path.join(os.path.dirname(os.path.abspath(__file__)), a.series)
@@ -48,7 +52,8 @@ p = S['p']
 Rr, Rp, D, ds = p['Rrim'] / 1000, p['Rpool'] / 1000, p['Dwall'] / 1000, p['seal'] / 1000
 if abs(p.get('ovality', 1) - 1) > 1e-9:
     raise SystemExit('only round bowls are supported (ovality 1)')
-zBot = -ds - 0.03                      # sump bottom, as the model's level table
+TRAP = a.outlet == 'trap'
+zBot = -ds if TRAP else -ds - 0.03     # sump bottom: as the model's level table, or the trap inlet at the seal depth
 zTop = D + 0.06                        # air above the rim, open at the top
 nJ = max(1, round(p['nJets']))
 An, hN = p['Anoz'] * 1e-4, p['hNoz'] / 1000
@@ -66,9 +71,55 @@ def r_of_z(z):
 # profile points, bottom to top, with breaks at the region edges
 jetTop, jetBot = D - 0.001, D - 0.001 - w0     # band from 1 mm below the rim, as the model folds it onto the wall
 # trap opening: on the rear sump wall from the bottom up to the seal depth, or on the rear pool wall higher up
-outBot, outTop = {'sump': (zBot, -ds), 'ring': (-0.035, -0.010), 'leg': (zBot, zBot)}[a.outlet_at]
+outBot, outTop = {'sump': (zBot, -ds), 'ring': (-0.035, -0.010), 'leg': (zBot, zBot)}[a.outlet_at] if not TRAP else (zBot, zBot)
 LEG = 0.08                             # trap leg length below the sump bottom (outlet-at leg)
-zLeg = zBot - LEG if a.outlet_at == 'leg' else zBot
+zLeg = zBot - LEG if (a.outlet_at == 'leg' and not TRAP) else zBot
+
+# ---------- trapway (--outlet trap) ----------
+# A generic washdown trapway in the y-z plane behind the bowl (+y), built from straight pieces and circular arcs so
+# that its bends never fold onto themselves. Centre line: from the trap inlet at the bottom of the sump (z = -seal,
+# a horizontal circle of the trapway diameter) straight down, a bend that turns it backwards and up (the bottom of the
+# U), a straight up-leg rising at UP_DEG, a bend over the weir (its lowest inner point, the crest, at z = 0, the static
+# waterline), and a straight down-leg to the outlet plane at z = -fall. Dimensions other than the diameter, the seal and
+# the fall are assumptions (no drawing yet): see TRAP_ASSUMED.
+rT = a.trap_d / 2
+TRAP_ASSUMED = {'d': a.trap_d, 'seal': ds, 'fall': a.trap_fall, 'drop_below_inlet': 0.020, 'bend1_R': 0.035,
+                'bend1_turn_deg': 145.0, 'upleg_deg': 55.0, 'weir_bend_R': 0.035}
+def trap_path():
+    UP = math.radians(TRAP_ASSUMED['upleg_deg']); R1 = TRAP_ASSUMED['bend1_R']; R2 = TRAP_ASSUMED['weir_bend_R']
+    pts = []
+    def add(y, z, hd): pts.append((y, z, hd))
+    y, z, hd = 0.0, zBot, -math.pi / 2
+    n = int(math.ceil(TRAP_ASSUMED['drop_below_inlet'] / 0.002))
+    for i in range(n + 1): add(0.0, zBot - TRAP_ASSUMED['drop_below_inlet'] * i / n, hd)
+    y, z = 0.0, zBot - TRAP_ASSUMED['drop_below_inlet']
+    cy, cz = y - R1 * math.sin(hd), z + R1 * math.cos(hd)                                       # left turn
+    n = int(math.ceil(R1 * (UP - hd) / 0.002))
+    for i in range(1, n + 1):
+        h = hd + (UP - hd) * i / n
+        add(cy + R1 * math.sin(h), cz - R1 * math.cos(h), h)
+    y, z, hd = pts[-1]
+    # up-leg length so that the top of the weir bend has its centre line at z = rT (inner bottom, the crest, at z = 0)
+    zEnd = rT - R2 * (1 - math.cos(UP))
+    L = (zEnd - z) / math.sin(UP)
+    n = int(math.ceil(L / 0.002))
+    for i in range(1, n + 1): add(y + L * math.cos(UP) * i / n, z + L * math.sin(UP) * i / n, UP)
+    y, z, hd = pts[-1]
+    cy, cz = y + R2 * math.sin(hd), z - R2 * math.cos(hd)                                       # right turn
+    n = int(math.ceil(R2 * (hd + math.pi / 2) / 0.002))
+    for i in range(1, n + 1):
+        h = hd - (hd + math.pi / 2) * i / n
+        add(cy - R2 * math.sin(h), cz + R2 * math.cos(h), h)
+    y, z, hd = pts[-1]
+    L = z + a.trap_fall
+    n = int(math.ceil(L / 0.002))
+    for i in range(1, n + 1): add(y, z - L * i / n, -math.pi / 2)
+    return pts, cy
+if TRAP:
+    TPATH, yCrest = trap_path()
+    zTrapMin = min(z for _, z, _ in TPATH) - rT
+    yTrapMax = max(y for y, _, _ in TPATH) + rT
+    zLeg = min(zLeg, zTrapMin)
 zs = set()
 def add_range(z0, z1, dz):
     n = max(1, int(math.ceil((z1 - z0) / dz)))
@@ -115,7 +166,7 @@ for k in range(len(prof) - 1):
 # cross of two plates (swirl breaker) from the outlet up into the sump. The plates cut through the cylinder wall; the
 # cells inside them are cut off from the fluid by snappyHexMesh.
 rb = prof[0][0]
-if a.outlet_at == 'leg':
+if a.outlet_at == 'leg' and not TRAP:
     nL = int(math.ceil(LEG / 0.002))
     zl = [zLeg + LEG * k / nL for k in range(nL + 1)]
     for k in range(nL):
@@ -135,6 +186,23 @@ if a.outlet_at == 'leg':
             tri('wall', v[q[0]], v[q[1]], v[q[2]]); tri('wall', v[q[0]], v[q[2]], v[q[3]])
     box(-rx, rx, -tP / 2, tP / 2, zLeg - 0.002, zP1)
     box(-tP / 2, tP / 2, -rx, rx, zLeg - 0.002, zP1)
+elif TRAP:
+    # flat ledge from the sump wall to the trap inlet, then the trapway as a swept circle along TPATH
+    for i in range(NT):
+        tri('wall', P(rT, th[i], zBot), P(rb, th[i + 1], zBot), P(rb, th[i], zBot))
+        tri('wall', P(rT, th[i], zBot), P(rT, th[i + 1], zBot), P(rb, th[i + 1], zBot))
+    def ring(y, z, hd):
+        ny_, nz_ = -math.sin(hd), math.cos(hd)        # in-plane normal (left of the heading); binormal is +x
+        # at the inlet (heading down) this gives (rT cos t, rT sin t, z), the same points as the ledge's inner edge
+        return [(rT * math.cos(t), y + rT * math.sin(t) * ny_, z + rT * math.sin(t) * nz_) for t in th]
+    rings = [ring(*q) for q in TPATH]
+    for k in range(len(rings) - 1):
+        r0_, r1_ = rings[k], rings[k + 1]
+        for i in range(NT):
+            tri('wall', r0_[i], r1_[i], r1_[i + 1]); tri('wall', r0_[i], r1_[i + 1], r0_[i + 1])
+    ye, ze, _ = TPATH[-1]
+    for i in range(NT):
+        tri('outlet', (0.0, ye, ze), rings[-1][i + 1], rings[-1][i])
 else:
     for i in range(NT):
         tri('wall', (0, 0, zBot), P(rb, th[i + 1], zBot), P(rb, th[i], zBot))
@@ -202,14 +270,16 @@ h0 = {'coarse': 0.006, 'medium': 0.004, 'fine': 0.004}[a.mesh]
 lvl = {'coarse': 1, 'medium': 1, 'fine': 2}[a.mesh]          # wall cells: coarse 3 mm, medium 2 mm, fine 1 mm
 jl = lvl
 X = Rr + 0.01
+Y1 = X if not TRAP else max(X, yTrapMax + 0.01)           # the trapway lies behind the bowl (+y)
 # the background mesh has a face plane at z = 0 (the crest): whole cells from zLo up, so setFields fills the pool
 # exactly to the crest and no water flows in through the outlet at the start
 zLo = -math.ceil((0.005 - zLeg) / h0 - 1e-9) * h0; zHi = math.ceil((zTop + 0.005) / h0 - 1e-9) * h0
 nx_ = int(math.ceil(2 * X / h0)); nz_ = int(round((zHi - zLo) / h0))
+ny_ = int(math.ceil((X + Y1) / h0)); Y1 = -X + ny_ * h0
 write('system/blockMeshDict', 'dictionary', 'blockMeshDict', f'''scale 1;
-vertices ( ({-X} {-X} {zLo:.6f}) ({X} {-X} {zLo:.6f}) ({X} {X} {zLo:.6f}) ({-X} {X} {zLo:.6f})
-           ({-X} {-X} {zHi:.6f}) ({X} {-X} {zHi:.6f}) ({X} {X} {zHi:.6f}) ({-X} {X} {zHi:.6f}) );
-blocks ( hex (0 1 2 3 4 5 6 7) ({nx_} {nx_} {nz_}) simpleGrading (1 1 1) );
+vertices ( ({-X} {-X} {zLo:.6f}) ({X} {-X} {zLo:.6f}) ({X} {Y1:.6f} {zLo:.6f}) ({-X} {Y1:.6f} {zLo:.6f})
+           ({-X} {-X} {zHi:.6f}) ({X} {-X} {zHi:.6f}) ({X} {Y1:.6f} {zHi:.6f}) ({-X} {Y1:.6f} {zHi:.6f}) );
+blocks ( hex (0 1 2 3 4 5 6 7) ({nx_} {ny_} {nz_}) simpleGrading (1 1 1) );
 edges ();
 boundary ( box {{ type patch; faces ( (0 3 2 1) (4 5 6 7) (0 1 5 4) (2 3 7 6) (1 2 6 5) (0 4 7 3) ); }} );
 ''')
@@ -312,12 +382,67 @@ FRAMES_FO = '' if a.frames <= 0 else f'''    frames
         }}
     }}
 '''
+TRAP_FO = '' if not TRAP else f'''    outletTotal
+    {{
+        type surfaceFieldValue; libs (fieldFunctionObjects);
+        writeControl timeStep; writeInterval 5;
+        log false; writeFields false;
+        regionType patch; name outlet;
+        operation sum;
+        fields (phi);
+    }}
+    rimLoss
+    {{
+        type surfaceFieldValue; libs (fieldFunctionObjects);
+        writeControl timeStep; writeInterval 5;
+        log false; writeFields false;
+        regionType patch; name atmosphere;
+        operation weightedSum; weightField alpha.water;
+        fields (phi);
+    }}
+    bowlAboveWater
+    {{
+        type volFieldValue; libs (fieldFunctionObjects);
+        writeControl timeStep; writeInterval 5;
+        log false; writeFields false;
+        regionType cellZone; name bowlAbove;
+        operation volIntegrate;
+        fields (alpha.water);
+    }}
+    trapWater
+    {{
+        type volFieldValue; libs (fieldFunctionObjects);
+        writeControl timeStep; writeInterval 5;
+        log false; writeFields false;
+        regionType cellZone; name trap;
+        operation volIntegrate;
+        fields (alpha.water);
+    }}
+    trapPlanes
+    {{
+        type surfaces; libs (sampling);
+        writeControl adjustableRunTime; writeInterval 0.01;
+        surfaceFormat vtk;
+        formatOptions {{ vtk {{ format ascii; legacy true; precision 8; }} }}
+        fields (alpha.water U);
+        surfaces
+        {{
+            crest {{ type cuttingPlane; planeType pointAndNormal; pointAndNormalDict {{ point (0 {yCrest:.6f} 0); normal (0 1 0); }} interpolate false; }}
+            inlet {{ type cuttingPlane; planeType pointAndNormal; pointAndNormalDict {{ point (0 0 {zBot - 0.005:.6f}); normal (0 0 1); }} interpolate false; }}
+        }}
+    }}
+'''
 if a.outlet == 'model':
     if 'Qout' not in S: raise SystemExit('--outlet model needs Qout in the series file')
     qrows = [(t, q) for t, q in zip(S['tq'], S['Qout']) if t <= a.end + 0.05]
     OUTLET_U = ('        type            flowRateOutletVelocity;\n        volumetricFlowRate table\n        (\n'
                 + '\n'.join(f'            ({t:.3f} {q:.8f})' for t, q in qrows) + '\n        );\n        value           uniform (0 0 0);')
     OUTLET_P = 'type fixedFluxPressure; value uniform 0;'
+elif TRAP:
+    # open end of the down-leg: atmospheric pressure (p = 0) whatever the mix of water and air leaving or air entering;
+    # prghTotalPressure sets p and takes the local density and height into p_rgh
+    OUTLET_U = '        type            pressureInletOutletVelocity;\n        value           uniform (0 0 0);'
+    OUTLET_P = 'type prghTotalPressure; p0 uniform 0; value uniform 0;'
 else:
     OUTLET_U = '        type            pressureInletOutletVelocity;\n        value           uniform (0 0 0);'
     OUTLET_P = 'type totalPressure; p0 uniform 0; value uniform 0;'
@@ -340,7 +465,7 @@ boundaryField
 {{
     "(wall|lid)" {{ type zeroGradient; }}
     "({JETS})" {{ type fixedValue; value uniform 1; }}
-    outlet {{ type inletOutlet; inletValue uniform 1; value uniform 1; }}
+    outlet {{ type inletOutlet; inletValue uniform {0 if TRAP else 1}; value uniform {0 if TRAP else 1}; }}
     atmosphere {{ type inletOutlet; inletValue uniform 0; value uniform 0; }}
 }}
 ''')
@@ -375,7 +500,22 @@ sigma 0.072;
 ''')
 write('constant/turbulenceProperties', 'dictionary', 'turbulenceProperties', 'simulationType RAS;\nRAS { RASModel kOmegaSST; turbulence on; printCoeffs off; }\n')
 write('system/setFieldsDict', 'dictionary', 'setFieldsDict', f'''defaultFieldValues ( volScalarFieldValue alpha.water 0 );
-regions ( boxToCell {{ box (-1 -1 -1) (1 1 0); fieldValues ( volScalarFieldValue alpha.water 1 ); }} );
+regions ( boxToCell {{ box (-1 -1 -1) (1 {yCrest if TRAP else 1:.6f} 0); fieldValues ( volScalarFieldValue alpha.water 1 ); }} );
+''')
+# with the trapway: bowl and up-leg full to the crest (z = 0), the down-leg behind the crest (y > yCrest) empty
+if TRAP:
+    # cell zones for the water balance: the bowl above the crest (without the trapway, which lies behind the bowl at
+    # y > 0.10 where it rises above z = 0) and the trapway (everything below the trap inlet, and behind the bowl)
+    write('system/topoSetDict', 'dictionary', 'topoSetDict', f'''actions
+(
+    {{ name bowlAboveSet; type cellSet; action new; source cylinderToCell; p1 (0 0 0); p2 (0 0 {zTop + 0.01:.4f}); radius {Rr + 0.002:.4f}; }}
+    {{ name bowlAboveSet; type cellSet; action subtract; source boxToCell; box (-{rT + 0.006:.4f} 0.100 0) ({rT + 0.006:.4f} {Y1 + 0.01:.4f} {2 * rT + 0.01:.4f}); }}
+    {{ name bowlAbove; type cellZoneSet; action new; source setToCellZone; set bowlAboveSet; }}
+    {{ name trapSet; type cellSet; action new; source boxToCell; box (-1 -1 -1) (1 1 {zBot - 1e-4:.6f}); }}
+    {{ name trapSet; type cellSet; action add; source boxToCell; box (-1 {Rp + 0.002:.4f} -1) (1 1 0); }}
+    {{ name trapSet; type cellSet; action add; source boxToCell; box (-{rT + 0.006:.4f} 0.100 0) ({rT + 0.006:.4f} {Y1 + 0.01:.4f} {2 * rT + 0.01:.4f}); }}
+    {{ name trap; type cellZoneSet; action new; source setToCellZone; set trapSet; }}
+);
 ''')
 # sample lines for the pool level (four points at 70 % of the pool radius) and planes for the swirl
 rl = 0.7 * Rp
@@ -473,7 +613,7 @@ functions
             z003 {{ type cuttingPlane; planeType pointAndNormal; pointAndNormalDict {{ point (0 0 0.003); normal (0 0 1); }} interpolate false; }}
         }}
     }}
-{FRAMES_FO}    levels
+{FRAMES_FO}{TRAP_FO}    levels
     {{
         type sets; libs (sampling);
         writeControl adjustableRunTime; writeInterval {wdt};
@@ -522,7 +662,8 @@ write('system/decomposeParDict', 'dictionary', 'decomposeParDict', f'numberOfSub
 import shutil
 if os.path.isdir(os.path.join(a.out, '0')): shutil.rmtree(os.path.join(a.out, '0'))
 shutil.copytree(os.path.join(a.out, '0.orig'), os.path.join(a.out, '0'))   # setFields then fills the pool in 0/
-json.dump({'mesh': a.mesh, 'h0': h0, 'zLo': zLo, 'Vstatic_model': S.get('Vstatic'), 'arrivalPlane': 0.003, 'rWallArrival': r_of_z(0.003), 'level': lvl, 'end': a.end, 'jets': info, 'outlet_deg': [40, 140], 'outlet_z': [outBot, outTop] if a.outlet_at != 'leg' else [zLeg, zLeg], 'outlet_kind': a.outlet, 'outlet_at': a.outlet_at,
+json.dump({'mesh': a.mesh, 'h0': h0, 'zLo': zLo, 'Vstatic_model': S.get('Vstatic'), 'arrivalPlane': 0.003, 'rWallArrival': r_of_z(0.003), 'level': lvl, 'end': a.end, 'jets': info, 'outlet_deg': [40, 140], 'outlet_z': [outBot, outTop] if a.outlet_at != 'leg' else [zLeg, zLeg], 'outlet_kind': a.outlet, 'outlet_at': a.outlet_at if not TRAP else 'trap',
+           'trap': ({**TRAP_ASSUMED, 'yCrest': yCrest, 'zOutlet': -a.trap_fall, 'zLowest': zTrapMin, 'yMax': yTrapMax, 'pathLength': sum(math.hypot(TPATH[i+1][0]-TPATH[i][0], TPATH[i+1][1]-TPATH[i][1]) for i in range(len(TPATH)-1))} if TRAP else None),
            'qout': [[t, q] for t, q in zip(S['tq'], S['Qout']) if t <= a.end + 0.05] if a.outlet == 'model' else None, 'zLeg': zLeg,
            'legVolume_est': (math.pi * rb ** 2 * (zBot - zLeg)) if a.outlet_at == 'leg' else 0.0, 'zBot': zBot, 'zTop': zTop,
            'D': D, 'Rr': Rr, 'Rp': Rp, 'ds': ds, 'triangles': {k: len(v) for k, v in tris.items()}}, open(os.path.join(a.out, 'case-info.json'), 'w'), indent=1)
