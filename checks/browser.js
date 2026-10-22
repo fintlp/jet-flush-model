@@ -368,7 +368,9 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   ok('Explore page: ten recipes, the where-to-be-careful table, the questions, and every link into the simulator points at a section that exists', ex.recipes === 10 && ex.careful >= 8 && ex.qa === 6 && ex.anchors.length >= 8 && missing.length === 0 && ex.stance.includes('together'), { ex, missing });
   // tutorials page (2.1.1): every screenshot loads, and the worked examples quote what tools/tutorial-shots.js recorded
   await page.goto(base + 'tutorials.html'); await page.waitForTimeout(300);
-  const tut = await page.evaluate(async () => { const imgs = [...document.querySelectorAll('img')]; await Promise.all(imgs.map((i) => (i.complete ? 0 : new Promise((r) => { i.onload = i.onerror = r; })))); return { sections: ['optimiser', 'surrogate', 'hybrid', 'pinn', 'field', 'noise'].filter((id) => document.getElementById(id)).length, imgs: imgs.length, broken: imgs.filter((i) => !i.naturalWidth).map((i) => i.src), text: document.body.innerText }; });
+  // the screenshots load lazily, and a headless page never scrolls to them: load them now, and give up after 20 s
+  const tut = await page.evaluate(async () => { const imgs = [...document.querySelectorAll('img')]; imgs.forEach((i) => { i.loading = 'eager'; });
+    await Promise.race([Promise.all(imgs.map((i) => (i.complete ? 0 : new Promise((r) => { i.addEventListener('load', r); i.addEventListener('error', r); })))), new Promise((r) => setTimeout(r, 20000))]); return { sections: ['optimiser', 'surrogate', 'hybrid', 'pinn', 'field', 'noise'].filter((id) => document.getElementById(id)).length, imgs: imgs.length, broken: imgs.filter((i) => !i.naturalWidth).map((i) => i.src), text: document.body.innerText }; });
   const TR = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'media', 'tutorial', 'results.json'), 'utf8'));
   const want = [
     (TR.optBest.match(/Best design meeting all targets \(highest score\): (cleaned [^,]+, solids [^,]+, paper [^,]+, [\d.]+ L)/) || [])[1],
