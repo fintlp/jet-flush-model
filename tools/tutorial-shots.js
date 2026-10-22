@@ -1,5 +1,6 @@
 // Runs every AI lab tool the way tutorials.html describes it, takes annotated screenshots and records the results.
 //   node tools/tutorial-shots.js
+//   node tools/tutorial-shots.js setup      only the optimiser settings picture, in a few seconds
 // Writes media/tutorial/*.png and media/tutorial/results.json, which tutorials.html quotes and checks/browser.js
 // compares with the page. Needs Playwright with Chromium, like tools/media.js. The tools use fixed seeds, so the
 // numbers repeat; only measured times (speed-ups, seconds) vary with the machine. Takes a few minutes, most of it
@@ -37,10 +38,11 @@ function serve() {
     // a strip on the left for markers of controls that start at the panel's left edge
     if (L.length && !rootEl.dataset.tutPad) { rootEl.dataset.tutPad = '1'; rootEl.style.paddingLeft = `${(parseFloat(getComputedStyle(rootEl).paddingLeft) || 0) + 34}px`; }
     const b = rootEl.getBoundingClientRect();
-    L.forEach(([sel, n]) => { const el = document.querySelector(sel); if (!el) return; const r = el.getBoundingClientRect();
+    L.forEach(([sel, n, side]) => { const el = document.querySelector(sel); if (!el) return; const r = el.getBoundingClientRect();
       const d = document.createElement('div'); d.className = 'tut-mark'; d.textContent = n;
-      // beside the control when there is room, else just above its left end
-      let x = r.left - b.left - 28, y = r.top - b.top + Math.min(r.height, 40) / 2 - 12;
+      // left of the control, kept inside the photographed area
+      // or right of it ('right') where the left side holds other text
+      let x = side === 'right' ? r.right - b.left + 6 : r.left - b.left - 28, y = r.top - b.top + Math.min(r.height, 40) / 2 - 12;
       x = Math.max(2, Math.min(b.width - 26, x)); y = Math.max(2, Math.min(b.height - 26, y));
       d.style.left = `${x}px`; d.style.top = `${y}px`; rootEl.appendChild(d); });
   }, [root, list]);
@@ -58,8 +60,9 @@ function serve() {
   await page.evaluate(() => { document.getElementById('goalTargets').click(); const v = (id, x) => { document.getElementById(id).value = x; document.getElementById(id).dispatchEvent(new Event('input', { bubbles: true })); document.getElementById(id).dispatchEvent(new Event('change', { bubbles: true })); };
     v('tWater', '4.0'); v('tClean', '87'); v('tSolids', '95'); v('tPaper', '80'); v('tNoise', '0'); v('optEffort', 'quick'); v('optFlush', 'full'); });
   R.optVars = await page.evaluate(() => [...document.querySelectorAll('#optVarsJets input:checked, #optVarsBowl input:checked')].map((i) => i.nextElementSibling.textContent));
-  await mark('#aiOpt .opt-setup', [['#optVarsJets', 1], ['#optFlush', 2], ['#goalTargets', 3], ['#tWater', 4], ['#tNoise', 5], ['#tPick', 6], ['#optEffort', 7], ['#optRobust', 8], ['#optRun', 9]]);
+  await mark('#aiOpt .opt-setup', [['#optVarsJets', 1], ['#optFlush', 2], ['#goalTargets', 3, 'right'], ['#tWater', 4], ['#tNoise', 5], ['#tPick', 6], ['#optEffort', 7], ['#optRobust', 8], ['#optRun', 9, 'right']]);
   await shot('#aiOpt .opt-setup', 'opt-setup.png'); await mark('body', []);
+  if (process.argv[2] === 'setup') { await browser.close(); srv.close(); return; }
   let t0 = Date.now();
   await page.click('#optRun');
   await done(() => /meeting all targets|No design met/.test(document.getElementById('optBest').innerText) && !document.getElementById('optRun').disabled);
