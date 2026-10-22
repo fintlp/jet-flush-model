@@ -26,12 +26,24 @@ function serve() {
   const page = await ctx.newPage(), R = { generated: new Date().toISOString().slice(0, 10) };
   const errs = []; page.on('pageerror', (e) => errs.push(e.message));
   await page.goto(base); await page.evaluate(() => localStorage.clear()); await page.goto(base); await page.waitForTimeout(1200);
-  // numbered markers next to controls; [selector, number] pairs
-  await page.addStyleTag({ content: '.tut-mark{position:absolute;width:26px;height:26px;border-radius:50%;background:#c2410c;color:#fff;font:700 14px Ubuntu,sans-serif;display:grid;place-items:center;z-index:9999;box-shadow:0 0 0 2px #fff;pointer-events:none}' });
-  const mark = (list) => page.evaluate((L) => {
+  // the section menu sticks to the top of the window; unpin it so it does not cover tall screenshots
+  await page.addStyleTag({ content: '.jump{position:static!important}' });
+  // numbered markers beside controls, placed inside the area that is photographed: [selector, number] pairs
+  await page.addStyleTag({ content: '.tut-mark{position:absolute;width:24px;height:24px;border-radius:50%;background:#c2410c;color:#fff;font:700 13px Ubuntu,sans-serif;display:grid;place-items:center;z-index:9999;box-shadow:0 0 0 2px #fff;pointer-events:none}' });
+  const mark = (root, list) => page.evaluate(([R, L]) => {
     document.querySelectorAll('.tut-mark').forEach((e) => e.remove());
-    L.forEach(([sel, n]) => { const el = document.querySelector(sel); if (!el) return; const r = el.getBoundingClientRect(); const d = document.createElement('div'); d.className = 'tut-mark'; d.textContent = n; d.style.left = `${r.left + scrollX - 13}px`; d.style.top = `${r.top + scrollY - 13}px`; document.body.appendChild(d); });
-  }, list);
+    const rootEl = document.querySelector(R); if (!rootEl) return;
+    if (getComputedStyle(rootEl).position === 'static') rootEl.style.position = 'relative';
+    // a strip on the left for markers of controls that start at the panel's left edge
+    if (L.length && !rootEl.dataset.tutPad) { rootEl.dataset.tutPad = '1'; rootEl.style.paddingLeft = `${(parseFloat(getComputedStyle(rootEl).paddingLeft) || 0) + 34}px`; }
+    const b = rootEl.getBoundingClientRect();
+    L.forEach(([sel, n]) => { const el = document.querySelector(sel); if (!el) return; const r = el.getBoundingClientRect();
+      const d = document.createElement('div'); d.className = 'tut-mark'; d.textContent = n;
+      // beside the control when there is room, else just above its left end
+      let x = r.left - b.left - 28, y = r.top - b.top + Math.min(r.height, 40) / 2 - 12;
+      x = Math.max(2, Math.min(b.width - 26, x)); y = Math.max(2, Math.min(b.height - 26, y));
+      d.style.left = `${x}px`; d.style.top = `${y}px`; rootEl.appendChild(d); });
+  }, [root, list]);
   const shot = async (sel, name) => { const el = await page.$(sel); await el.scrollIntoViewIfNeeded(); await page.waitForTimeout(300); await el.screenshot({ path: path.join(OUT, name) }); console.log('  ' + name); };
   const text = (sel) => page.evaluate((s) => { const e = document.querySelector(s); return e ? e.innerText.replace(/[ \t]+/g, ' ').trim() : null; }, sel);
   const tab = (id) => page.evaluate((t) => document.querySelector(`[data-aitab="${t}"]`).click(), id);
@@ -46,16 +58,16 @@ function serve() {
   await page.evaluate(() => { document.getElementById('goalTargets').click(); const v = (id, x) => { document.getElementById(id).value = x; document.getElementById(id).dispatchEvent(new Event('input', { bubbles: true })); document.getElementById(id).dispatchEvent(new Event('change', { bubbles: true })); };
     v('tWater', '4.0'); v('tClean', '87'); v('tSolids', '95'); v('tPaper', '80'); v('tNoise', '0'); v('optEffort', 'quick'); v('optFlush', 'full'); });
   R.optVars = await page.evaluate(() => [...document.querySelectorAll('#optVarsJets input:checked, #optVarsBowl input:checked')].map((i) => i.nextElementSibling.textContent));
-  await mark([['#aiOpt .opt-box:nth-of-type(1) legend', 1], ['#optFlush', 2], ['#goalTargets', 3], ['#tWater', 4], ['#tNoise', 5], ['#tPick', 6], ['#optEffort', 7], ['#optRobust', 8], ['#optRun', 9]]);
-  await shot('#aiOpt .opt-setup', 'opt-setup.png'); await mark([]);
+  await mark('#aiOpt .opt-setup', [['#optVarsJets', 1], ['#optFlush', 2], ['#goalTargets', 3], ['#tWater', 4], ['#tNoise', 5], ['#tPick', 6], ['#optEffort', 7], ['#optRobust', 8], ['#optRun', 9]]);
+  await shot('#aiOpt .opt-setup', 'opt-setup.png'); await mark('body', []);
   let t0 = Date.now();
   await page.click('#optRun');
   await done(() => /meeting all targets|No design met/.test(document.getElementById('optBest').innerText) && !document.getElementById('optRun').disabled);
   R.optSeconds = Math.round((Date.now() - t0) / 1000);
   R.optBest = await text('#optBest'); R.optStatus = await text('#optStatus'); R.optTable = await text('#optTable');
   R.optTableTitle = await text('#optTableTitle');
-  await mark([['#cvOpt', 1], ['#optBest', 2], ['#optTable', 3]]);
-  await shot('#aiOpt .ai-grid', 'opt-result.png'); await mark([]);
+  await mark('#aiOpt .ai-grid', [['#cvOpt', 1], ['#optBest', 2]]);
+  await shot('#aiOpt .ai-grid', 'opt-result.png'); await mark('body', []);
   await shot('#optTable', 'opt-table.png');
   // the same search, robust to the tolerances of the tolerance study
   console.log('robust optimiser');
@@ -74,8 +86,8 @@ function serve() {
   await page.click('#surRun');
   await done(() => /times faster/.test(document.getElementById('surSpeed').innerText) && !document.getElementById('surRun').disabled);
   R.surTable = await text('#surTable'); R.surSpeed = await text('#surSpeed'); R.surStatus = await text('#surStatus');
-  await mark([['#surN', 1], ['#surRun', 2], ['#cvSurLoss', 3], ['#cvSurPar', 4], ['#surTable', 5]]);
-  await shot('#aiSur', 'surrogate.png'); await mark([]);
+  await mark('#aiSur', [['#surN', 1], ['#surRun', 2], ['#cvSurLoss', 3], ['#cvSurPar', 4], ['#surTable', 5]]);
+  await shot('#aiSur', 'surrogate.png'); await mark('body', []);
 
   // 3 · hybrid calibration
   console.log('hybrid calibration');
@@ -83,8 +95,8 @@ function serve() {
   await page.click('#hybRun');
   await done(() => !document.getElementById('hybRun').disabled && document.getElementById('hybSum').innerText.trim().length > 20);
   R.hybSum = await text('#hybSum'); R.hybLog = await text('#hybLog'); R.hybTable = await text('#hybTable');
-  await mark([['#hybN', 1], ['#hybRun', 2], ['#cvHybBars', 3], ['#cvHybPar', 4], ['#hybLog', 5]]);
-  await shot('#aiHyb', 'hybrid.png'); await mark([]);
+  await mark('#aiHyb', [['#hybN', 1], ['#hybRun', 2], ['#cvHybBars', 3], ['#cvHybPar', 4], ['#hybLog', 5]]);
+  await shot('#aiHyb', 'hybrid.png'); await mark('body', []);
 
   // 4 · noise calibration, demo with synthetic recordings
   console.log('noise calibration');
@@ -92,8 +104,8 @@ function serve() {
   await page.click('#nzDemoRun');
   await done(() => document.getElementById('nzSum').innerText.trim().length > 20 && !document.getElementById('nzFitRun').disabled, 300000);
   R.nzSum = await text('#nzSum'); R.nzCoef = await text('#nzCoefTable'); R.nzTable = await text('#nzTable'); R.nzStatus = await text('#nzStatus');
-  await mark([['#nzModeDemo', 1], ['#nzModeReal', 2], ['#nzDemoN', 3], ['#nzFitVars', 4], ['#nzFitRun', 5], ['#cvNzPar', 6], ['#nzCoefTable', 7]]);
-  await shot('#aiNoise', 'noise.png'); await mark([]);
+  await mark('#aiNoise', [['#nzModeDemo', 1], ['#nzModeReal', 2], ['#nzDemoN', 3], ['#nzFitVars', 4], ['#nzFitRun', 5], ['#cvNzPar', 6], ['#nzCoefTable', 7]]);
+  await shot('#aiNoise', 'noise.png'); await mark('body', []);
 
   // 5 · physics-informed network: whole flush, then a video that stops after 3 s
   console.log('physics-informed network');
@@ -101,8 +113,8 @@ function serve() {
   await page.evaluate(() => FlushPinnUI.run()); await page.waitForTimeout(300);
   await done(() => !FlushPinnUI.busy() && document.getElementById('pnSum').innerText.trim().length > 40);
   R.pnDense = await text('#pnSum'); R.pnDenseTable = await text('#pnTable');
-  await mark([['#pnData', 1], ['#pnRun', 2], ['#cvPnLevel', 3], ['#cvPnCoef', 4], ['#pnTable', 5]]);
-  await shot('#aiPinn', 'pinn.png'); await mark([]);
+  await mark('#aiPinn', [['#pnData', 1], ['#pnRun', 2], ['#cvPnLevel', 3], ['#cvPnCoef', 4], ['#pnTable', 5]]);
+  await shot('#aiPinn', 'pinn.png'); await mark('body', []);
   await page.selectOption('#pnData', 'cut');
   await page.evaluate(() => FlushPinnUI.run()); await page.waitForTimeout(300);
   await done(() => !FlushPinnUI.busy() && document.getElementById('pnSum').innerText.trim().length > 40);
@@ -115,8 +127,8 @@ function serve() {
   await page.evaluate(() => FlushFieldUI.run()); await page.waitForTimeout(300);
   await done(() => !FlushFieldUI.busy() && document.getElementById('fsSum').innerText.trim().length > 40);
   R.fsSum = await text('#fsSum'); R.fsTable = await text('#fsTable');
-  await mark([['#fsRun', 1], ['#cvFsCurve', 2], ['#fsSel', 3], ['.fs-maps', 4], ['#fsTable', 5]]);
-  await shot('#aiField', 'field.png'); await mark([]);
+  await mark('#aiField', [['#fsRun', 1], ['#cvFsCurve', 2], ['#fsSel', 3], ['.fs-maps', 4], ['#fsTable', 5]]);
+  await shot('#aiField', 'field.png'); await mark('body', []);
 
   R.pageErrors = errs;
   fs.writeFileSync(path.join(OUT, 'results.json'), JSON.stringify(R, null, 1) + '\n');

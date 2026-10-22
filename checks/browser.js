@@ -366,6 +366,21 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   const ex = await page.evaluate(() => ({ recipes: document.querySelectorAll('.recipe').length, careful: document.querySelectorAll('#careful tbody tr').length, qa: document.querySelectorAll('dl.qa dt').length, anchors: [...new Set([...document.querySelectorAll('a[href^="./#"]')].map((a) => a.getAttribute('href').slice(3)))], stance: document.querySelector('.stance').innerText }));
   const missing = await page.evaluate(async (anchors) => { const html = await (await fetch('./')).text(); return anchors.filter((a) => !['demo', 'cfd-tour', 'challenge-tour', 'value-tour'].includes(a) && !html.includes(`id="${a}"`)); }, ex.anchors);
   ok('Explore page: ten recipes, the where-to-be-careful table, the questions, and every link into the simulator points at a section that exists', ex.recipes === 10 && ex.careful >= 8 && ex.qa === 6 && ex.anchors.length >= 8 && missing.length === 0 && ex.stance.includes('together'), { ex, missing });
+  // tutorials page (2.1.1): every screenshot loads, and the worked examples quote what tools/tutorial-shots.js recorded
+  await page.goto(base + 'tutorials.html'); await page.waitForTimeout(300);
+  const tut = await page.evaluate(async () => { const imgs = [...document.querySelectorAll('img')]; await Promise.all(imgs.map((i) => (i.complete ? 0 : new Promise((r) => { i.onload = i.onerror = r; })))); return { sections: ['optimiser', 'surrogate', 'hybrid', 'pinn', 'field', 'noise'].filter((id) => document.getElementById(id)).length, imgs: imgs.length, broken: imgs.filter((i) => !i.naturalWidth).map((i) => i.src), text: document.body.innerText }; });
+  const TR = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'media', 'tutorial', 'results.json'), 'utf8'));
+  const want = [
+    (TR.optBest.match(/Best design meeting all targets \(highest score\): (cleaned [^,]+, solids [^,]+, paper [^,]+, [\d.]+ L)/) || [])[1],
+    (TR.optStatus.match(/(\d+) checked designs meet all targets/) || [])[1] + ' checked designs meet all targets',
+    ...(TR.surTable.match(/0\.\d{3}/g) || []),
+    ...(TR.hybSum.match(/uncalibrated ([\d.]+) \/ ([\d.]+), calibrated ([\d.]+) \/ ([\d.]+), hybrid ([\d.]+) \/ ([\d.]+)/) || []).slice(1),
+    (TR.pnDense.match(/weir coefficient of ([\d.]+)/) || [])[1], (TR.pnCut.match(/weir coefficient of ([\d.]+)/) || [])[1],
+    ...(TR.fsTable.match(/\d+\.\d %/g) || []).slice(0, 4),
+    ...(TR.nzSum.match(/current coefficients ([\d.]+), fitted ([\d.]+)\. On designs left out of the fit one at a time: current ([\d.]+), fitted ([\d.]+)/) || []).slice(1)];
+  const absent = want.filter((w) => !w || !tut.text.includes(w));
+  ok('Tutorials page: six tutorials, every screenshot loads, and the worked examples quote the recorded results', tut.sections === 6 && tut.imgs >= 9 && tut.broken.length === 0 && want.length >= 20 && absent.length === 0 && TR.pageErrors.length === 0, { sections: tut.sections, imgs: tut.imgs, broken: tut.broken, absent });
+
   // simulator page (2.1): What it saves, and part 4 of the story for managers
   await fresh();
   const hd = await page.evaluate(() => { const c = document.querySelector('.whycard'); return { h1: document.querySelector('h1').textContent, card: c && c.innerText, why: c && c.querySelector('a[href="why.html"]') && c.querySelector('a[href="why.html"]').textContent, val: c && !!c.querySelector('a[href="#value"]') }; });
@@ -399,8 +414,8 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   // look and feel: self-hosted Ubuntu, nothing from other hosts on any of the four pages
   await fresh(); await page.waitForTimeout(600);
   ok('Look: Ubuntu and Ubuntu Mono load from the page itself', await page.evaluate(async () => { await document.fonts.ready; return document.fonts.check('16px Ubuntu') && document.fonts.check('500 16px Ubuntu') && document.fonts.check('16px "Ubuntu Mono"') && [...document.fonts].some((f) => f.family.replace(/"/g, '') === 'Ubuntu' && f.status === 'loaded'); }));
-  for (const pg of ['why.html', 'method.html', 'sources.html', 'explore.html']) { await page.goto(base + pg); await page.waitForTimeout(500); }
-  ok('Look: no requests to other hosts on the simulator, why, method, sources and explore pages', foreign.size === 0, [...foreign]);
+  for (const pg of ['why.html', 'method.html', 'sources.html', 'explore.html', 'tutorials.html']) { await page.goto(base + pg); await page.waitForTimeout(500); }
+  ok('Look: no requests to other hosts on the simulator, why, method, sources, explore and tutorials pages', foreign.size === 0, [...foreign]);
   ok('No page errors', errs.length === 0, errs.slice(0, 5));
   console.log(out.join('\n'));
   const failed = out.filter((l) => l.startsWith('FAIL')).length;
