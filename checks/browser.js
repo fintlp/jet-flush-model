@@ -376,10 +376,10 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
     (TR.optBest.match(/Best design meeting all targets \(highest score\): (cleaned [^,]+, solids [^,]+, paper [^,]+, [\d.]+ L)/) || [])[1],
     (TR.optStatus.match(/(\d+) checked designs meet all targets/) || [])[1] + ' checked designs meet all targets',
     ...(TR.surTable.match(/0\.\d{3}/g) || []),
-    ...(TR.hybSum.match(/uncalibrated ([\d.]+) \/ ([\d.]+), calibrated ([\d.]+) \/ ([\d.]+), hybrid ([\d.]+) \/ ([\d.]+)/) || []).slice(1),
+    ...(TR.hybSum.match(/uncalibrated (\d+(?:\.\d+)?) \/ (\d+(?:\.\d+)?), calibrated (\d+(?:\.\d+)?) \/ (\d+(?:\.\d+)?), hybrid (\d+(?:\.\d+)?) \/ (\d+(?:\.\d+)?)/) || []).slice(1),
     (TR.pnDense.match(/weir coefficient of ([\d.]+)/) || [])[1], (TR.pnCut.match(/weir coefficient of ([\d.]+)/) || [])[1],
     ...(TR.fsTable.match(/\d+\.\d %/g) || []).slice(0, 4),
-    ...(TR.nzSum.match(/current coefficients ([\d.]+), fitted ([\d.]+)\. On designs left out of the fit one at a time: current ([\d.]+), fitted ([\d.]+)/) || []).slice(1)];
+    ...(TR.nzSum.match(/current coefficients (\d+(?:\.\d+)?), fitted (\d+(?:\.\d+)?)\. On designs left out of the fit one at a time: current (\d+(?:\.\d+)?), fitted (\d+(?:\.\d+)?)/) || []).slice(1)];
   const absent = want.filter((w) => !w || !tut.text.includes(w));
   ok('Tutorials page: six tutorials, every screenshot loads, and the worked examples quote the recorded results', tut.sections === 6 && tut.imgs >= 9 && tut.broken.length === 0 && want.length >= 20 && absent.length === 0 && TR.pageErrors.length === 0, { sections: tut.sections, imgs: tut.imgs, broken: tut.broken, absent });
 
