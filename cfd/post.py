@@ -92,6 +92,11 @@ Atot = NTH * sum(cellA)
 def r_bowl(z):
     """bowl radius at height z, as make_case builds it (pool profile above the crest, sump below)"""
     return r_of_z(z) if z >= 0 else Rp * max(0.35, 1 + 0.5 * z / DS)
+WELL_SHIFT = (info.get('trap') or {}).get('wellShift', 0.0) if TRAP else 0.0
+def in_bowl(x, y, z, tol):
+    """inside the bowl (not the trapway); below the crest a trapway case has a well whose centre moves rearward"""
+    if z >= 0 or not WELL_SHIFT: return math.hypot(x, y) <= r_bowl(z) + tol
+    r = r_bowl(z); return math.hypot(x, y - WELL_SHIFT * (Rp - r)) <= r + tol
 
 def cell_of(x, y, z):
     if z <= 0 or z >= D: return None
@@ -171,7 +176,7 @@ for t, d in times_of('poolPlanes'):
         for u, a_ in zip(U, A):
             x, y = u[0], u[1]; r = math.hypot(x, y)
             if r < 1e-4: continue
-            if r > r_bowl(u[2]) + 0.003: continue          # plane cuts through the trapway: not part of the pool
+            if not in_bowl(x, y, u[2], 0.003): continue    # plane cuts through the trapway: not part of the pool
             ut = (-y * u[3] + x * u[4]) / r
             key = (int(r / 0.004), int((math.atan2(y, x) % (2 * math.pi)) / (2 * math.pi) * 36))
             b = bins.setdefault(key, [0.0, 0.0, 0])
@@ -390,9 +395,11 @@ if TRAP:
     thin, last = [], -1.0
     for r_ in bal:
         if r_['t'] - last >= 0.0099 or r_ is bal[-1]: thin.append(r_); last = r_['t']
-    # crest plane y = yCrest: the weir bend's cross-section is the circle around (x 0, z rT); inlet plane: around the axis
+    # crest plane y = yCrest: the weir bend's cross-section is the circle around (x 0, z rT); dip plane y = yDip: the
+    # section at the bottom of the U, a circle around (x 0, z zU); flux towards +y (on to the up-leg and the down-leg)
     crest = plane_fluxes('trapPlanes', 'crest', lambda c: math.hypot(c[0], c[2] - rT) < rT + 0.003, 1, +1)
-    inlet = plane_fluxes('trapPlanes', 'inlet', lambda c: math.hypot(c[0], c[1]) < rT + 0.003, 2, -1)
+    zU = tr.get('zU', zB - 0.024)
+    inlet = plane_fluxes('trapPlanes', 'dip', lambda c: math.hypot(c[0], c[2] - zU) < rT + 0.003, 1, +1)
     M = model_series()
     cmp_ = []
     lt = [x['t'] for x in level]; lz = [x['z'] for x in level]
@@ -419,8 +426,9 @@ if TRAP:
                        'integrated from 0 (m3); Vdomain = water in the domain, VaboveCrest = water above z = 0 in the bowl, '
                        'Vtrap = water in the trapway; residual = Vdomain - Vdomain(0) - Vin + VoutWater + Vrim',
         'crestPlane': crest, 'inletPlane': inlet,
-        'planeNote': 'crest: plane y = yCrest across the weir bend, flux towards the down-leg; inlet: plane 5 mm below the '
-                     'trap inlet, flux downwards into the trap; airShare = air share of the tube cross-section',
+        'planeNote': 'crest: plane y = yCrest across the weir bend, flux towards the down-leg; inletPlane: section at the '
+                     'bottom of the U under the dip (y = yDip), flux on towards the up-leg; airShare = air share of the '
+                     'passage cross-section (air there means air passes under the dip)',
         'airIntoTrap': {'first': airIn[0]['t'] if airIn else None, 'samples': len(airIn),
                         'maxAirFlux_Ls': max((r_['air'] for r_ in inlet), default=0) * 1000,
                         'maxAirShareInlet': max((r_['airShare'] for r_ in inlet), default=0)},

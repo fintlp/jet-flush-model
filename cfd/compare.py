@@ -79,5 +79,28 @@ for t in (1.0, 2.0, 2.9):
     if st and t <= st[-1]:
         row(f'mean swirl speed of the pool water at {t} s', f'{interp(st, sv, t):.3f}', f"{interp(M['t'], M.get('uMean', [float('nan')] * len(M['t'])), t):.3f}", 'm/s')
 
+# trapway runs: crest flow (the model's weir), peak outflow, water balance
+TR = S.get('trap')
+if TR:
+    ct = [r['t'] for r in TR['crestPlane']]; cq = [r['water'] * 1000 for r in TR['crestPlane']]
+    for t in (0.5, 1.0, 2.0, 2.9, 4.0):
+        if ct and t <= ct[-1]:
+            row(f'flow over the crest at {t} s', f'{interp(ct, cq, t):.3f}', f"{interp(M['t'], [q * 1000 for q in M['Qout']], t):.3f}", 'L/s')
+    st_ = TR['outflowStart']
+    row('start of flow over the crest (> 0.05 L/s)', f"{st_['crestCFD']:.2f}" if st_['crestCFD'] is not None else 'none',
+        f"{st_['model']:.2f}" if st_['model'] is not None else 'none', 's')
+    bt = [r['t'] for r in TR['balance']]; bq = [r['QoutWater'] * 1000 for r in TR['balance']]
+    if bq:
+        i = max(range(len(bq)), key=lambda k: bq[k]); im = max(range(len(M['t'])), key=lambda k: M['Qout'][k])
+        row('peak outflow', f'{bq[i]:.3f}', f"{M['Qout'][im] * 1000:.3f}", 'L/s', f"at {bt[i]:.2f} s (model {M['t'][im]:.2f} s)")
+        e = TR['balance'][-1]
+        row(f'water in, by {e["t"]:.2f} s', f"{e['Vin'] * 1000:.3f}", '', 'L')
+        row(f'water out of the trap, by {e["t"]:.2f} s', f"{e['VoutWater'] * 1000:.3f}", '', 'L')
+        row(f'water over the rim, by {e["t"]:.2f} s', f"{e['Vrim'] * 1000:.4f}", '', 'L')
+        row('largest water balance residual', f"{max(abs(r['residual']) for r in TR['balance']) * 1e6:.1f}", '', 'mL')
+    a_ = TR['airIntoTrap']
+    row('air drawn into the trap inlet', 'from %.2f s' % a_['first'] if a_['first'] is not None else 'none', '', '',
+        'peak %.3f L/s, air share of the inlet up to %.0f %%' % (a_['maxAirFlux_Ls'], 100 * a_['maxAirShareInlet']))
+
 if '--json' in sys.argv:
     json.dump({'rows': rows}, open(sys.argv[sys.argv.index('--json') + 1], 'w'), indent=1)
