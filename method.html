@@ -94,7 +94,7 @@ h1,h2,h3,h4{letter-spacing:0}
 <body>
 <div class="wrap">
   <nav class="site" aria-label="Site">
-    <span class="navl"><a href="./">← Simulator</a><a href="why.html">Why</a><a href="sources.html">Sources and references</a></span>
+    <span class="navl"><a href="./">← Simulator</a><a href="why.html">Why</a><a href="sources.html">Sources and references</a><a href="explore.html">Explore it yourself</a></span>
     <a href="https://fintlp.github.io/latest-news/#contact" target="_blank" rel="noopener">Peter Fintl · Contact</a>
   </nav>
 
@@ -102,7 +102,7 @@ h1,h2,h3,h4{letter-spacing:0}
     <span class="eyebrow">Model description · Tangential Jet Flush Model</span>
     <h1>How the jet flush model works</h1>
     <p class="lede">A reduced-order model of a rimless WC flushed by tangential rim jets. It traces each jet as a film on the bowl wall, follows the pool level, swirl and trap flow, and estimates cleaning, waste removal, water use and relative noise. One flush takes about 20 to 40 milliseconds to compute in a web browser.</p>
-    <p class="meta">Version 2.1.0 · 22 October 2026 · the model is unchanged from 2.0.0 · <a href="https://github.com/fintlp/jet-flush-model#change-log">change log</a> · model code: <a href="https://github.com/fintlp/jet-flush-model/blob/main/model.js">model.js</a></p>
+    <p class="meta">Version 2.1.1 preview · the model is unchanged from 2.0.0 (21 October 2026) · <a href="https://github.com/fintlp/jet-flush-model#change-log">change log</a> · model code: <a href="https://github.com/fintlp/jet-flush-model/blob/main/model.js">model.js</a></p>
   </header>
 
   <div class="layout">
@@ -151,13 +151,13 @@ h1,h2,h3,h4{letter-spacing:0}
 
       <section id="using">
         <h2>2 · Using the simulator</h2>
-        <p>The simulator is built to be tried, not read. Every change recomputes the flush in milliseconds and shows how much it helped or hurt.</p>
+        <p>The simulator is built to be tried, not read. Every change recomputes the flush in milliseconds and shows how much it helped or hurt. For task-by-task recipes (a sensitivity study, a trade-off map, robustness, an optimisation, running many designs in Node) and where the model is known to be weak, see <a href="explore.html">Explore it yourself</a>.</p>
 
         <h3>Getting started</h3>
         <ul>
           <li><strong>Start here:</strong> the strip under the intro gives the three steps: set up a bowl, play the flush, let the AI lab search.</li>
           <li><strong>Demo me:</strong> the large button in that strip starts the guided walkthrough. Once you scroll past the strip, a small Demo me button appears in the section menu instead, so there is always exactly one on screen.</li>
-          <li><strong>Section menu:</strong> stays at the top while you scroll and jumps to Simulate, Results, Traces, Wall map, Sweep, Tolerances, CFD check, Challenge, AI lab or How it works.</li>
+          <li><strong>Section menu:</strong> stays at the top while you scroll and jumps to Simulate, Results, Traces, Wall map, Sweep, Tolerances, CFD check, Challenge, What it saves, AI lab or How it works.</li>
         </ul>
 
         <h3>Changing the design</h3>
@@ -837,7 +837,7 @@ console.log(r.cleanPct, r.solidsPct, r.water, r.noise.peak);</div>
 
       <footer class="foot">
         <span class="navl"><a href="./">← Simulator</a><a href="why.html">Why</a><a href="sources.html">Sources and references</a></span>
-        <span>Tangential Jet Flush Model · v2.1.0 · Peter Fintl</span>
+        <span>Tangential Jet Flush Model · v2.1.1 preview · Peter Fintl</span>
       </footer>
     </main>
   </div>

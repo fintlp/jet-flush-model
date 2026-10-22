@@ -4,6 +4,7 @@ A fast model of how a rimless toilet flushes. Rim jets wash the bowl, swirl the 
 
 - **Live simulator:** https://fintlp.github.io/jet-flush-model/
 - **Guided story, four parts:** [1 the fast model](https://fintlp.github.io/jet-flush-model/#demo) · [2 checked against CFD](https://fintlp.github.io/jet-flush-model/#cfd-tour) · [3 AI in the engineering loop](https://fintlp.github.io/jet-flush-model/#challenge-tour) · [4 what it means for your team](https://fintlp.github.io/jet-flush-model/#value-tour)
+- **Explore it yourself:** https://fintlp.github.io/jet-flush-model/explore.html (recipes for simulation engineers, where to be careful, and a playbook for presenting)
 - **How the model works:** https://fintlp.github.io/jet-flush-model/method.html
 - **Sources and references:** https://fintlp.github.io/jet-flush-model/sources.html
 - **Why we built this:** https://fintlp.github.io/jet-flush-model/why.html
@@ -90,6 +91,13 @@ console.log(r.cleanPct, r.solidsPct, r.paperPct, r.water);
 
 `simulate(p, opts)` takes the same parameters as the sliders. Options: `light` skips the time traces, `coarse` uses the looser wall film retrace tolerance of the sweep and the optimiser search, `filmTol` sets that tolerance (0 retraces at every time step, the reference for the checks), `Tend` sets the simulated time in seconds (default 12; the run goes on until the flush has settled, at most `Tmax`, default 60).
 
+To run many designs and get CSV, or to see which uncalibrated coefficients matter for a design, use the example scripts:
+
+```bash
+node examples/batch-csv.js 1000 out.csv      # 1000 designs, settings varied as listed at the top of the script
+node examples/coef-sensitivity.js washdown 0.25 ovality=1.35
+```
+
 The checks run in Node too, for example `node checks/physics.js` and `node checks/regression.js`; `checks/README.md` lists them all with what they test and how long they take.
 
 ## Files
@@ -117,6 +125,8 @@ The checks run in Node too, for example `node checks/physics.js` and `node check
 | `method.html` | Full model description: equations, numerics, coefficients, calibration |
 | `sources.html` | Sources and references |
 | `why.html` | Why we built this: faster loops from idea to engineering to manufacturing |
+| `explore.html` | Explore it yourself: ten recipes for simulation engineers, the settings at a glance, where to be careful, and a playbook for colleagues who present |
+| `examples/` | `batch-csv.js` runs many designs and writes CSV; `coef-sensitivity.js` lists which of the 13 model coefficients move the results most for a design |
 | `media/` | Video of a flush (`flush-playback.mp4`), the whole guided story recorded at reading pace (`demo-walkthrough.mp4`) and stills of each view, the CFD maps, the challenge, the savings calculator and every AI lab tool, made by `tools/media.js`; `qr-live.png`, the link to the live page for the slides |
 | `slides/jet-flush-model.pptx`, `.pdf` | Eleven slides that work without a presenter: each title states its message, every slide has speaker notes with the full story, and the two videos are embedded (the PDF shows their posters). Each slide carries the author, the repository link, the version and the date. `slides/figures.json` holds the page figures the slides quote, read from the live page by `tools/media.js`; the challenge and savings figures come from `value-core.js` |
 | `tools/` | `media.js` regenerates the stills, the videos and `slides/figures.json` from the page; `slides.js` builds the deck from them (needs `pptxgenjs`). Commands in the file headers |
@@ -126,6 +136,16 @@ The checks run in Node too, for example `node checks/physics.js` and `node check
 The coefficients that describe physics the model does not resolve (film friction, spreading, soil shear threshold, swirl transfer, transport thresholds and others) are fitted to a few reference runs. The procedure, the order of fitting and which measurement or CFD output to use for each coefficient are in [section 13 of the model description](https://fintlp.github.io/jet-flush-model/method.html#calibration). The reference runs can come from any high-fidelity free-surface solver: particle-based (SPH) such as PreonLab, nanoFluidX or the SPH solver of Simcenter STAR-CCM+, or mesh-based (VOF) such as Ansys Fluent or CFX, Simcenter STAR-CCM+, OpenFOAM or FLOW-3D. Section 13 compares them for this job. A good start is one preset in one tool of each family, checked against a simple rig measurement; paper removal is best calibrated against physical tests.
 
 ## Change log
+
+### 2.1.1 · in preparation
+
+A guide for people who want to explore the simulator on their own. The model and its results are unchanged.
+
+- **Explore it yourself** (`explore.html`, linked from every page and the section menu): for simulation engineers, ten recipes (one change, a trade-off map, the effect of the uncalibrated coefficients, tolerances, optimisation to targets, the CFD comparison, the calibration workflows, the engineering challenge, running many designs in Node, checking the model), the 41 settings at a glance, and a table of where the model is known to be blind or off. For colleagues who present: the stance (we develop the method together with the client's engineers, we do not claim to know their bowls better), which story part for which audience, a checklist before the meeting, and honest answers to the questions clients ask.
+- **Example scripts** (`examples/`): `batch-csv.js` runs any number of designs, spread evenly over the ranges you choose, and writes the results as CSV; `coef-sensitivity.js` moves each of the 13 model coefficients up and down and lists the effect on cleaning, solids, paper and seal, largest first. For the oval washdown bowl, the soil shear threshold and the shear dose move cleaning by 6 to 8 points at ±25 %.
+- **Checks:** new `checks/examples.js` (8 checks): both scripts run, the CSV holds what it promises and matches a direct model run, and their ranges are the page's slider ranges.
+- The model description's section 2 points to the guide and lists What it saves in the section menu.
+
 
 ### 2.1.0 · 22 October 2026
 
