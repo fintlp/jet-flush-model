@@ -156,7 +156,7 @@ h1,h2,h3,h4{letter-spacing:0}
 .btn{border-radius:999px}
 
 /* explore page */
-.paths{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:22px;max-width:900px}
+.paths{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:22px;max-width:1000px}
 @media (max-width:720px){ .paths{grid-template-columns:minmax(0,1fr)} }
 .path{display:grid;gap:4px;background:var(--raised);border:1px solid var(--line);border-radius:14px;padding:14px 18px;text-decoration:none;color:var(--ink)}
 .path:hover{border-color:var(--accent)}
@@ -191,6 +191,7 @@ dl.qa dd{margin:4px 0 0;color:var(--ink)}
     <p class="meta">Peter Fintl · 22 October 2026</p>
     <div class="paths">
       <a class="path" href="#recipes"><b>For simulation engineers</b><span>Ten recipes, the settings at a glance, and where to be careful</span></a>
+      <a class="path" href="tutorials.html"><b>Optimiser and AI lab tutorials</b><span>Step by step, with screenshots and worked examples you can repeat</span></a>
       <a class="path" href="#present"><b>For colleagues who present</b><span>Which part for which audience, a checklist, and the questions you will hear</span></a>
     </div>
   </header>
@@ -257,7 +258,7 @@ dl.qa dd{margin:4px 0 0;color:var(--ink)}
 
       <div class="recipe" id="r-opt">
         <h3><span class="rn">5</span>Find designs that meet your targets</h3>
-        <p class="where">Where: <a href="./#ai-lab">AI lab</a>, Design optimiser</p>
+        <p class="where">Where: <a href="./#ai-lab">AI lab</a>, Design optimiser · full tutorial: <a href="tutorials.html#optimiser">Design optimiser</a></p>
         <ol>
           <li>Choose which settings may change: jets, flush, bowl geometry.</li>
           <li>Choose Meet targets and set them, for example at most 4.0 L, at least 88 % cleaned, a noise limit of "no louder than now".</li>
@@ -279,7 +280,7 @@ dl.qa dd{margin:4px 0 0;color:var(--ink)}
 
       <div class="recipe" id="r-cal">
         <h3><span class="rn">7</span>See how calibration would work</h3>
-        <p class="where">Where: <a href="./#ai-lab">AI lab</a>: Hybrid calibration, Noise calibration, Physics-informed network, Field surrogate</p>
+        <p class="where">Where: <a href="./#ai-lab">AI lab</a>: Hybrid calibration, Noise calibration, Physics-informed network, Field surrogate · full tutorials: <a href="tutorials.html">Optimiser and AI lab tutorials</a></p>
         <ul>
           <li><b>Hybrid calibration:</b> six coefficients fitted to a few reference runs with Nelder-Mead, plus a Gaussian process for what is left, checked on unseen designs.</li>
           <li><b>Noise calibration:</b> fits the noise coefficients to recordings; the only tool that accepts your own data (audio files or meter readings, analysed in the browser).</li>
