@@ -127,7 +127,7 @@ The coefficients that describe physics the model does not resolve (film friction
 
 ## Change log
 
-### 2.1.0 · in preparation
+### 2.1.0 · 22 October 2026
 
 Version 2.1 explains to managers what a faster design loop is worth and how each figure is calculated. The model and its results are unchanged from 2.0.0.
 
