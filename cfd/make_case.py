@@ -33,6 +33,7 @@ ap.add_argument('--outlet', default='pressure', choices=['pressure', 'model', 't
                      "trap: a trapway (inlet at the bottom of the sump, up-leg to the weir crest at z = 0, down-leg) "
                      "with an atmospheric pressure outlet at its end, so the trap outflow is a result (--outlet-at is ignored)")
 ap.add_argument('--trap-d', type=float, default=0.070, help='trapway bore, m (70 mm as in a European wall-hung pan; the preset dTrap is 48 mm)')
+ap.add_argument('--fo-every', type=int, default=None, help='write the flux and volume function objects every N steps (default: 1 with the trapway, 5 otherwise)')
 ap.add_argument('--trap-outlet-len', type=float, default=0.040, help='straight horizontal outlet after the last bend, m')
 a = ap.parse_args()
 if not os.path.exists(a.series):   # also look relative to this script's folder (the runner keeps both in tools/)
@@ -425,7 +426,7 @@ jetU = '\n'.join(f'''    {J['name']}
 JETS = '|'.join(J['name'] for J in jets)
 # flux and volume function objects: every time step for the trapway (its water balance is integrated from them), every
 # 5 steps otherwise
-FOEVERY = 1 if TRAP else 5
+FOEVERY = a.fo_every or (1 if TRAP else 5)
 # trapway cases: also a section along x = 0 through the sump and the trapway (water fraction and velocity), for the
 # side view of the media (the water in the trap has no free surface to draw); 1 mm off x = 0, which is a mesh face plane
 SECTION = '' if not TRAP else f'''
