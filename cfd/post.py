@@ -621,6 +621,7 @@ def angular_momentum(tb):
         return out
     LA, LB = lz('LzAbove'), lz('LzBelow')
     TB, TW, TT = torque('torqueBowl'), torque('torqueWell'), torque('torqueTrap')
+    TL, TP = torque('torqueLid'), torque('torqueLip')        # wall above the rim, rim lip (later runs only)
     if not LA: return None
     jets = []
     for t, d in times_of('jetPatches'):
@@ -654,13 +655,14 @@ def angular_momentum(tb):
         def near(dct):
             if not dct: return None
             k = min(dct, key=lambda x: abs(x - t)); return dct[k] if abs(k - t) < 0.006 else None
-        b, w, tt = near(TB), near(TW), near(TT)
+        b, w, tt, tl, tp = near(TB), near(TW), near(TT), near(TL), near(TP)
         series.append({'t': t, 'Labove': LA[t], 'Lbelow': LB.get(t),
-                       'torqueBowl': b, 'torqueWell': w, 'torqueTrap': tt})
+                       'torqueBowl': b, 'torqueWell': w, 'torqueTrap': tt, 'torqueLid': tl, 'torqueLip': tp})
     # balance over 0.05 s steps: change of L (above + below) against the integrals of the jets, the walls and the dip
     jt = [r['t'] for r in jets]; jl = [r['LdotIn'] for r in jets]
     dt_ = [r['t'] for r in dipL]; dl = [r['LdotOut'] for r in dipL]
-    tw_t = sorted(set(TB) & set(TW)); tw_v = [TB[t][0] + TW[t][0] for t in tw_t]
+    tw_t = sorted(set(TB) & set(TW))
+    tw_v = [TB[t][0] + TW[t][0] + (TL[t][0] if t in TL else 0.0) + (TP[t][0] if t in TP else 0.0) for t in tw_t]
     def integ(tt, vv, a_, b_):
         if not tt: return 0.0
         n = 50; h = (b_ - a_) / n
@@ -676,10 +678,10 @@ def angular_momentum(tb):
             'note': 'L in kg m2/s about the vertical pool axis through (axis x, axis y): Labove / Lbelow = integral of 998 alpha '
                     '((x - axis x) uy - (y - axis y) ux) dV in the bowl above / below the crest without the trapway, every 5 solver steps; torque* = (total, pressure, viscous) z-torque of the wall patch on the '
                     'fluid in N m, positive in the direction of positive L (wall: bowl above the crest; well: below the crest down '
-                    'to the half bend; trap: the trapway), every solver step; jets.LdotIn = angular momentum entering through the '
+                    'to the half bend; trap: the trapway; lid: the wall above the rim; lip: the rim lip, where present), every solver step; jets.LdotIn = angular momentum entering through the '
                     'jet patches (N m), every 0.01 s; dip.LdotOut = water angular momentum leaving through the dip section towards '
-                    'the rising leg (N m), every 0.01 s; balance per 0.05 s: dL = change of Labove + Lbelow, jets, walls (bowl '
-                    'plus well, total torque) and dip as integrals over the step; residual = dL - jets - walls + dip (it also '
+                    'the rising leg (N m), every 0.01 s; balance per 0.05 s: dL = change of Labove + Lbelow, jets, walls (bowl, '
+                    'well, lid and lip, total torque) and dip as integrals over the step; residual = dL - jets - walls + dip (it also '
                     'holds the angular momentum leaving over the rim and the torque of the air on the water surface)'}
 
 def valid_to_trap(tb, end):

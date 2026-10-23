@@ -34,6 +34,8 @@ ap.add_argument('--outlet', default='pressure', choices=['pressure', 'model', 't
                      "with an atmospheric pressure outlet at its end, so the trap outflow is a result (--outlet-at is ignored)")
 ap.add_argument('--trap-d', type=float, default=0.070, help='trapway bore, m (70 mm as in a European wall-hung pan; the preset dTrap is 48 mm)')
 ap.add_argument('--fo-every', type=int, default=None, help='write the flux and volume function objects every N steps (default: 1 with the trapway, 5 otherwise)')
+ap.add_argument('--rim-lip', type=float, default=0.0, help='inward overhang of a rim lip above the jets, m (0: none, the wall goes straight up above the rim)')
+ap.add_argument('--rim-lip-h', type=float, default=0.020, help='height over which the rim lip curves inward, m')
 ap.add_argument('--trap-outlet-len', type=float, default=0.040, help='straight horizontal outlet after the last bend, m')
 a = ap.parse_args()
 if not os.path.exists(a.series):   # also look relative to this script's folder (the runner keeps both in tools/)
@@ -279,10 +281,25 @@ elif TRAP:
 else:
     for i in range(NT):
         tri('wall', (0, 0, zBot), P(rb, th[i + 1], zBot), P(rb, th[i], zBot))
-# lid (air above the rim) and open top
+# rim lip (optional): from the rim the wall curves inward by LIP over LIPH, starting vertical and ending horizontal, so
+# water climbing the wall meets its underside; its inner edge is the opening of the bowl. Wall patch 'wallLip'.
+LIP, LIPH = a.rim_lip, a.rim_lip_h
+zLidBot, rLid = (D + LIPH, Rr - LIP) if LIP > 0 else (D, Rr)
+if LIP > 0:
+    nl = 24
+    lipr = [(Rr - LIP * (1 - math.cos(math.pi / 2 * k / nl)), D + LIPH * math.sin(math.pi / 2 * k / nl)) for k in range(nl + 1)]
+    for k in range(nl):
+        (ra, za), (rb_, zb) = lipr[k], lipr[k + 1]
+        for i in range(NT):
+            t0, t1 = th[i], th[i + 1]
+            A, B = PE(ra, t0, D), PE(ra, t1, D); C, Dd = PE(rb_, t1, D), PE(rb_, t0, D)
+            A, B, C, Dd = (A[0], A[1], za), (B[0], B[1], za), (C[0], C[1], zb), (Dd[0], Dd[1], zb)
+            tri('wallLip', A, B, C); tri('wallLip', A, C, Dd)
+# lid (air above the rim, or above the lip) and open top
 for i in range(NT):
     t0, t1 = th[i], th[i + 1]
-    A, B = PE(Rr, t0, D), PE(Rr, t1, D)
+    A, B = PE(rLid, t0, D), PE(rLid, t1, D)
+    A, B = (A[0], A[1], zLidBot), (B[0], B[1], zLidBot)
     C, Dd = (B[0], B[1], zTop), (A[0], A[1], zTop)
     tri('lid', A, B, C); tri('lid', A, C, Dd)
     tri('atmosphere', (0, 0, zTop), Dd, C)
@@ -366,7 +383,7 @@ blocks ( hex (0 1 2 3 4 5 6 7) ({nx_} {ny_} {nz_}) simpleGrading (1 1 1) );
 edges ();
 boundary ( box {{ type patch; faces ( (0 3 2 1) (4 5 6 7) (0 1 5 4) (2 3 7 6) (1 2 6 5) (0 4 7 3) ); }} );
 ''')
-regs = ['wall', 'lid', 'atmosphere', 'outlet'] + [J['name'] for J in jets] + (['wallWell', 'wallTrap'] if TRAP else [])
+regs = ['wall', 'lid', 'atmosphere', 'outlet'] + [J['name'] for J in jets] + (['wallWell', 'wallTrap'] if TRAP else []) + (['wallLip'] if LIP > 0 else [])
 regnames = '\n'.join(f'            {r} {{ name {r}; }}' for r in regs)
 d1, d2 = 2 * (h0 / 2 ** lvl) * 2, 3 * h0
 write('system/snappyHexMeshDict', 'dictionary', 'snappyHexMeshDict', f'''castellatedMesh true;
@@ -458,7 +475,7 @@ FOEVERY = a.fo_every or (1 if TRAP else 5)
 # side view of the media (the water in the trap has no free surface to draw); 1 mm off x = 0, which is a mesh face plane
 SECTION = '' if not TRAP else f'''
             section {{ type cuttingPlane; planeType pointAndNormal; pointAndNormalDict {{ point (0.001 0 0); normal (1 0 0); }}
-                      interpolate false; bounds (-0.01 -0.08 {zLeg - 0.01:.4f}) (0.01 {Y1:.4f} 0.06); }}'''
+                      interpolate false; bounds (-0.01 {-X:.4f} {zLeg - 0.01:.4f}) (0.01 {Y1:.4f} {zTop:.4f}); }}'''
 FRAMES_FO = '' if a.frames <= 0 else f'''    frames
     {{
         type surfaces; libs (sampling);
@@ -482,6 +499,7 @@ ANG_FO = '' if not TRAP else ''.join(f'''    {fn}
     {{
         type exprField; libs (fieldFunctionObjects);
         executeControl timeStep; executeInterval {ANG_EVERY};
+        writeControl writeTime;                     // never per step: every step made one time folder per step
         field {fn};
         expression "{ex}";
         dimensions {dm};
@@ -509,7 +527,7 @@ ANG_FO = '' if not TRAP else ''.join(f'''    {fn}
         rho rho;
         CofR ({POOL_AXIS[0]} {POOL_AXIS[1]} 0);
     }}
-''' for nm, pt in (('torqueBowl', 'wall'), ('torqueWell', 'wallWell'), ('torqueTrap', 'wallTrap'))) + f'''    jetPatches
+''' for nm, pt in (('torqueBowl', 'wall'), ('torqueWell', 'wallWell'), ('torqueTrap', 'wallTrap'), ('torqueLid', 'lid')) + ((('torqueLip', 'wallLip'),) if LIP > 0 else ())) + f'''    jetPatches
     {{
         type surfaces; libs (sampling);
         writeControl adjustableRunTime; writeInterval 0.01;
@@ -816,7 +834,7 @@ write('system/decomposeParDict', 'dictionary', 'decomposeParDict', f'numberOfSub
 import shutil
 if os.path.isdir(os.path.join(a.out, '0')): shutil.rmtree(os.path.join(a.out, '0'))
 shutil.copytree(os.path.join(a.out, '0.orig'), os.path.join(a.out, '0'))   # setFields then fills the pool in 0/
-json.dump({'mesh': a.mesh, 'h0': h0, 'zLo': zLo, 'Vstatic_model': S.get('Vstatic'), 'arrivalPlane': 0.003, 'rWallArrival': r_of_z(0.003), 'ovality': OVAL, 'poolShift': SHIFT, 'frameRot_deg': math.degrees(ROT), 'level': lvl, 'end': a.end, 'jets': info, 'outlet_deg': [40, 140], 'outlet_z': [outBot, outTop] if a.outlet_at != 'leg' else [zLeg, zLeg], 'outlet_kind': a.outlet, 'outlet_at': a.outlet_at if not TRAP else 'trap',
+json.dump({'mesh': a.mesh, 'h0': h0, 'zLo': zLo, 'Vstatic_model': S.get('Vstatic'), 'arrivalPlane': 0.003, 'rWallArrival': r_of_z(0.003), 'ovality': OVAL, 'poolShift': SHIFT, 'rimLip': {'overhang': LIP, 'height': LIPH} if LIP > 0 else None, 'frameRot_deg': math.degrees(ROT), 'level': lvl, 'end': a.end, 'jets': info, 'outlet_deg': [40, 140], 'outlet_z': [outBot, outTop] if a.outlet_at != 'leg' else [zLeg, zLeg], 'outlet_kind': a.outlet, 'outlet_at': a.outlet_at if not TRAP else 'trap',
            'trap': ({**TRAP_ASSUMED, 'yCrest': yCrest, 'zOutlet': rT, 'yOutlet': TPATH[-1][0], 'zLowest': zTrapMin, 'yMax': yTrapMax, 'wellShift': 1.0, 'pathLength': sum(math.hypot(TPATH[i+1][0]-TPATH[i][0], TPATH[i+1][1]-TPATH[i][1]) for i in range(len(TPATH)-1))} if TRAP else None),
            'qout': [[t, q] for t, q in zip(S['tq'], S['Qout']) if t <= a.end + 0.05] if a.outlet == 'model' else None, 'zLeg': zLeg,
            'legVolume_est': (math.pi * rb ** 2 * (zBot - zLeg)) if a.outlet_at == 'leg' else 0.0, 'zBot': zBot, 'zTop': zTop, 'poolAxis': list(POOL_AXIS) if TRAP else [0.0, 0.0],
