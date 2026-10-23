@@ -473,11 +473,15 @@ FRAMES_FO = '' if a.frames <= 0 else f'''    frames
         }}
     }}
 '''
+# angular momentum and wall torques every ANG_EVERY solver steps (each forces object evaluates the stress of the whole
+# mesh, so every step would slow the run several times)
+ANG_EVERY = 10
 # vertical axis of the pool (through the pool centre at the waterline) for angular momentum and torques
 POOL_AXIS = (0.0, SHIFT)               # the pool centre at the waterline
 ANG_FO = '' if not TRAP else ''.join(f'''    {fn}
     {{
         type exprField; libs (fieldFunctionObjects);
+        executeControl timeStep; executeInterval {ANG_EVERY};
         field {fn};
         expression "{ex}";
         dimensions {dm};
@@ -488,7 +492,8 @@ ANG_FO = '' if not TRAP else ''.join(f'''    {fn}
                         ('MxDens', 'alpha.water*U.x()', '[0 1 -1 0 0 0 0]'), ('MyDens', 'alpha.water*U.y()', '[0 1 -1 0 0 0 0]'))) + ''.join(f'''    {nm}
     {{
         type volFieldValue; libs (fieldFunctionObjects);
-        writeControl timeStep; writeInterval 5;
+        executeControl timeStep; executeInterval {ANG_EVERY};
+        writeControl timeStep; writeInterval {ANG_EVERY};
         log false; writeFields false;
         regionType cellZone; name {zn};
         operation volIntegrate;
@@ -497,7 +502,8 @@ ANG_FO = '' if not TRAP else ''.join(f'''    {fn}
 ''' for nm, zn in (('LzAbove', 'bowlAbove'), ('LzBelow', 'bowlBelow'))) + ''.join(f'''    {nm}
     {{
         type forces; libs (forces);
-        writeControl timeStep; writeInterval {FOEVERY};
+        executeControl timeStep; executeInterval {ANG_EVERY};
+        writeControl timeStep; writeInterval {ANG_EVERY};
         log false;
         patches ({pt});
         rho rho;
