@@ -51,9 +51,23 @@ p = S['p']
 
 # ---------- geometry ----------
 Rr, Rp, D, ds = p['Rrim'] / 1000, p['Rpool'] / 1000, p['Dwall'] / 1000, p['seal'] / 1000
-if abs(p.get('ovality', 1) - 1) > 1e-9:
-    raise SystemExit('only round bowls are supported (ovality 1)')
 TRAP = a.outlet == 'trap'
+# oval bowl and off-centre pool (model 2.2, wall-hung preset): sections are ellipses with the area of the model's circle
+# of radius r(z), long axis front to wall, and the section centre moves towards the wall by c(z) = e (1 - cos(pi zd /
+# 2D)) from the rim (zd = 0) to the waterline (e), staying at e below it. In this case the wall (and the trapway) is at
+# +y and the front at -y: the model's frame (wall at +x) turned by +90 degrees about z, so model angle 0 is case angle
+# 90 degrees. A round, centred bowl keeps the frame and the geometry of earlier cases exactly.
+OVAL = float(p.get('ovality', 1) or 1); sE = math.sqrt(OVAL)
+SHIFT = (p.get('poolShift', 0) or 0) / 1000.0
+WALLHUNG = abs(OVAL - 1) > 1e-9 or abs(SHIFT) > 1e-12
+if WALLHUNG and not TRAP: raise SystemExit('an oval or off-centre bowl needs --outlet trap')
+ROT = math.pi / 2 if WALLHUNG else 0.0
+def c_of_z(z):
+    """centre of the wall section (y) at height z above the crest"""
+    if SHIFT == 0: return 0.0
+    if z >= D: return 0.0
+    if z <= 0: return SHIFT
+    return SHIFT * (1 - math.cos(math.pi / 2 * (D - z) / D))
 # sump bottom: as the model's level table; with the trapway, the bottom of the well, where the trap's U-bend starts.
 # The well depth is chosen so that the dip (the passage roof at the bottom of the U) lies at the seal depth (see below).
 # U-bend radius (centre line) 2 mm more than the bore radius, so the dip edge has a 2 mm inner radius
@@ -93,7 +107,8 @@ zLeg = zBot - LEG if (a.outlet_at == 'leg' and not TRAP) else zBot
 # TRAP_ASSUMED.
 rT = a.trap_d / 2
 def r_well(z): return Rp * (1 + 0.5 * z / ds)          # the model's sump radius at height z (z < 0)
-TRAP_ASSUMED = {'d': a.trap_d, 'seal': ds, 'wellBottom': zBot, 'wellRearWall': 'vertical at y = Rp (back plate)',
+def c_well(z): return SHIFT + sE * (Rp - r_well(z))      # centre of the well section: back plate vertical at y = e + sE Rp
+TRAP_ASSUMED = {'d': a.trap_d, 'seal': ds, 'wellBottom': zBot, 'wellRearWall': 'vertical at y = poolShift + sqrt(ovality) Rp (back plate)' if WALLHUNG else 'vertical at y = Rp (back plate)',
                 'uBend_R': R_U, 'riseLeg': 'vertical', 'outletBend_R': rT + 0.010, 'outletStraight': a.trap_outlet_len,
                 'outlet': 'horizontal, towards the wall (+y), atmospheric at its end face'}
 def trap_path(Lh):
@@ -103,51 +118,53 @@ def trap_path(Lh):
     pts = []
     def add(y, z, hd, r): pts.append((y, z, hd, r))
     n = int(math.ceil(-zBot / 0.002))
-    for i in range(n + 1):                                   # the well: horizontal rings, rear wall at y = Rp
-        z = zBot * i / n; add(Rp - r_well(z), z, -math.pi / 2, r_well(z))
-    y, z, hd, rw = pts[-1]
-    cy, cz = y + R1, z                                       # first quarter of the half bend, radius rw -> rT
+    for i in range(n + 1):                                   # the well: horizontal rings, back plate vertical
+        z = zBot * i / n; add(c_well(z), z, -math.pi / 2, (r_well(z) / sE, r_well(z) * sE))
+    y, z, hd, (rwx, rwy) = pts[-1]
+    if rwy > R1 - 0.001: raise SystemExit('well too wide for the half bend: %.1f mm against %.1f mm' % (rwy * 1000, R1 * 1000))
+    cy, cz = y + R1, z                                       # first quarter of the half bend, well section -> round bore
     n = int(math.ceil(R1 * math.pi / 2 / 0.001))
     for i in range(1, n + 1):
-        h = -math.pi / 2 + math.pi / 2 * i / n
-        add(cy + R1 * math.sin(h), cz - R1 * math.cos(h), h, rT + (rw - rT) * 0.5 * (1 + math.cos(math.pi * i / n)))
+        h = -math.pi / 2 + math.pi / 2 * i / n; f = 0.5 * (1 + math.cos(math.pi * i / n))
+        add(cy + R1 * math.sin(h), cz - R1 * math.cos(h), h, (rT + (rwx - rT) * f, rT + (rwy - rT) * f))
     TRAP_ASSUMED['yDip'] = cy; TRAP_ASSUMED['zU'] = cz - R1                     # bottom of the bend (centre line)
     y, z = pts[-1][0], pts[-1][1]
     n = max(1, int(math.ceil(Lh / 0.002)))
-    for i in range(1, n + 1): add(y + Lh * i / n, z, 0.0, rT)
+    for i in range(1, n + 1): add(y + Lh * i / n, z, 0.0, (rT, rT))
     y, z = pts[-1][0], pts[-1][1]
     cy, cz = y, z + R1                                       # second quarter: up
     TRAP_ASSUMED['yRise'] = cy + R1                                            # centre line of the rising leg
     n = int(math.ceil(R1 * math.pi / 2 / 0.002))
     for i in range(1, n + 1):
         h = math.pi / 2 * i / n
-        add(cy + R1 * math.sin(h), cz - R1 * math.cos(h), h, rT)
+        add(cy + R1 * math.sin(h), cz - R1 * math.cos(h), h, (rT, rT))
     y, z = pts[-1][0], pts[-1][1]
     L = (rT - R3) - z                                        # vertical rise so that the outlet bore's bottom is at z = 0
     n = max(1, int(math.ceil(L / 0.002)))
-    for i in range(1, n + 1): add(y, z + L * i / n, math.pi / 2, rT)
+    for i in range(1, n + 1): add(y, z + L * i / n, math.pi / 2, (rT, rT))
     y, z = pts[-1][0], pts[-1][1]
     cy, cz = y + R3, z                                       # right turn into the horizontal outlet
     n = int(math.ceil(R3 * math.pi / 2 / 0.002))
     for i in range(1, n + 1):
         h = math.pi / 2 - math.pi / 2 * i / n
-        add(cy - R3 * math.sin(h), cz + R3 * math.cos(h), h, rT)
+        add(cy - R3 * math.sin(h), cz + R3 * math.cos(h), h, (rT, rT))
     y, z = pts[-1][0], pts[-1][1]
     yCrest_ = y
     n = max(1, int(math.ceil(a.trap_outlet_len / 0.002)))
-    for i in range(1, n + 1): add(y + a.trap_outlet_len * i / n, z, 0.0, rT)
+    for i in range(1, n + 1): add(y + a.trap_outlet_len * i / n, z, 0.0, (rT, rT))
     return pts, yCrest_
 
 def clearance(pts):
     """smallest gap between the passage wall (after the first quarter of the half bend) and the bowl above z = 0, m"""
     g = 1.0
-    for y, z, hd, r in pts:
+    for y, z, hd, (rx_, ry_) in pts:
         if hd < -1e-9: continue                     # the well and the first quarter of the half bend continue the bowl
         for t in [2 * math.pi * k / 24 for k in range(24)]:
             ny_, nz_ = -math.sin(hd), math.cos(hd)
-            px, py, pz = r * math.cos(t), y + r * math.sin(t) * ny_, z + r * math.sin(t) * nz_
-            if 0 <= pz <= D: g = min(g, math.hypot(px, py) - r_of_z(pz))   # below z = 0 the rising leg stays
-                                                                           # 7 mm + Lh behind the back plate
+            px, py, pz = rx_ * math.cos(t), y + ry_ * math.sin(t) * ny_, z + ry_ * math.sin(t) * nz_
+            if 0 <= pz <= D:                        # below z = 0 the rising leg stays 7 mm + Lh behind the back plate
+                r = r_of_z(pz); rn = math.hypot(px / (r / sE), (py - c_of_z(pz)) / (r * sE))
+                g = min(g, (rn - 1) * r / sE)       # gap, approximately, normal to the wall (short semi-axis scale)
     return g
 if TRAP:
     # straight piece at the bottom of the half bend: as short as possible with 8 mm of ceramic between the passage
@@ -156,8 +173,8 @@ if TRAP:
     while clearance(trap_path(LH)[0]) < 0.008 and LH < 0.2: LH += 0.002
     TRAP_ASSUMED['bottomStraight'] = LH
     TPATH, yCrest = trap_path(LH)
-    zTrapMin = min(z - r for _, z, _, r in TPATH)
-    yTrapMax = max(y + r for y, _, _, r in TPATH)
+    zTrapMin = min(z - max(r) for _, z, _, r in TPATH)
+    yTrapMax = max(y + max(r) for y, _, _, r in TPATH)
     TRAP_ASSUMED['zDip'] = TRAP_ASSUMED['zU'] + rT                       # roof of the passage under the back plate
     zLeg = min(zLeg, zTrapMin)
 zs = set()
@@ -171,13 +188,19 @@ add_range(jetBot, jetTop, 0.001)
 add_range(jetTop, D, 0.0005)
 zs = sorted(zs)
 prof = [(r_of_z(z), z) for z in zs]
+def PE(r, t, z):
+    """point of the wall section at height z (equivalent radius r, parameter angle t): an ellipse with the long axis along
+    y, centred at y = c(z); a circle P(r, t, z) for the round, centred bowl"""
+    return ((r / sE) * math.cos(t), c_of_z(z) + (r * sE) * math.sin(t), z)
 NT = 720
 th = [2 * math.pi * i / NT for i in range(NT + 1)]
 
 jets = []
 for j in range(nJ):
     t0 = (phase + j * 2 * math.pi / nJ) % (2 * math.pi)
-    jets.append({'name': 'jet%d' % (j + 1), 'th0': t0, 'dth': ARC / r_of_z(0.5 * (jetTop + jetBot))})
+    t0 = (t0 + ROT) % (2 * math.pi)                    # model angle 0 (the wall end) is case angle 90 for the wall-hung bowl
+    rj = r_of_z(0.5 * (jetTop + jetBot)); arcspeed = math.hypot((rj / sE) * math.sin(t0), (rj * sE) * math.cos(t0))
+    jets.append({'name': 'jet%d' % (j + 1), 'th0': t0, 'dth': ARC / arcspeed})
 outlet = (math.radians(40), math.radians(140))  # rear of the sump (+y)
 
 def ang_in(t, lo, hi):
@@ -200,7 +223,7 @@ for k in range(len(prof) - 1):
     for i in range(NT):
         t0, t1 = th[i], th[i + 1]
         reg = wall_region(0.5 * (t0 + t1), 0.5 * (z0 + z1))
-        A, B, C, Dd = P(r0, t0, z0), P(r0, t1, z0), P(r1, t1, z1), P(r1, t0, z1)
+        A, B, C, Dd = PE(r0, t0, z0), PE(r0, t1, z0), PE(r1, t1, z1), PE(r1, t0, z1)
         tri(reg, A, B, C); tri(reg, A, C, Dd)
 # sump bottom, or the trap leg: a cylinder of the sump-bottom radius down to zLeg, outlet disk at its end, and a
 # cross of two plates (swirl breaker) from the outlet up into the sump. The plates cut through the cylinder wall; the
@@ -230,8 +253,9 @@ elif TRAP:
     # the well and the trapway as one swept surface along TPATH (its first ring is the pool ring at z = 0)
     def ring(y, z, hd, r):
         ny_, nz_ = -math.sin(hd), math.cos(hd)        # in-plane normal (left of the heading); binormal is +x
-        # heading down gives horizontal rings (r cos t, y + r sin t, z), at z = 0 the same points as the pool profile
-        return [(r * math.cos(t), y + r * math.sin(t) * ny_, z + r * math.sin(t) * nz_) for t in th]
+        rx_, ry_ = r                                  # semi-axes across (x) and in the plane of the path
+        # heading down gives horizontal rings (rx cos t, y + ry sin t, z), at z = 0 the same points as the pool profile
+        return [(rx_ * math.cos(t), y + ry_ * math.sin(t) * ny_, z + ry_ * math.sin(t) * nz_) for t in th]
     rings = [ring(*q) for q in TPATH]
     iU = next(k for k, q in enumerate(TPATH) if abs(q[1] - zBot) < 1e-9 and q[2] == -math.pi / 2)
     # separate wall patches for the torque on the water: bowl above the crest ('wall'), well below it ('wallWell'),
@@ -258,9 +282,10 @@ else:
 # lid (air above the rim) and open top
 for i in range(NT):
     t0, t1 = th[i], th[i + 1]
-    A, B, C, Dd = P(Rr, t0, D), P(Rr, t1, D), P(Rr, t1, zTop), P(Rr, t0, zTop)
+    A, B = PE(Rr, t0, D), PE(Rr, t1, D)
+    C, Dd = (B[0], B[1], zTop), (A[0], A[1], zTop)
     tri('lid', A, B, C); tri('lid', A, C, Dd)
-    tri('atmosphere', (0, 0, zTop), P(Rr, t0, zTop), P(Rr, t1, zTop))
+    tri('atmosphere', (0, 0, zTop), Dd, C)
 
 os.makedirs(os.path.join(a.out, 'constant', 'triSurface'), exist_ok=True)
 for d in ('system', '0.orig'): os.makedirs(os.path.join(a.out, d), exist_ok=True)
@@ -327,7 +352,7 @@ def write(path, cls, obj, body):
 h0 = {'coarse': 0.006, 'medium': 0.004, 'fine': 0.004}[a.mesh]
 lvl = {'coarse': 1, 'medium': 1, 'fine': 2}[a.mesh]          # wall cells: coarse 3 mm, medium 2 mm, fine 1 mm
 jl = lvl
-X = Rr + 0.01
+X = Rr * sE + 0.01                    # round bowl: Rr + 10 mm; oval: the long semi-axis (y) + 10 mm
 Y1 = X if not TRAP else max(X, yTrapMax + 0.01)           # the trapway lies behind the bowl (+y)
 # the background mesh has a face plane at z = 0 (the crest): whole cells from zLo up, so setFields fills the pool
 # exactly to the crest and no water flows in through the outlet at the start
@@ -449,7 +474,7 @@ FRAMES_FO = '' if a.frames <= 0 else f'''    frames
     }}
 '''
 # vertical axis of the pool (through the pool centre at the waterline) for angular momentum and torques
-POOL_AXIS = (0.0, 0.0)
+POOL_AXIS = (0.0, SHIFT)               # the pool centre at the waterline
 ANG_FO = '' if not TRAP else ''.join(f'''    {fn}
     {{
         type exprField; libs (fieldFunctionObjects);
@@ -634,14 +659,17 @@ if TRAP:
 ''')
 # sample lines for the pool level (four points at 70 % of the pool radius) and planes for the swirl
 rl = 0.7 * Rp
-lines = '\n'.join(f'''            level{i} {{ type uniform; axis z; start ({rl*math.cos(t):.4f} {rl*math.sin(t):.4f} {zBot+0.002:.4f}); end ({rl*math.cos(t):.4f} {rl*math.sin(t):.4f} {D:.4f}); nPoints 240; }}'''
+# (for the oval, off-centre pool: on the ellipse of 70 % of the pool's semi-axes around the pool centre)
+lines = '\n'.join(f'''            level{i} {{ type uniform; axis z; start ({rl/sE*math.cos(t):.4f} {SHIFT+rl*sE*math.sin(t):.4f} {zBot+0.002:.4f}); end ({rl/sE*math.cos(t):.4f} {SHIFT+rl*sE*math.sin(t):.4f} {D:.4f}); nPoints 240; }}'''
                   for i, t in enumerate([0.25 * math.pi, 0.75 * math.pi, 1.25 * math.pi, 1.75 * math.pi]))
 planes = '\n'.join(f'''            z{int(round(z*1000)):+04d} {{ type cuttingPlane; planeType pointAndNormal; pointAndNormalDict {{ point (0 0 {z:.4f}); normal (0 0 1); }} interpolate false; }}'''
                    for z in [zBot + 0.005 + 0.01 * i for i in range(int((0.06 - zBot) / 0.01) + 1)] + ([-0.030] if TRAP else []))
 if TRAP:
-    # the level in the well (a vertical line through the well, 25 mm behind the bowl axis) and in the rising leg
+    # the level in the well (a vertical line through the well: 25 mm behind the bowl axis in the round bowl, through
+    # the centre of the well bottom in the wall-hung bowl) and in the rising leg
+    yWL = c_well(zBot) if WALLHUNG else 0.025
     lines += f'''
-            wellLine {{ type uniform; axis z; start (0 0.025 {zBot + 0.002:.4f}); end (0 0.025 0.05); nPoints 200; }}
+            wellLine {{ type uniform; axis z; start (0 {yWL:.4f} {zBot + 0.002:.4f}); end (0 {yWL:.4f} 0.05); nPoints 200; }}
             riseLine {{ type uniform; axis z; start (0 {TRAP_ASSUMED['yRise']:.4f} {TRAP_ASSUMED['zU']:.4f}); end (0 {TRAP_ASSUMED['yRise']:.4f} {rT - 0.002:.4f}); nPoints 200; }}'''
 wdt = 0.05
 write('system/controlDict', 'dictionary', 'controlDict', f'''application interFoam;
@@ -782,7 +810,7 @@ write('system/decomposeParDict', 'dictionary', 'decomposeParDict', f'numberOfSub
 import shutil
 if os.path.isdir(os.path.join(a.out, '0')): shutil.rmtree(os.path.join(a.out, '0'))
 shutil.copytree(os.path.join(a.out, '0.orig'), os.path.join(a.out, '0'))   # setFields then fills the pool in 0/
-json.dump({'mesh': a.mesh, 'h0': h0, 'zLo': zLo, 'Vstatic_model': S.get('Vstatic'), 'arrivalPlane': 0.003, 'rWallArrival': r_of_z(0.003), 'level': lvl, 'end': a.end, 'jets': info, 'outlet_deg': [40, 140], 'outlet_z': [outBot, outTop] if a.outlet_at != 'leg' else [zLeg, zLeg], 'outlet_kind': a.outlet, 'outlet_at': a.outlet_at if not TRAP else 'trap',
+json.dump({'mesh': a.mesh, 'h0': h0, 'zLo': zLo, 'Vstatic_model': S.get('Vstatic'), 'arrivalPlane': 0.003, 'rWallArrival': r_of_z(0.003), 'ovality': OVAL, 'poolShift': SHIFT, 'frameRot_deg': math.degrees(ROT), 'level': lvl, 'end': a.end, 'jets': info, 'outlet_deg': [40, 140], 'outlet_z': [outBot, outTop] if a.outlet_at != 'leg' else [zLeg, zLeg], 'outlet_kind': a.outlet, 'outlet_at': a.outlet_at if not TRAP else 'trap',
            'trap': ({**TRAP_ASSUMED, 'yCrest': yCrest, 'zOutlet': rT, 'yOutlet': TPATH[-1][0], 'zLowest': zTrapMin, 'yMax': yTrapMax, 'wellShift': 1.0, 'pathLength': sum(math.hypot(TPATH[i+1][0]-TPATH[i][0], TPATH[i+1][1]-TPATH[i][1]) for i in range(len(TPATH)-1))} if TRAP else None),
            'qout': [[t, q] for t, q in zip(S['tq'], S['Qout']) if t <= a.end + 0.05] if a.outlet == 'model' else None, 'zLeg': zLeg,
            'legVolume_est': (math.pi * rb ** 2 * (zBot - zLeg)) if a.outlet_at == 'leg' else 0.0, 'zBot': zBot, 'zTop': zTop, 'poolAxis': list(POOL_AXIS) if TRAP else [0.0, 0.0],

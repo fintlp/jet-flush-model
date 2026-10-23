@@ -31,6 +31,9 @@ for k in range(NS):
     sm = Stot * (k + 0.5) / NS; i = min(N, next(j for j in range(N + 1) if ss[j] >= sm))
     rowA.append(2 * math.pi * r_of_z(zs[i]) * Stot / NS / NTH)
 Atot = NTH * sum(rowA)
+CA = S['map'].get('A')            # per-cell areas from post.py (the oval bowl's differ from the round rows)
+def cellArea(i): return CA[i] if CA else rowA[i // NTH]
+if CA: Atot = sum(CA)
 
 tEnd = max([w['t'] for w in S['wall']] or [0])
 print(f"reference run: mesh {info['mesh']}, simulated to {tEnd:.2f} s, wall shear unit {S['tauUnit']}")
@@ -62,8 +65,8 @@ if ot:
 tw = S['map']['tWet']
 for t in (0.1, 0.2, 0.3, 0.5, 1.0):
     if t <= tEnd:
-        c = sum(rowA[i // NTH] for i in range(NTH * NS) if tw[i] is not None and tw[i] <= t + 1e-9) / Atot
-        m = sum(rowA[i // NTH] for i in range(NTH * NS) if MM['tWet'][i] <= t + 1e-9) / Atot
+        c = sum(cellArea(i) for i in range(NTH * NS) if tw[i] is not None and tw[i] <= t + 1e-9) / Atot
+        m = sum(cellArea(i) for i in range(NTH * NS) if MM['tWet'][i] <= t + 1e-9) / Atot
         row(f'wetted share of the wall by {t} s', f'{100 * c:.1f}', f'{100 * m:.1f}', '%')
 # mean shear under the water
 wt = [w['t'] for w in S['wall']]; wv = [w['tauWet'] for w in S['wall']]
@@ -71,7 +74,7 @@ for t in (0.5, 1.0, 2.0):
     if wt and t <= wt[-1]: row(f'mean wall shear where wet at {t} s', f'{interp(wt, wv, t):.2f}', '', 'Pa')
 # cleaning over the whole run, same tauC and Jcrit
 if tEnd > 2.5:
-    mclean = sum(rowA[i // NTH] for i in range(NTH * NS) if MM['J'][i] >= MM['Jcrit']) / Atot
+    mclean = sum(cellArea(i) for i in range(NTH * NS) if MM['J'][i] >= MM['Jcrit']) / Atot
     row('cleaned share (J >= Jcrit)', f"{S['cleanPct']:.1f}", f'{100 * mclean:.1f}', '%')
 # pool swirl
 st = [x['t'] for x in S['swirl']]; sv = [x['uTheta'] for x in S['swirl']]

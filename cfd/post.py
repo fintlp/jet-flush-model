@@ -77,6 +77,26 @@ def s_of_z(z):
     i = min(NP_ - 1, int((D - z) / D * NP_))
     f = ((D - z) / D * NP_) - i
     return ss[i] + f * (ss[i + 1] - ss[i])
+# oval, off-centre bowl (wall-hung preset): sections are ellipses (semi-axes r/sE across, r sE along the long axis y),
+# centred at y = c(z); the case frame is the model's turned by frameRot (90 degrees: model x = case y, model y = -case x)
+OVAL = info.get('ovality', 1.0) or 1.0; sE = math.sqrt(OVAL); SHIFT = info.get('poolShift', 0.0) or 0.0
+ROT = math.radians(info.get('frameRot_deg', 0.0) or 0.0)
+WALLHUNG = abs(OVAL - 1) > 1e-9 or abs(SHIFT) > 1e-12
+def c_of_z(z):
+    if SHIFT == 0 or z >= D: return 0.0
+    if z <= 0: return SHIFT
+    return SHIFT * (1 - math.cos(math.pi / 2 * (D - z) / D))
+def to_model(x, y):
+    """case coordinates to the model's frame (wall at model +x)"""
+    c, s_ = math.cos(ROT), math.sin(ROT)
+    return c * x + s_ * y, -s_ * x + c * y
+def z_of_s(sv):
+    lo, hi = 0.0, D
+    for _ in range(50):
+        mid = 0.5 * (lo + hi)
+        if s_of_z(mid) > sv: lo = mid
+        else: hi = mid
+    return 0.5 * (lo + hi)
 cellA = []
 for k in range(NS):
     s0, s1 = S * k / NS, S * (k + 1) / NS
@@ -87,21 +107,40 @@ for k in range(NS):
         if s_of_z(mid) > sm: lo = mid
         else: hi = mid
     cellA.append(2 * math.pi * r_of_z(0.5 * (lo + hi)) * (s1 - s0) / NTH)
-Atot = NTH * sum(cellA)
+# per-cell areas (index k * NTH + i): the round bowl's rows; for the oval, off-centre bowl the model's own formula
+# (model.js, cell areas: |dX/dtheta x dX/dzd| dtheta dzd for X = (R sE cos + C, R/sE sin, zd), zd depth below the rim)
+CELLA = [cellA[k] for k in range(NS) for _ in range(NTH)]
+if WALLHUNG:
+    kz = math.pi / (2 * D); dth_ = 2 * math.pi / NTH; CELLA = []
+    for k in range(NS):
+        d0, d1 = D - z_of_s(S * k / NS), D - z_of_s(S * (k + 1) / NS); dc = 0.5 * (d0 + d1)
+        R = Rp + (Rr - Rp) * math.cos(kz * dc); dR = -(Rr - Rp) * kz * math.sin(kz * dc); dC = SHIFT * kz * math.sin(kz * dc)
+        for i in range(NTH):
+            th_ = (i + 0.5) * dth_; c, sn = math.cos(th_), math.sin(th_)
+            ax_, ay_ = -R * sE * sn, R / sE * c; bx_, by_ = dR * sE * c + dC, dR / sE * sn
+            CELLA.append(math.sqrt(ay_ ** 2 + ax_ ** 2 + (ax_ * by_ - ay_ * bx_) ** 2) * dth_ * (d1 - d0))
+Atot = sum(CELLA)
 
 def r_bowl(z):
     """bowl radius at height z, as make_case builds it (pool profile above the crest, sump below)"""
     return r_of_z(z) if z >= 0 else Rp * max(0.35, 1 + 0.5 * z / DS)
 WELL_SHIFT = (info.get('trap') or {}).get('wellShift', 0.0) if TRAP else 0.0
+def sect_centre(z):
+    """centre (y) of the bowl section at height z; below the crest the well of a trapway case (back plate vertical)"""
+    if z >= 0 or not WELL_SHIFT: return c_of_z(z)
+    return SHIFT + WELL_SHIFT * sE * (Rp - r_bowl(z))
+def rnorm(x, y, z):
+    """normalised radius of (x, y) in the section at height z: 1 on the wall"""
+    r = r_bowl(z); return math.hypot(x / (r / sE), (y - sect_centre(z)) / (r * sE))
 def in_bowl(x, y, z, tol):
-    """inside the bowl (not the trapway); below the crest a trapway case has a well whose centre moves rearward"""
-    if z >= 0 or not WELL_SHIFT: return math.hypot(x, y) <= r_bowl(z) + tol
-    r = r_bowl(z); return math.hypot(x, y - WELL_SHIFT * (Rp - r)) <= r + tol
+    """inside the bowl (not the trapway), with a tolerance tol (m) measured on the short semi-axis"""
+    return (rnorm(x, y, z) - 1) * r_bowl(z) / sE <= tol
 
 def cell_of(x, y, z):
     if z <= 0 or z >= D: return None
-    if math.hypot(x, y) > r_of_z(z) + 0.004: return None      # trapway wall above the crest, not the bowl
-    th = math.atan2(y, x) % (2 * math.pi)
+    if not in_bowl(x, y, z, 0.004): return None               # trapway wall above the crest, not the bowl
+    xm, ym = to_model(x, y); cm, _ = to_model(0.0, c_of_z(z))
+    th = math.atan2(ym * sE, (xm - cm) / sE) % (2 * math.pi)    # the model's cell angle (round bowl: atan2(y, x))
     i = min(NTH - 1, int(th / (2 * math.pi) * NTH)); k = min(NS - 1, int(s_of_z(z) / S * NS))
     return k * NTH + i
 
@@ -136,7 +175,7 @@ for t, d in times_of('wallData'):
     dt = 0.0 if prev is None else t - prev
     for c in range(len(n)):
         if not n[c]: continue
-        share = nw[c] / n[c]; A_c = cellA[c // NTH]
+        share = nw[c] / n[c]; A_c = CELLA[c]
         tau = fac * tw[c] / nw[c] if nw[c] else 0.0
         wetA += share * A_c; shearA += share * A_c * tau
         if share > 0.5:
@@ -144,8 +183,8 @@ for t, d in times_of('wallData'):
             J[c] += max(0.0, tau - TAUC) * dt
     wall_series.append({'t': t, 'wetPct': 100 * wetA / Atot, 'tauWet': shearA / wetA if wetA else 0.0})
     prev = t
-clean = sum(cellA[c // NTH] for c in range(len(J)) if J[c] >= JCRIT)
-wet = sum(cellA[c // NTH] for c in range(len(J)) if tWet[c] is not None)
+clean = sum(CELLA[c] for c in range(len(J)) if J[c] >= JCRIT)
+wet = sum(CELLA[c] for c in range(len(J)) if tWet[c] is not None)
 
 # ---------- pool level from the sample lines: bottom + integral of alpha up to the first long dry stretch ----------
 level = []
@@ -175,9 +214,9 @@ for t, d in times_of('poolPlanes'):
         if len(U) != len(A): continue
         bins = {}
         for u, a_ in zip(U, A):
-            x, y = u[0], u[1]; r = math.hypot(x, y)
+            x, y = u[0], u[1] - SHIFT; r = math.hypot(x, y)      # about the pool axis
             if r < 1e-4: continue
-            if not in_bowl(x, y, u[2], 0.003): continue    # plane cuts through the trapway: not part of the pool
+            if not in_bowl(u[0], u[1], u[2], 0.003): continue    # plane cuts through the trapway: not part of the pool
             ut = (-y * u[3] + x * u[4]) / r
             key = (int(r / 0.004), int((math.atan2(y, x) % (2 * math.pi)) / (2 * math.pi) * 36))
             b = bins.setdefault(key, [0.0, 0.0, 0])
@@ -251,10 +290,10 @@ for t, d in times_of('arrival'):
         al = arr['alpha.water'][0]; U = arr['U'][0]
         tot = wallb = 0.0; sub = 0.0; area = 0.0
         for q, A_ in enumerate(areas):
-            if math.hypot(cents[q][0], cents[q][1]) > rw + 0.005: continue   # trapway bend above the crest, not the pool
+            if not in_bowl(cents[q][0], cents[q][1], 0.003, 0.005): continue   # trapway bend above the crest, not the pool
             fl = -al[q] * U[3 * q + 2] * A_           # downward water flux through this face, m3/s
             tot += fl
-            if math.hypot(cents[q][0], cents[q][1]) >= rw - 0.008: wallb += fl
+            if (1 - rnorm(cents[q][0], cents[q][1], 0.003)) * r_bowl(0.003) / sE <= 0.008: wallb += fl
             sub += al[q] * A_; area += A_
         arrival.append({'t': t, 'total': tot, 'wall': wallb, 'interior': tot - wallb, 'wetArea': sub, 'area': area})
     except Exception as e:   # keep the rest of the summary if the plane format is unexpected
@@ -341,12 +380,17 @@ def valid_to(info, outflow, end):
 FLUSH_VOLUME = 4.5e-3     # m3, the preset's full flush; validTo tolerance is 1 % of it
 RIM_TOL = 5e-6            # m3: "nothing over the rim" means less than 5 mL in total (spray)
 AIR_TOL = 1e-6            # m3/s: air "passes" the dip when its flux towards the rising leg exceeds 1 mL/s
-def model_series():
-    d = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'washdown')
-    for name in (['model-series-trap70.json'] if TRAP else []) + ['model-series.json']:
-        f = os.path.join(d, name)
+def model_series(which=0):
+    """the model series to compare with: washdown trapway cases the 70 mm round-crest variant; the wall-hung bowl the
+    wall-hung preset (which=0) and the fitted variant { cfp: 0.005, kSw: 2.5 } (which=1)"""
+    here = os.path.dirname(os.path.abspath(__file__))
+    if WALLHUNG: cands = [[('wallhung', 'model-series.json')], [('wallhung', 'model-series-fit.json')]][which]
+    elif which: return None
+    else: cands = ([('washdown', 'model-series-trap70.json')] if TRAP else []) + [('washdown', 'model-series.json')]
+    for d, name in cands:
+        f = os.path.join(here, d, name)
         if os.path.exists(f):
-            M_ = json.load(open(f)); M_['file'] = name; return M_
+            M_ = json.load(open(f)); M_['file'] = d + '/' + name; return M_
     return None
 
 def lin(ts, ys, t):
@@ -407,7 +451,7 @@ def line_level(name):
 def well_swirl(zp=-0.030):
     """water-weighted area mean of the tangential speed about the well's own centre, in the plane zp"""
     out = []; tag = 'z%+04d' % int(round(zp * 1000)); tok = re.compile(r'(^|[_.])U([_.]|$)')
-    r = r_bowl(zp); yc = WELL_SHIFT * (Rp - r)
+    r = r_bowl(zp); yc = sect_centre(zp)
     for t, d in times_of('poolPlanes'):
         for fu in glob.glob(os.path.join(d, '**', '*'), recursive=True):
             bn = os.path.basename(fu)
@@ -419,7 +463,7 @@ def well_swirl(zp=-0.030):
             num = den = 0.0
             for u, a_ in zip(U, A):
                 x, y = u[0], u[1] - yc; rr = math.hypot(x, y)
-                if rr < 1e-4 or rr > r + 0.003: continue
+                if rr < 1e-4 or not in_bowl(u[0], u[1], zp, 0.003): continue
                 num += a_[3] * (-y * u[3] + x * u[4]) / rr; den += a_[3]
             if den: out.append({'t': t, 'uTheta': num / den})
             break
@@ -476,7 +520,7 @@ if TRAP:
             'flowStopped': not flowing,
             'note': 'mean level over the last 0.5 s of the run, from a vertical line through the well (25 mm behind the axis) '
                     'and one through the rising leg; seal = well level minus the dip (z = %.1f mm)' % (zDip * 1000)}
-    M = model_series()
+    M = model_series(); M2 = model_series(1)
     # level table of the bowl above the crest (the model's round profile, the same as the model's own table for
     # ovality 1): volume V(z) = integral of pi r(z)^2 from the crest up to z, to the rim
     mz = [D * k / 600 for k in range(601)]; mv = [0.0]
@@ -492,13 +536,16 @@ if TRAP:
         row = {'t': t, 'QoutCFD': lin(ot, oq, t), 'QcrestCFD': lin(ct, cq, t) if crest else None,
                'crestDepthCFD': lin(ct, cd, t) if crest else None, 'VaboveCrestCFD': va,
                'zLinesCFD': lin(lt, lz, t) if level else None, 'zFromVolumeCFD': lin(mv, mz, va)}
+        if M2: row.update({'QoutModelFit': lin(M2['t'], M2['Qout'], t), 'zModelFit': lin(M2['t'], M2['z'], t),
+                           'VrelModelFit': lin(M2['t'], M2['Vrel'], t), 'vsModelFit': lin(M2['t'], M2['vs'], t) if 'vs' in M2 else None})
         if M: row.update({'QoutModel': lin(M['t'], M['Qout'], t), 'zModel': lin(M['t'], M['z'], t),
                           'VrelModel': lin(M['t'], M['Vrel'], t), 'vsModel': lin(M['t'], M['vs'], t) if 'vs' in M else None})
         cmp_.append(row)
     def first_above(tt, qq, thr):
         return next((t for t, q in zip(tt, qq) if q > thr), None)
     starts = {'outletCFD': first_above(ot, oq, 5e-5), 'crestCFD': first_above(ct, cq, 5e-5) if crest else None,
-              'model': first_above(M['t'], M['Qout'], 5e-5) if M else None, 'threshold_Ls': 0.05}
+              'model': first_above(M['t'], M['Qout'], 5e-5) if M else None,
+              'modelFit': first_above(M2['t'], M2['Qout'], 5e-5) if M2 else None, 'threshold_Ls': 0.05}
     peak = max(bal, key=lambda r_: r_['QoutWater']) if bal else None
     cpeak = max(crest, key=lambda r_: r_['water']) if crest else None
     apeak = max(bal, key=lambda r_: r_['VaboveCrest'] or 0) if bal else None
@@ -526,10 +573,13 @@ if TRAP:
         'seal': seal,
         'compare': cmp_, 'outflowStart': starts,
         'model': {'file': M.get('file'), 'set': M.get('set'), 'source': M.get('model')} if M else None,
+        'modelFit': {'file': M2.get('file'), 'set': M2.get('set'), 'source': M2.get('model')} if M2 else None,
         'peak': {'outlet': {'t': peak['t'], 'Q': peak['QoutWater']} if peak else None,
                  'crest': {'t': cpeak['t'], 'Q': cpeak['water'], 'depth': cpeak['depth']} if cpeak else None,
                  'VaboveCrest': {'t': apeak['t'], 'V': apeak['VaboveCrest']} if apeak else None,
-                 'model': {'t': M['t'][mpk], 'Q': M['Qout'][mpk], 'zPeak': max(M['z']), 'VrelPeak': max(M['Vrel'])} if M else None},
+                 'model': {'t': M['t'][mpk], 'Q': M['Qout'][mpk], 'zPeak': max(M['z']), 'VrelPeak': max(M['Vrel'])} if M else None,
+                 'modelFit': (lambda k: {'t': M2['t'][k], 'Q': M2['Qout'][k], 'zPeak': max(M2['z']), 'VrelPeak': max(M2['Vrel'])})(
+                     max(range(len(M2['Qout'])), key=lambda k: M2['Qout'][k])) if M2 else None},
         'start': {'Vdomain': W0, 'Vtrap': trapw.get(ts[0]) if ts else None, 'VaboveCrest': above.get(ts[0]) if ts else None,
                   'VbelowCrest': (W0 - (trapw.get(ts[0]) or 0) - (above.get(ts[0]) or 0)) if ts else None,
                   'VstaticModel': info.get('Vstatic_model')},
@@ -668,7 +718,8 @@ out = {
     'outflow': dat_series('flowRates'), 'water': dat_series('water'),
     'level': level, 'swirl': swirl, 'wall': wall_series,
     'cleanPct': 100 * clean / Atot, 'wetPct': 100 * wet / Atot,
-    'map': {'NTH': NTH, 'NS': NS, 'J': [round(x, 4) for x in J], 'tWet': tWet},
+    'map': {'NTH': NTH, 'NS': NS, 'J': [round(x, 4) for x in J], 'tWet': tWet, 'A': [round(x, 9) for x in CELLA],
+            'frame': 'cells in the model frame (wall at model +x); case frame turned by frameRot_deg' if WALLHUNG else 'model frame'},
 }
 if trap_out: out['trap'] = trap_out
 json.dump(out, open(os.path.join(case, 'summary.json'), 'w'), separators=(',', ':'))
