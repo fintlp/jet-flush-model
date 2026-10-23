@@ -79,28 +79,42 @@ for t in (1.0, 2.0, 2.9):
     if st and t <= st[-1]:
         row(f'mean swirl speed of the pool water at {t} s', f'{interp(st, sv, t):.3f}', f"{interp(M['t'], M.get('uMean', [float('nan')] * len(M['t'])), t):.3f}", 'm/s')
 
-# trapway runs: crest flow (the model's weir), peak outflow, water balance
+# trapway runs: outflow, crest, water above the crest, dip, swirl in the well, seal, water balance
 TR = S.get('trap')
 if TR:
-    ct = [r['t'] for r in TR['crestPlane']]; cq = [r['water'] * 1000 for r in TR['crestPlane']]
-    for t in (0.5, 1.0, 2.0, 2.9, 4.0):
-        if ct and t <= ct[-1]:
-            row(f'flow over the crest at {t} s', f'{interp(ct, cq, t):.3f}', f"{interp(M['t'], [q * 1000 for q in M['Qout']], t):.3f}", 'L/s')
+    print('  model for the trap rows: %s %s' % ((TR.get('model') or {}).get('file'), (TR.get('model') or {}).get('set')))
+    C = TR['compare']; ctt = [r['t'] for r in C]
+    def ser(key, f=1000): return [(r[key] if r.get(key) is not None else float('nan')) * f for r in C]
+    for t in (0.5, 1.0, 2.0, 2.9, 4.0, 6.0):
+        if ctt and t <= ctt[-1] + 1e-9:
+            row(f'outflow at the outlet face at {t} s', f"{interp(ctt, ser('QoutCFD'), t):.3f}", f"{interp(ctt, ser('QoutModel'), t):.3f}", 'L/s')
+            row(f'flow over the crest at {t} s', f"{interp(ctt, ser('QcrestCFD'), t):.3f}", '', 'L/s', f"depth {interp(ctt, ser('crestDepthCFD'), t):.1f} mm")
+            row(f'water above the crest at {t} s', f"{interp(ctt, ser('VaboveCrestCFD'), t):.3f}", f"{interp(ctt, ser('VrelModel'), t):.3f}", 'L')
+            row(f'level from that volume (model table) at {t} s', f"{interp(ctt, ser('zFromVolumeCFD'), t):.1f}", f"{interp(ctt, ser('zModel'), t):.1f}", 'mm')
     st_ = TR['outflowStart']
-    row('start of flow over the crest (> 0.05 L/s)', f"{st_['crestCFD']:.2f}" if st_['crestCFD'] is not None else 'none',
-        f"{st_['model']:.2f}" if st_['model'] is not None else 'none', 's')
-    bt = [r['t'] for r in TR['balance']]; bq = [r['QoutWater'] * 1000 for r in TR['balance']]
-    if bq:
-        i = max(range(len(bq)), key=lambda k: bq[k]); im = max(range(len(M['t'])), key=lambda k: M['Qout'][k])
-        row('peak outflow', f'{bq[i]:.3f}', f"{M['Qout'][im] * 1000:.3f}", 'L/s', f"at {bt[i]:.2f} s (model {M['t'][im]:.2f} s)")
-        e = TR['balance'][-1]
-        row(f'water in, by {e["t"]:.2f} s', f"{e['Vin'] * 1000:.3f}", '', 'L')
-        row(f'water out of the trap, by {e["t"]:.2f} s', f"{e['VoutWater'] * 1000:.3f}", '', 'L')
-        row(f'water over the rim, by {e["t"]:.2f} s', f"{e['Vrim'] * 1000:.4f}", '', 'L')
-        row('largest water balance residual', f"{max(abs(r['residual']) for r in TR['balance']) * 1e6:.1f}", '', 'mL')
-    a_ = TR['airIntoTrap']
-    row('air drawn into the trap inlet', 'from %.2f s' % a_['first'] if a_['first'] is not None else 'none', '', '',
-        'peak %.3f L/s, air share of the inlet up to %.0f %%' % (a_['maxAirFlux_Ls'], 100 * a_['maxAirShareInlet']))
+    f2 = lambda v: f'{v:.2f}' if v is not None else 'none'
+    row('start of outflow at the outlet (> 0.05 L/s)', f2(st_['outletCFD']), f2(st_['model']), 's')
+    row('start of flow over the crest (> 0.05 L/s)', f2(st_['crestCFD']), f2(st_['model']), 's')
+    pk = TR['peak']
+    if pk.get('outlet') and pk.get('model'):
+        row('peak outflow', f"{pk['outlet']['Q'] * 1000:.3f}", f"{pk['model']['Q'] * 1000:.3f}", 'L/s', f"at {pk['outlet']['t']:.2f} s (model {pk['model']['t']:.2f} s)")
+    if pk.get('VaboveCrest') and pk.get('model'):
+        row('most water above the crest', f"{pk['VaboveCrest']['V'] * 1000:.3f}", f"{pk['model']['VrelPeak'] * 1000:.3f}", 'L', f"at {pk['VaboveCrest']['t']:.2f} s")
+    a_ = TR['airAtDip']
+    row('air passes the dip (> 1 mL/s)', 'from %.2f s' % a_['first'] if a_['first'] is not None else 'never', '', '',
+        'peak air flux %.3f L/s, air share up to %.0f %%' % (a_['maxAirFlux_Ls'], 100 * a_['maxAirShare']))
+    sw = TR['swirlWell']; swt = [r['t'] for r in sw]; swv = [r['uTheta'] for r in sw]
+    for t in (1.0, 2.0, 2.9):
+        if swt and t <= swt[-1]: row(f'swirl in the well (z = -30 mm) at {t} s', f'{interp(swt, swv, t):.3f}', '', 'm/s')
+    se = TR['seal']
+    if se.get('sealWell_mm') is not None:
+        row('seal after the flush (well level above the dip)', f"{se['sealWell_mm']:.1f}", f"{-se['zDip'] * 1000:.1f}", 'mm',
+            'flow stopped' if se['flowStopped'] else 'still flowing at the end')
+    e = TR['balance'][-1]
+    row(f'water in, by {e["t"]:.2f} s', f"{e['Vin'] * 1000:.3f}", '', 'L')
+    row(f'water out at the outlet face, by {e["t"]:.2f} s', f"{e['VoutWater'] * 1000:.3f}", '', 'L')
+    row(f'water over the rim, by {e["t"]:.2f} s', f"{e['Vrim'] * 1000:.4f}", '', 'L')
+    row('largest water balance residual', f"{max(abs(r['residual']) for r in TR['balance']) * 1e6:.1f}", '', 'mL')
 
 if '--json' in sys.argv:
     json.dump({'rows': rows}, open(sys.argv[sys.argv.index('--json') + 1], 'w'), indent=1)

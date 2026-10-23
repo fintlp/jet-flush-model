@@ -116,6 +116,7 @@ def trap_path(Lh):
     for i in range(1, n + 1): add(y + Lh * i / n, z, 0.0, rT)
     y, z = pts[-1][0], pts[-1][1]
     cy, cz = y, z + R1                                       # second quarter: up
+    TRAP_ASSUMED['yRise'] = cy + R1                                            # centre line of the rising leg
     n = int(math.ceil(R1 * math.pi / 2 / 0.002))
     for i in range(1, n + 1):
         h = math.pi / 2 * i / n
@@ -422,6 +423,9 @@ jetU = '\n'.join(f'''    {J['name']}
         value           uniform (0 0 0);
     }}''' for J in jets)
 JETS = '|'.join(J['name'] for J in jets)
+# flux and volume function objects: every time step for the trapway (its water balance is integrated from them), every
+# 5 steps otherwise
+FOEVERY = 1 if TRAP else 5
 # trapway cases: also a section along x = 0 through the sump and the trapway (water fraction and velocity), for the
 # side view of the media (the water in the trap has no free surface to draw); 1 mm off x = 0, which is a mesh face plane
 SECTION = '' if not TRAP else f'''
@@ -444,7 +448,7 @@ FRAMES_FO = '' if a.frames <= 0 else f'''    frames
 TRAP_FO = '' if not TRAP else f'''    outletTotal
     {{
         type surfaceFieldValue; libs (fieldFunctionObjects);
-        writeControl timeStep; writeInterval 5;
+        writeControl timeStep; writeInterval {FOEVERY};
         log false; writeFields false;
         regionType patch; name outlet;
         operation sum;
@@ -453,7 +457,7 @@ TRAP_FO = '' if not TRAP else f'''    outletTotal
     rimLoss
     {{
         type surfaceFieldValue; libs (fieldFunctionObjects);
-        writeControl timeStep; writeInterval 5;
+        writeControl timeStep; writeInterval {FOEVERY};
         log false; writeFields false;
         regionType patch; name atmosphere;
         operation weightedSum; weightField alpha.water;
@@ -462,7 +466,7 @@ TRAP_FO = '' if not TRAP else f'''    outletTotal
     bowlAboveWater
     {{
         type volFieldValue; libs (fieldFunctionObjects);
-        writeControl timeStep; writeInterval 5;
+        writeControl timeStep; writeInterval {FOEVERY};
         log false; writeFields false;
         regionType cellZone; name bowlAbove;
         operation volIntegrate;
@@ -471,7 +475,7 @@ TRAP_FO = '' if not TRAP else f'''    outletTotal
     trapWater
     {{
         type volFieldValue; libs (fieldFunctionObjects);
-        writeControl timeStep; writeInterval 5;
+        writeControl timeStep; writeInterval {FOEVERY};
         log false; writeFields false;
         regionType cellZone; name trap;
         operation volIntegrate;
@@ -483,7 +487,7 @@ TRAP_FO = '' if not TRAP else f'''    outletTotal
         writeControl adjustableRunTime; writeInterval 0.01;
         surfaceFormat vtk;
         formatOptions {{ vtk {{ format ascii; legacy true; precision 8; }} }}
-        fields (alpha.water U);
+        fields (alpha.water U p_rgh);
         surfaces
         {{
             crest {{ type cuttingPlane; planeType pointAndNormal; pointAndNormalDict {{ point (0 {yCrest:.6f} 0); normal (0 1 0); }} interpolate false; }}
@@ -563,15 +567,18 @@ regions ( boxToCell {{ box (-1 -1 -1) (1 {yCrest if TRAP else 1:.6f} 0); fieldVa
 ''')
 # with the trapway: bowl and up-leg full to the crest (z = 0), the down-leg behind the crest (y > yCrest) empty
 if TRAP:
-    # cell zones for the water balance: the trapway (cells inside or cut by its closed surface trap.stl, from the
-    # bottom of the well to the outlet) and the bowl above the crest (z > 0, without the trapway)
+    # cell zones for the water balance: the trapway from the dip section on (cells inside or cut by its closed surface
+    # trap.stl, at or behind y = yDip) and the bowl above the crest (z > 0, without the trapway). The rest of the water
+    # is in the bowl and well below the crest (including the first quarter of the half bend).
     write('system/topoSetDict', 'dictionary', 'topoSetDict', f'''actions
 (
     {{ name trapSet; type cellSet; action new; source surfaceToCell; file "<constant>/triSurface/trap.stl";
         outsidePoints ((0 0 0.1)); includeCut true; includeInside true; includeOutside false; nearDistance -1; curvature -100; }}
+    {{ name trapSet; type cellSet; action subtract; source boxToCell; box (-1 -1 -1) (1 {TRAP_ASSUMED['yDip']:.6f} 1); }}
     {{ name trap; type cellZoneSet; action new; source setToCellZone; set trapSet; }}
     {{ name bowlAboveSet; type cellSet; action new; source boxToCell; box (-1 -1 0) (1 1 1); }}
-    {{ name bowlAboveSet; type cellSet; action subtract; source cellToCell; set trapSet; }}
+    {{ name bowlAboveSet; type cellSet; action subtract; source surfaceToCell; file "<constant>/triSurface/trap.stl";
+        outsidePoints ((0 0 0.1)); includeCut true; includeInside true; includeOutside false; nearDistance -1; curvature -100; }}
     {{ name bowlAbove; type cellZoneSet; action new; source setToCellZone; set bowlAboveSet; }}
 );
 ''')
@@ -580,7 +587,12 @@ rl = 0.7 * Rp
 lines = '\n'.join(f'''            level{i} {{ type uniform; axis z; start ({rl*math.cos(t):.4f} {rl*math.sin(t):.4f} {zBot+0.002:.4f}); end ({rl*math.cos(t):.4f} {rl*math.sin(t):.4f} {D:.4f}); nPoints 240; }}'''
                   for i, t in enumerate([0.25 * math.pi, 0.75 * math.pi, 1.25 * math.pi, 1.75 * math.pi]))
 planes = '\n'.join(f'''            z{int(round(z*1000)):+04d} {{ type cuttingPlane; planeType pointAndNormal; pointAndNormalDict {{ point (0 0 {z:.4f}); normal (0 0 1); }} interpolate false; }}'''
-                   for z in [zBot + 0.005 + 0.01 * i for i in range(int((0.06 - zBot) / 0.01) + 1)])
+                   for z in [zBot + 0.005 + 0.01 * i for i in range(int((0.06 - zBot) / 0.01) + 1)] + ([-0.030] if TRAP else []))
+if TRAP:
+    # the level in the well (a vertical line through the well, 25 mm behind the bowl axis) and in the rising leg
+    lines += f'''
+            wellLine {{ type uniform; axis z; start (0 0.025 {zBot + 0.002:.4f}); end (0 0.025 0.05); nPoints 200; }}
+            riseLine {{ type uniform; axis z; start (0 {TRAP_ASSUMED['yRise']:.4f} {TRAP_ASSUMED['zU']:.4f}); end (0 {TRAP_ASSUMED['yRise']:.4f} {rT - 0.002:.4f}); nPoints 200; }}'''
 wdt = 0.05
 write('system/controlDict', 'dictionary', 'controlDict', f'''application interFoam;
 startFrom latestTime;
@@ -606,7 +618,7 @@ functions
     flowRates
     {{
         type surfaceFieldValue; libs (fieldFunctionObjects);
-        writeControl timeStep; writeInterval 5;
+        writeControl timeStep; writeInterval {FOEVERY};
         log false; writeFields false;
         regionType patch; name outlet;
         operation weightedSum; weightField alpha.water;
@@ -615,7 +627,7 @@ functions
 {chr(10).join(f"""    flow_{J['name']}
     {{
         type surfaceFieldValue; libs (fieldFunctionObjects);
-        writeControl timeStep; writeInterval 5;
+        writeControl timeStep; writeInterval {FOEVERY};
         log false; writeFields false;
         regionType patch; name {J['name']};
         operation sum;
@@ -624,7 +636,7 @@ functions
     water
     {{
         type volFieldValue; libs (fieldFunctionObjects);
-        writeControl timeStep; writeInterval 5;
+        writeControl timeStep; writeInterval {FOEVERY};
         log false; writeFields false;
         regionType all;
         operation volIntegrate;

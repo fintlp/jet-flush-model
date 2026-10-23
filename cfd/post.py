@@ -165,7 +165,8 @@ swirl = []
 for t, d in times_of('poolPlanes'):
     num = den = 0.0
     tok = re.compile(r'(^|[_.])U([_.]|$)')
-    files = [f for f in glob.glob(os.path.join(d, '**', '*'), recursive=True) if os.path.isfile(f) and tok.search(os.path.basename(f))]
+    files = [f for f in glob.glob(os.path.join(d, '**', '*'), recursive=True) if os.path.isfile(f) and tok.search(os.path.basename(f))
+             and not (TRAP and 'z-030' in f)]   # the extra well plane of trapway cases has its own swirl (swirlWell)
     for fu in files:
         bn = os.path.basename(fu)
         fa = os.path.join(os.path.dirname(fu), tok.sub(lambda m: m.group(1) + 'alpha.water' + m.group(2), bn, count=1))
@@ -333,10 +334,17 @@ def valid_to(info, outflow, end):
             bad = None
     return end
 
-# ---------- trapway cases: water balance, trap planes, CFD next to the model ----------
+# ---------- trapway cases: water by region, balance, crest and dip sections, well swirl and level, CFD and model ----------
+FLUSH_VOLUME = 4.5e-3     # m3, the preset's full flush; validTo tolerance is 1 % of it
+RIM_TOL = 5e-6            # m3: "nothing over the rim" means less than 5 mL in total (spray)
+AIR_TOL = 1e-6            # m3/s: air "passes" the dip when its flux towards the rising leg exceeds 1 mL/s
 def model_series():
-    f = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'washdown', 'model-series.json')
-    return json.load(open(f)) if os.path.exists(f) else None
+    d = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'washdown')
+    for name in (['model-series-trap70.json'] if TRAP else []) + ['model-series.json']:
+        f = os.path.join(d, name)
+        if os.path.exists(f):
+            M_ = json.load(open(f)); M_['file'] = name; return M_
+    return None
 
 def lin(ts, ys, t):
     if not ts: return float('nan')
@@ -345,9 +353,18 @@ def lin(ts, ys, t):
         if t <= ts[i]: return ys[i - 1] + (ys[i] - ys[i - 1]) * (t - ts[i - 1]) / (ts[i] - ts[i - 1])
     return ys[-1]
 
+def seg_depth(frac, r):
+    """water depth in a round bore of radius r whose cross-section is the share frac full of water"""
+    frac = min(1.0, max(0.0, frac)); A = frac * math.pi * r * r; lo, hi = 0.0, 2 * r
+    for _ in range(50):
+        h = 0.5 * (lo + hi); a_ = r * r * math.acos((r - h) / r) - (r - h) * math.sqrt(max(0.0, 2 * r * h - h * h))
+        if a_ < A: lo = h
+        else: hi = h
+    return 0.5 * (lo + hi)
+
 def plane_fluxes(fo, name, select, normal_comp, sign):
-    """water and air flux (m3/s) through one cutting plane of the trapway, positive along sign * the plane normal,
-    and the air share of the selected cross-section"""
+    """water and air flux (m3/s) through one cutting plane of the trapway, positive along sign * the plane normal; the
+    air share and the mean water fraction of the selected cross-section; its area-mean p_rgh (Pa) if sampled"""
     out = []
     for t, d in times_of(fo):
         f = next((c for c in sorted(glob.glob(os.path.join(d, '**', '*'), recursive=True))
@@ -357,20 +374,58 @@ def plane_fluxes(fo, name, select, normal_comp, sign):
             areas, cents, arr = read_vtk_polys(f)
         except Exception:
             continue
-        al = arr['alpha.water'][0]; U = arr['U'][0]
-        qw = qa = A = Aair = 0.0
+        al = arr['alpha.water'][0]; U = arr['U'][0]; P_ = arr.get('p_rgh', (None,))[0]
+        qw = qa = A = Aw = pA = 0.0
         for q, A_ in enumerate(areas):
             if not select(cents[q]): continue
             un = sign * U[3 * q + normal_comp]
             a_ = min(1.0, max(0.0, al[q]))
-            qw += a_ * un * A_; qa += (1 - a_) * un * A_; A += A_; Aair += (1 - a_) * A_
-        if A: out.append({'t': t, 'water': qw, 'air': qa, 'airShare': Aair / A})
+            qw += a_ * un * A_; qa += (1 - a_) * un * A_; A += A_; Aw += a_ * A_
+            if P_ is not None: pA += P_[q] * A_
+        if A:
+            r_ = {'t': t, 'water': qw, 'air': qa, 'airShare': 1 - Aw / A, 'alphaMean': Aw / A}
+            if P_ is not None: r_['pRgh'] = pA / A; r_['headLevel'] = pA / A / (RHO * 9.81)
+            out.append(r_)
+    return out
+
+def line_level(name):
+    """level from a vertical sample line: lowest valid point plus the integral of the water fraction above it"""
+    out = []
+    for t, d in times_of('levels'):
+        f = next((c for c in glob.glob(os.path.join(d, '*' + name + '*'))), None)
+        if not f: continue
+        R = raw_rows(f)
+        if len(R) < 3: continue
+        h = 0.0
+        for i in range(1, len(R)): h += 0.5 * (R[i][1] + R[i - 1][1]) * (R[i][0] - R[i - 1][0])
+        out.append({'t': t, 'z': R[0][0] + h})
+    return out
+
+def well_swirl(zp=-0.030):
+    """water-weighted area mean of the tangential speed about the well's own centre, in the plane zp"""
+    out = []; tag = 'z%+04d' % int(round(zp * 1000)); tok = re.compile(r'(^|[_.])U([_.]|$)')
+    r = r_bowl(zp); yc = WELL_SHIFT * (Rp - r)
+    for t, d in times_of('poolPlanes'):
+        for fu in glob.glob(os.path.join(d, '**', '*'), recursive=True):
+            bn = os.path.basename(fu)
+            if not (os.path.isfile(fu) and tag in fu and tok.search(bn)): continue
+            fa = os.path.join(os.path.dirname(fu), tok.sub(lambda m: m.group(1) + 'alpha.water' + m.group(2), bn, count=1))
+            if not os.path.exists(fa): continue
+            U, A = raw_rows(fu), raw_rows(fa)
+            if len(U) != len(A): continue
+            num = den = 0.0
+            for u, a_ in zip(U, A):
+                x, y = u[0], u[1] - yc; rr = math.hypot(x, y)
+                if rr < 1e-4 or rr > r + 0.003: continue
+                num += a_[3] * (-y * u[3] + x * u[4]) / rr; den += a_[3]
+            if den: out.append({'t': t, 'uTheta': num / den})
+            break
     return out
 
 trap_out = None
 if TRAP:
     tr = info.get('trap') or {}
-    rT = 0.5 * tr.get('d', 0.048); yC = tr.get('yCrest', 0.165); zB = info.get('zBot', -DS)
+    rT = 0.5 * tr.get('d', 0.048); zB = info.get('zBot', -DS); zDip = tr.get('zDip', -DS)
     inflow_s = {}
     for k in info['jets']:
         for t, q in dat_series('flow_' + k): inflow_s[t] = inflow_s.get(t, 0.0) - q
@@ -387,68 +442,105 @@ if TRAP:
             cin += 0.5 * (cur[0] + prev[0]) * dt; cout += 0.5 * (cur[1] + prev[1]) * dt
             crim += 0.5 * (cur[2] + prev[2]) * dt; cair += 0.5 * (cur[3] + prev[3]) * dt
         prev, prev_t = cur, t
+        va, vt = above.get(t), trapw.get(t)
         bal.append({'t': round(t, 5), 'Qin': cur[0], 'QoutWater': cur[1], 'QoutAir': cur[3], 'Qrim': cur[2],
                     'Vin': cin, 'VoutWater': cout, 'Vrim': crim, 'VoutAir': cair,
-                    'Vdomain': dom[t], 'VaboveCrest': above.get(t), 'Vtrap': trapw.get(t),
+                    'Vdomain': dom[t], 'VaboveCrest': va, 'Vtrap': vt,
+                    'VbelowCrest': dom[t] - va - vt if va is not None and vt is not None else None,
                     'residual': dom[t] - W0 - cin + cout + crim})
-    # thin the balance to about 0.01 s steps for the summary
+    # thin to 0.01 s steps for the summary (the integrals use every solver step)
     thin, last = [], -1.0
     for r_ in bal:
         if r_['t'] - last >= 0.0099 or r_ is bal[-1]: thin.append(r_); last = r_['t']
-    # crest plane y = yCrest: the weir bend's cross-section is the circle around (x 0, z rT); dip plane y = yDip: the
-    # section at the bottom of the U, a circle around (x 0, z zU); flux towards +y (on to the up-leg and the down-leg)
+    # crest section y = yCrest (start of the horizontal bore, circle around x 0, z rT); dip section y = yDip (under the
+    # back plate, circle around x 0, z zU); both with flux towards +y (on towards the outlet)
     crest = plane_fluxes('trapPlanes', 'crest', lambda c: math.hypot(c[0], c[2] - rT) < rT + 0.003, 1, +1)
+    for r_ in crest: r_['depth'] = seg_depth(r_['alphaMean'], rT)
     zU = tr.get('zU', zB - 0.024)
-    inlet = plane_fluxes('trapPlanes', 'dip', lambda c: math.hypot(c[0], c[2] - zU) < rT + 0.003, 1, +1)
-    M = model_series()
-    cmp_ = []
-    lt = [x['t'] for x in level]; lz = [x['z'] for x in level]
-    ot = [r_['t'] for r_ in bal]; oq = [r_['QoutWater'] for r_ in bal]
-    ct = [r_['t'] for r_ in crest]; cq = [r_['water'] for r_ in crest]
+    dip = plane_fluxes('trapPlanes', 'dip', lambda c: math.hypot(c[0], c[2] - zU) < rT + 0.003, 1, +1)
+    swW = well_swirl(-0.030)
+    wellL, riseL = line_level('wellLine'), line_level('riseLine')
     endt = info.get('end') or (ts[-1] if ts else 0)
+    def tail_mean(ser, key='z', span=0.5):
+        if not ser: return None
+        t1 = ser[-1]['t']; v = [r_[key] for r_ in ser if r_['t'] >= t1 - span - 1e-9]
+        return sum(v) / len(v) if v else None
+    wl, rl_ = tail_mean(wellL), tail_mean(riseL)
+    flowing = bal and max(abs(r_['QoutWater']) for r_ in bal if r_['t'] >= bal[-1]['t'] - 0.5) > 2e-5
+    seal = {'levelWell': wl, 'levelRisingLeg': rl_, 'zDip': zDip,
+            'sealWell_mm': (wl - zDip) * 1000 if wl is not None else None,
+            'window': [round((wellL[-1]['t'] if wellL else 0) - 0.5, 3), wellL[-1]['t'] if wellL else None],
+            'flowStopped': not flowing,
+            'note': 'mean level over the last 0.5 s of the run, from a vertical line through the well (25 mm behind the axis) '
+                    'and one through the rising leg; seal = well level minus the dip (z = %.1f mm)' % (zDip * 1000)}
+    M = model_series()
+    # the model's level table, from its own series: level z against the water above the crest Vrel
+    mt = sorted(set(zip(M['Vrel'], M['z']))) if M else []
+    mv, mz = [v for v, _ in mt], [z for _, z in mt]
+    cmp_ = []
+    ot = [r_['t'] for r_ in bal]; oq = [r_['QoutWater'] for r_ in bal]; oa = [r_['VaboveCrest'] or 0 for r_ in bal]
+    ct = [r_['t'] for r_ in crest]; cq = [r_['water'] for r_ in crest]; cd = [r_['depth'] for r_ in crest]
+    lt = [x['t'] for x in level]; lz = [x['z'] for x in level]
     for k in range(1, int(round(endt / 0.1)) + 1):
         t = round(0.1 * k, 3)
         if ts and t > ts[-1] + 1e-9: break
+        va = lin(ot, oa, t)
         row = {'t': t, 'QoutCFD': lin(ot, oq, t), 'QcrestCFD': lin(ct, cq, t) if crest else None,
-               'zCFD': lin(lt, lz, t) if level else None}
-        if M: row.update({'QoutModel': lin(M['t'], M['Qout'], t), 'zModel': lin(M['t'], M['z'], t)})
+               'crestDepthCFD': lin(ct, cd, t) if crest else None, 'VaboveCrestCFD': va,
+               'zLinesCFD': lin(lt, lz, t) if level else None, 'zFromVolumeCFD': lin(mv, mz, va) if mv else None}
+        if M: row.update({'QoutModel': lin(M['t'], M['Qout'], t), 'zModel': lin(M['t'], M['z'], t),
+                          'VrelModel': lin(M['t'], M['Vrel'], t), 'vsModel': lin(M['t'], M['vs'], t) if 'vs' in M else None})
         cmp_.append(row)
     def first_above(tt, qq, thr):
         return next((t for t, q in zip(tt, qq) if q > thr), None)
     starts = {'outletCFD': first_above(ot, oq, 5e-5), 'crestCFD': first_above(ct, cq, 5e-5) if crest else None,
               'model': first_above(M['t'], M['Qout'], 5e-5) if M else None, 'threshold_Ls': 0.05}
     peak = max(bal, key=lambda r_: r_['QoutWater']) if bal else None
-    airIn = [r_ for r_ in inlet if r_['air'] > 1e-5]
+    cpeak = max(crest, key=lambda r_: r_['water']) if crest else None
+    apeak = max(bal, key=lambda r_: r_['VaboveCrest'] or 0) if bal else None
+    mpk = max(range(len(M['Qout'])), key=lambda k: M['Qout'][k]) if M else None
+    airIn = [r_ for r_ in dip if r_['air'] > AIR_TOL]
     trap_out = {
+        'regions': [{'t': r_['t'], 'VaboveCrest': r_['VaboveCrest'], 'VbelowCrest': r_['VbelowCrest'], 'Vtrap': r_['Vtrap'],
+                     'Vdomain': r_['Vdomain']} for r_ in thin],
+        'regionNote': 'water (m3) in the bowl above the crest without the trapway (cell zone bowlAbove), in the bowl and well '
+                      'below the crest (the rest, including the first quarter of the half bend), and in the trapway from the dip '
+                      'section on, including the outlet bend and bore above the crest (cell zone trap)',
         'balance': thin,
-        'balanceNote': 'Qin = water from both jets, QoutWater/QoutAir = water and air out of the trap outlet (air negative '
-                       'when the outlet breathes in), Qrim = water out through the open top above the rim (m3/s); V* the same '
-                       'integrated from 0 (m3); Vdomain = water in the domain, VaboveCrest = water above z = 0 in the bowl, '
-                       'Vtrap = water in the trapway; residual = Vdomain - Vdomain(0) - Vin + VoutWater + Vrim',
-        'crestPlane': crest, 'inletPlane': inlet,
-        'planeNote': 'crest: plane y = yCrest across the weir bend, flux towards the down-leg; inletPlane: section at the '
-                     'bottom of the U under the dip (y = yDip), flux on towards the up-leg; airShare = air share of the '
-                     'passage cross-section (air there means air passes under the dip)',
-        'airIntoTrap': {'first': airIn[0]['t'] if airIn else None, 'samples': len(airIn),
-                        'maxAirFlux_Ls': max((r_['air'] for r_ in inlet), default=0) * 1000,
-                        'maxAirShareInlet': max((r_['airShare'] for r_ in inlet), default=0)},
+        'balanceNote': 'Qin = water from both jets, QoutWater/QoutAir = water and air through the outlet face (air negative when '
+                       'the outlet breathes in), Qrim = water out through the open top above the rim (m3/s); V* the same integrated '
+                       'from 0 over every solver step (m3); residual = Vdomain - Vdomain(0) - Vin + VoutWater + Vrim',
+        'crest': crest, 'dip': dip, 'swirlWell': swW, 'wellLevel': wellL, 'risingLegLevel': riseL,
+        'sectionNote': 'crest: section y = yCrest at the start of the horizontal bore, flux towards the outlet, depth = water depth '
+                       'in the round bore from the water share of the section; dip: section y = yDip under the back plate, flux '
+                       'on towards the rising leg, airShare = 1 - alphaMean, pRgh = area mean (Pa; p_rgh = p - rho g z with z = 0 '
+                       'at the crest), headLevel = pRgh / (998 g), the piezometric level of the water there (m above the crest); '
+                       'swirlWell: water-weighted mean tangential speed about the well centre in the plane z = -30 mm',
+        'airAtDip': {'first': airIn[0]['t'] if airIn else None, 'threshold_Ls': AIR_TOL * 1000, 'samples': len(airIn),
+                     'maxAirFlux_Ls': max((r_['air'] for r_ in dip), default=0) * 1000,
+                     'maxAirShare': max((r_['airShare'] for r_ in dip), default=0)},
+        'seal': seal,
         'compare': cmp_, 'outflowStart': starts,
-        'peak': {'t': peak['t'], 'QoutWater': peak['QoutWater']} if peak else None,
+        'model': {'file': M.get('file'), 'set': M.get('set'), 'source': M.get('model')} if M else None,
+        'peak': {'outlet': {'t': peak['t'], 'Q': peak['QoutWater']} if peak else None,
+                 'crest': {'t': cpeak['t'], 'Q': cpeak['water'], 'depth': cpeak['depth']} if cpeak else None,
+                 'VaboveCrest': {'t': apeak['t'], 'V': apeak['VaboveCrest']} if apeak else None,
+                 'model': {'t': M['t'][mpk], 'Q': M['Qout'][mpk], 'zPeak': max(M['z']), 'VrelPeak': max(M['Vrel'])} if M else None},
         'start': {'Vdomain': W0, 'Vtrap': trapw.get(ts[0]) if ts else None, 'VaboveCrest': above.get(ts[0]) if ts else None,
-                  'VbowlBelowCrest': (W0 - (trapw.get(ts[0]) or 0) - (above.get(ts[0]) or 0)) if ts else None,
+                  'VbelowCrest': (W0 - (trapw.get(ts[0]) or 0) - (above.get(ts[0]) or 0)) if ts else None,
                   'VstaticModel': info.get('Vstatic_model')},
         'end': bal[-1] if bal else None,
     }
 
-def valid_to_trap(tb, end, rim_tol=5.0, res_tol=5.0):
-    """Trapway runs: valid while the water leaving over the rim stays below 5 mL and the balance closes within 5 mL
-    (tolerances in mL), rounded down to 0.05 s."""
+def valid_to_trap(tb, end):
+    """Trapway runs: valid while the water balance closes within 1 % of the flush volume (45 mL) and less than 5 mL has
+    left over the rim, rounded down to 0.05 s"""
     if not tb or not tb['balance']: return end, ''
     for r_ in tb['balance']:
-        if r_['Vrim'] > rim_tol * 1e-6:
+        if r_['Vrim'] > RIM_TOL:
             return math.floor(r_['t'] * 20 + 1e-9) / 20, 'water leaves over the rim'
-        if abs(r_['residual']) > res_tol * 1e-6:
-            return math.floor(r_['t'] * 20 + 1e-9) / 20, 'water balance does not close'
+        if abs(r_['residual']) > 0.01 * FLUSH_VOLUME:
+            return math.floor(r_['t'] * 20 + 1e-9) / 20, 'water balance does not close within 1 % of the flush volume'
     return end, ''
 
 meta = run_meta(case)
@@ -460,7 +552,9 @@ else:
 info['validTo'] = _vt if _vt is not None else info.get('end')
 _late = _vt is not None and _vt < (info.get('end') or 0)
 if TRAP:
-    info['validNote'] = ('the run is valid up to validTo (%s after it)' % _why) if _late else ''
+    info['validNote'] = (('the run is valid up to validTo (%s after it)' % _why) if _late else
+                         'valid to the end of the run: the water balance closes within 1 % of the flush volume (45 mL) and '
+                         'less than 5 mL leaves over the rim')
 else:
     info['validNote'] = ('pool level and outflow comparable with the model up to validTo; the wall data run to the end, '
                          'with more water in the bowl than the model after validTo') if _late else ''
@@ -487,5 +581,5 @@ if trap_out:
     print('trap: start %.3f L in the domain (%.3f L in the trap), end %.3f L; in %.3f L, out %.3f L water %+.3f L air, over the rim %.4f L, residual %+.4f L'
           % (trap_out['start']['Vdomain'] * 1e3, (trap_out['start']['Vtrap'] or 0) * 1e3, e.get('Vdomain', 0) * 1e3, e.get('Vin', 0) * 1e3,
              e.get('VoutWater', 0) * 1e3, e.get('VoutAir', 0) * 1e3, e.get('Vrim', 0) * 1e3, e.get('residual', 0) * 1e3))
-    print('outflow start', trap_out['outflowStart'], 'air into the trap', trap_out['airIntoTrap'], 'validTo', info['validTo'])
+    print('outflow start', trap_out['outflowStart'], 'air at the dip', trap_out['airAtDip'], 'seal', trap_out['seal']['sealWell_mm'], 'validTo', info['validTo'])
 print('water at start %s L, model %s L' % (w0 and round(w0 * 1000, 4), info.get('Vstatic_model') and round(info['Vstatic_model'] * 1000, 4)))
