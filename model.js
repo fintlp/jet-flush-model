@@ -11,6 +11,18 @@
       type: 'washdown', Vfull: 4.5, Vpart: 3.0, Hcr: 250, Kpath: 1.0,
       nJets: 2, Anoz: 4.5, hNoz: 12, alpha: 10, jetPhase: 0,
       Rrim: 150, Rpool: 62, ovality: 1.0, Dwall: 150, seal: 55, dTrap: 48,
+      poolShift: 0, crestRound: 0, Kpass: 0,
+      Hs: 250, Ks: 3.0, Qgrav: 0.6, Vtrap: 0.5, refill: 0.0
+    },
+    // a European wall-hung washdown pan (2.2): oval opening 330 x 275 mm, a small pool 125 x 100 mm set 25 mm towards
+    // the front, 175 mm below the rim, and a 70 mm trapway with a horizontal outlet. Sources in plan-2.2 and on
+    // sources.html; the passage loss Kpass 1.5 is a first estimate, to be fitted from the CFD trapway runs.
+    wallhung: {
+      label: 'EU wall-hung, 4.5/3 L',
+      type: 'washdown', Vfull: 4.5, Vpart: 3.0, Hcr: 250, Kpath: 1.0,
+      nJets: 2, Anoz: 4.5, hNoz: 12, alpha: 10, jetPhase: 0,
+      Rrim: 150, Rpool: 56, ovality: 1.2, Dwall: 175, seal: 55, dTrap: 70,
+      poolShift: 25, crestRound: 1, Kpass: 1.5,
       Hs: 250, Ks: 3.0, Qgrav: 0.6, Vtrap: 0.5, refill: 0.0
     },
     siphonic: {
@@ -18,6 +30,7 @@
       type: 'siphonic', Vfull: 4.8, Vpart: 3.0, Hcr: 200, Kpath: 1.0,
       nJets: 2, Anoz: 4.5, hNoz: 12, alpha: 10, jetPhase: 0,
       Rrim: 150, Rpool: 80, ovality: 1.0, Dwall: 130, seal: 60, dTrap: 50,
+      poolShift: 0, crestRound: 0, Kpass: 0,
       Hs: 250, Ks: 3.0, Qgrav: 0.6, Vtrap: 0.5, refill: 0.8
     }
   };
@@ -209,6 +222,32 @@
     };
   }
 
+  /* ---------- round crest (2.2) ----------
+     The trap's crest as the invert of a round bore of diameter D (a wall-hung pan's outlet), with the passage
+     before it costing Kpass velocity heads of the full bore. Over the crest the flow is critical in the part-full
+     bore: for a flow depth y, Q = A sqrt(g A / T) at the energy head H = y + A / (2 T) above the invert (A flow
+     area, T surface width). Once the bore runs 90 % full the outlet acts as an orifice: Q grows with the square
+     root of the head above the bore centre, continuous at 90 %. The pool level is z = H(Q) + Kpass (Q / At)^2 / 2g.
+     Returns the outflow for a pool level and the flow area at the crest for a flow (the waste transport speed). */
+  function roundCrest(D, K) {
+    const R = D / 2, At = Math.PI * R * R, NY = 400, NO = 200, H = [], Q = [], A = [], Z = [];
+    const sec = (y) => { const th = 2 * Math.acos(1 - 2 * y / D); return [D * D / 8 * (th - Math.sin(th)), D * Math.sin(th / 2)]; };
+    for (let i = 0; i < NY; i++) {
+      const y = 0.9 * D * (i / (NY - 1)) ** 2;
+      if (i === 0) { H.push(0); Q.push(0); A.push(0); continue; }
+      const [a, t] = sec(y); H.push(y + a / (2 * t)); Q.push(a * Math.sqrt(G * a / t)); A.push(a);
+    }
+    const H9 = H[NY - 1], Q9 = Q[NY - 1], A9 = A[NY - 1];
+    for (let i = 1; i <= NO; i++) { const h = H9 + (0.6 - H9) * (i / NO) ** 2; H.push(h); Q.push(Q9 * Math.sqrt((h - R) / (H9 - R))); A.push(A9); }
+    for (let i = 0; i < H.length; i++) Z.push(H[i] + K * (Q[i] / At) ** 2 / (2 * G));
+    const lookup = (xs, ys, x) => {
+      if (x <= xs[0]) return ys[0]; const n = xs.length; if (x >= xs[n - 1]) return ys[n - 1];
+      let lo = 0, hi = n - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (xs[m] < x) lo = m; else hi = m; }
+      return ys[lo] + (ys[hi] - ys[lo]) * (x - xs[lo]) / (xs[hi] - xs[lo]);
+    };
+    return { q: (z) => (z > 0 ? lookup(Z, Q, z) : 0), area: (q) => lookup(Q, A, q), head: (q) => lookup(Q, H, q) };
+  }
+
   /* ---------- main simulation ---------- */
   const NTH0 = 90, NS0 = 40;   // wall grid: cells round the rim and down the wall
 
@@ -231,6 +270,8 @@
     const Hcr = p.Hcr / 1000, Lw = p.Lweir / 1000, ds = g.ds;
     const Hs = p.Hs / 1000, Qg = p.Qgrav / 1000, Vtrap = p.Vtrap / 1000;
     const siph = p.type === 'siphonic';
+    // round crest and passage loss (washdown only, 2.2); off (0) is the flat weir of every earlier release
+    const RC = !siph && p.crestRound >= 0.5 ? roundCrest(p.dTrap / 1000, p.Kpass || 0) : null;
     // oval pool: perimeter factor (Ramanujan) and extra swirl loss on non-circular walls
     const Eo = Math.max(1, p.ovality || 1), ea = Math.sqrt(Eo), eb = 1 / Math.sqrt(Eo);
     const perimF = Math.PI * (3 * (ea + eb) - Math.sqrt((3 * ea + eb) * (ea + 3 * eb))) / TAU2;
@@ -247,13 +288,19 @@
     // level table (rAtLevel). The film centreline stays above the waterline, but a step can end slightly below it.
     const Rz = (z) => z <= Dw ? Rp + (Rr - Rp) * Math.cos(kz * z) : Rp * Math.max(0.35, 1 - 0.5 * (z - Dw) / g.ds);
     const dRz = (z) => z <= Dw ? -(Rr - Rp) * kz * Math.sin(kz * z) : (1 - 0.5 * (z - Dw) / g.ds > 0.35 ? -0.5 * Rp / g.ds : 0);   // dR/dz
+    // off-centre pool (2.2): the centre of each wall section moves along the long axis (+x) from the bowl axis at the
+    // rim to poolShift at the waterline, along the same curve as the radius, and stays there below the waterline.
+    // poolShift 0 is the centred bowl of every earlier release, computed exactly as before.
+    const eSh = (p.poolShift || 0) / 1000;
+    const Cz = (z) => (eSh === 0 ? 0 : z <= Dw ? eSh * (1 - Math.cos(kz * z)) : eSh);
+    const dCz = (z) => (eSh === 0 ? 0 : z <= Dw ? eSh * kz * Math.sin(kz * z) : 0);   // dC/dz
     for (let is = 0; is < NS; is++) {
       const z0 = geomAt(g, is * dsb).z, z1 = geomAt(g, (is + 1) * dsb).z, zc = 0.5 * (z0 + z1);
       const R = Rz(zc), dR = dRz(zc);
       for (let it = 0; it < NTH; it++) {
         const th = (it + 0.5) * dth, c = Math.cos(th), sn = Math.sin(th);
-        // |dX/dtheta x dX/dz| for X = (R sE cos, R/sE sin, z)
-        const ax = -R * sE * sn, ay = R / sE * c, bx = dR * sE * c, by = dR / sE * sn;
+        // |dX/dtheta x dX/dz| for X = (R sE cos + C, R/sE sin, z)
+        const ax = -R * sE * sn, ay = R / sE * c, bx = eSh === 0 ? dR * sE * c : dR * sE * c + dCz(zc), by = dR / sE * sn;
         const cx = ay * 1 - 0 * by, cy = 0 * bx - ax * 1, cz = ax * by - ay * bx;
         cellA[is * NTH + it] = Math.hypot(cx, cy, cz) * dth * (z1 - z0);
       }
@@ -267,7 +314,7 @@
     const cellOf = (x, y, z) => {
       if (z < 0) return -1;
       const iz = z * zScale; const is = rowZ[iz >= NZR ? NZR : iz | 0];
-      let a = Math.atan2(y * sE, x / sE); if (a < 0) a += TAU2;
+      let a = Math.atan2(y * sE, (x - Cz(z)) / sE); if (a < 0) a += TAU2;
       const it = Math.min(NTH - 1, (a / dth) | 0);
       return is * NTH + it;
     };
@@ -299,10 +346,10 @@
     const ccx = new Float64Array(NC), ccy = new Float64Array(NC), ccz = new Float64Array(NC);
     for (let is = 0; is < NS; is++) {
       const zc = geomAt(g, (is + 0.5) * dsb).z, R = Rz(zc);
-      for (let it = 0; it < NTH; it++) { const a = (it + 0.5) * dth, c = is * NTH + it; ccx[c] = R * sE * Math.cos(a); ccy[c] = R / sE * Math.sin(a); ccz[c] = zc; }
+      for (let it = 0; it < NTH; it++) { const a = (it + 0.5) * dth, c = is * NTH + it; ccx[c] = R * sE * Math.cos(a) + Cz(zc); ccy[c] = R / sE * Math.sin(a); ccz[c] = zc; }
     }
     const stampCentres = opts.stamp !== 'samples';
-    const angOf = (x, y) => { let a = Math.atan2(y * sE, x / sE); if (a < 0) a += TAU2; return a; };
+    const angOf = (x, y, z) => { let a = Math.atan2(y * sE, (x - Cz(z)) / sE); if (a < 0) a += TAU2; return a; };
     /* Footprint of one film step: the rectangle the band sweeps, from the current point along the flow (unit
        vector u) for one step length, and across the flow (unit vector d) over the band width. A wall cell counts
        as covered when its centre lies inside the rectangle and between the rim and the waterline. The covered
@@ -310,7 +357,7 @@
     // centre of the step in wall coordinates: xi round the rim (arc length), eta down the wall (arc length s)
     function markRect(x, y, z, ux, uy, uz, dx, dy, dz, w, len, tau, zStop) {
       const cx = x + 0.5 * len * ux, cy = y + 0.5 * len * uy, cz = Math.max(0, z + 0.5 * len * uz);
-      const th = angOf(cx, cy), R = Rz(cz), sn = Math.sin(th), cs = Math.cos(th);
+      const th = angOf(cx, cy, cz), R = Rz(cz), sn = Math.sin(th), cs = Math.cos(th);
       const mt = R * Math.sqrt(E * sn * sn + cs * cs / E);                      // arc length per radian round the rim here
       let ex = -R * sE * sn, ey = R / sE * cs; const em = Math.hypot(ex, ey) || 1; ex /= em; ey /= em;   // along the rim
       wallNormal(cx, cy, cz, nrm);
@@ -357,10 +404,10 @@
         else if (tau > tauStep[idx]) tauStep[idx] = tau;
       }
     }
-    // wall surface F(x,y,z) = rho(x,y) - R(z) = 0, rho = sqrt(x^2/E + E y^2); F < 0 inside the bowl
+    // wall surface F(x,y,z) = rho(x - C(z), y) - R(z) = 0, rho(X,y) = sqrt(X^2/E + E y^2); F < 0 inside the bowl
     function wallNormal(x, y, z, out) {
-      const rho = Math.max(1e-9, Math.sqrt(x * x / E + E * y * y));
-      let nx = x / (E * rho), ny = E * y / rho, nz = -dRz(z);
+      const X = x - Cz(z), rho = Math.max(1e-9, Math.sqrt(X * X / E + E * y * y));
+      let nx = X / (E * rho), ny = E * y / rho, nz = eSh === 0 ? -dRz(z) : -dRz(z) - nx * dCz(z);
       const m = Math.hypot(nx, ny, nz); nx /= m; ny /= m; nz /= m;
       out[0] = nx; out[1] = ny; out[2] = nz; out[3] = rho - Rz(z); out[4] = m;
     }
@@ -380,7 +427,7 @@
       for (let j = 0; j < nJ; j++) {
         // nozzle on the rim ellipse, jet tangent to the rim and tilted down by alpha
         const th0 = phase + j * TAU2 / nJ, z0 = 0.004, R0 = Rz(z0);
-        let x = R0 * sE * Math.cos(th0), y = R0 / sE * Math.sin(th0), zp = z0;
+        let x = R0 * sE * Math.cos(th0) + Cz(z0), y = R0 / sE * Math.sin(th0), zp = z0;
         let tx = -sE * Math.sin(th0), ty = Math.cos(th0) / sE; const tm = Math.hypot(tx, ty); tx /= tm; ty /= tm;
         let vx = vj * Math.cos(alpha) * tx, vy = vj * Math.cos(alpha) * ty, vz = vj * Math.sin(alpha);
         // the band starts on the wall only: a part of the nozzle width that would lie above the rim is folded
@@ -390,10 +437,10 @@
         dz0 = Math.max(0.05, dz0);
         const top = Math.max(-0.5 * w0, (0.001 - z0) / dz0), wOn = 0.5 * w0 - top;
         zp = z0 + (top + 0.5 * wOn) * dz0;                    // centre of the band on the wall
-        { const R1 = Rz(zp); x = R1 * sE * Math.cos(th0); y = R1 / sE * Math.sin(th0); }
+        { const R1 = Rz(zp); x = R1 * sE * Math.cos(th0) + Cz(zp); y = R1 / sE * Math.sin(th0); }
         let w = wOn, f = 1;                                   // width of the band still on the wall; its share of the jet flow
         const pts = rec ? [] : null;
-        const pushPt = () => { let a = Math.atan2(y * sE, x / sE); if (a < 0) a += TAU2; pts.push(x, y, a, sAtDepth(g, Math.max(0, zp))); };
+        const pushPt = () => { let a = Math.atan2(y * sE, (x - Cz(zp)) / sE); if (a < 0) a += TAU2; pts.push(x, y, a, sAtDepth(g, Math.max(0, zp))); };
         if (pts) pushPt();
         let drawnEnd = false, wDrawn = 0;
         // entering flow is gathered into a few parcels per jet for the splash term
@@ -414,14 +461,15 @@
           // and the band left on the wall is re-centred on what remains, so its centreline stays above the water
           const ez = Math.max(0.05, dz) * w, below = Math.min(1, Math.max(0, (zp + 0.5 * ez - zStop) / ez));
           if (below > 0) {
-            const d = f * below, sc = Rz(zStop) / Rz(Math.min(zp, zStop)), Lz = Math.max(0, x * vy - y * vx) * sc;
+            // position relative to the pool axis (the section centre), scaled out to the waterline
+            const d = f * below, zq = Math.min(zp, zStop), sc = Rz(zStop) / Rz(zq), xr = x - Cz(zq), Lz = Math.max(0, xr * vy - y * vx) * sc;
             film.reach += qj * d;
-            eQ += d; eL += d * Lz; eT += d * tp; eVx += d * vx; eVy += d * vy; eVz += d * vz; eX += d * x * sc; eY += d * y * sc;
+            eQ += d; eL += d * Lz; eT += d * tp; eVx += d * vx; eVy += d * vy; eVz += d * vz; eX += d * xr * sc; eY += d * y * sc;
             if (eQ >= 0.25) flush();
             f -= d;
             if (f < 0.02) {   // the last sliver enters with the rest
               film.reach += qj * f;
-              eQ += f; eL += f * Lz; eT += f * tp; eVx += f * vx; eVy += f * vy; eVz += f * vz; eX += f * x * sc; eY += f * y * sc; f = 0; break;
+              eQ += f; eL += f * Lz; eT += f * tp; eVx += f * vx; eVy += f * vy; eVz += f * vz; eX += f * xr * sc; eY += f * y * sc; f = 0; break;
             }
             const off = 0.5 * w * below;   // move the centreline up across the band to the middle of the part left
             x -= off * dx; y -= off * dy; zp = Math.max(0.001, zp - off * dz); w *= 1 - below;
@@ -593,10 +641,11 @@
       let Qw = 0, Qout = 0, Qtrans = 0, Tout = 0, Tf = 0, Vpool = Vp0, Rc = g.rAtLevel(z), I = 1e-12, om = 0;
       for (let sb = 0; sb < nSub; sb++) {
         const zS = sb === 0 ? z : levelFromVol(g, Vrel), tS = t + sb * hs;
-        const qw = zS > 0 ? p.Cweir * Lw * Math.pow(zS, 1.5) : 0;
+        const qw = RC ? RC.q(zS) : zS > 0 ? p.Cweir * Lw * Math.pow(zS, 1.5) : 0;
         let qo, qt;
         if (!siph) {
-          const Qcap = 0.6 * At * Math.sqrt(2 * G * (Math.max(zS, 0) + ds));
+          // flat weir: limited by the trap's capacity; round crest: the passage loss is already in qw
+          const Qcap = RC ? Infinity : 0.6 * At * Math.sqrt(2 * G * (Math.max(zS, 0) + ds));
           qo = Math.min(qw, Qcap); qt = qo;
         } else if (!primed) {
           qo = qw; qt = qw;
@@ -652,7 +701,8 @@
       }
 
       // waste transport
-      const ut = Qtrans / At;
+      // carrying speed: mean speed in the full trap bore; with the round crest, in the flow section over the crest
+      const ut = RC && Qtrans > 0 ? Qtrans / Math.max(1e-9, RC.area(Qtrans)) : Qtrans / At;
       const Fr = vs * vs / (G * Rc), Cs = Fr / (Fr + p.Fr0);
       const fS = Math.min(1, Math.max(0, (ut / p.ucS - 1) / 0.5));
       const capRate = p.cmax * p.rhoS * Qtrans * 1000; // g/s
@@ -708,5 +758,5 @@
     return out;
   }
 
-  root.FlushModel = { simulate, defaults, PRESETS, COEFFS, buildGeom, geomAt, sAtDepth, levelFromVol, volAtLevel, q4AtLevel, coreFactor, rankineF, noiseCorners, noiseEval, NTH: NTH0, NS: NS0 };
+  root.FlushModel = { simulate, defaults, PRESETS, COEFFS, buildGeom, geomAt, sAtDepth, levelFromVol, volAtLevel, q4AtLevel, coreFactor, rankineF, noiseCorners, noiseEval, roundCrest, NTH: NTH0, NS: NS0 };
 })(typeof window !== 'undefined' ? window : globalThis);
