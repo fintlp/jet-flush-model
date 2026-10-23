@@ -25,6 +25,7 @@ ap.add_argument('--vmax', type=float, default=2.5); ap.add_argument('--rim', typ
 ap.add_argument('--no-video', action='store_true')
 ap.add_argument('--valid-to', type=float, default=None, help='validTo of the run (s); captions after it say so')
 ap.add_argument('--trap', action='store_true', help='the case has a trapway (make_case --outlet trap)')
+ap.add_argument('--preset', default='washdown', help='preset name for the caption, e.g. washdown or wall-hung')
 a = ap.parse_args()
 pv.OFF_SCREEN = True
 os.makedirs(a.out, exist_ok=True)
@@ -105,8 +106,8 @@ def frame(t, view, path, title=True):
         p.add_text('Water speed (m/s)', position=(int(W * 0.84), int(H * 0.75)), font_size=10, color='#333333')
     if title:
         p.add_text('Water on the bowl wall, %.2f s after the flush starts' % t, position=(18, H - 42), font_size=15, color='#1f1f1f')
-        p.add_text('CFD reference: OpenFOAM interFoam (VOF), washdown preset%s, %s cells at the wall. Simulation, not a measurement.'
-                   % (' with a generic trapway' if a.trap else '', CELLS),
+        p.add_text('CFD reference: OpenFOAM interFoam (VOF), %s preset%s, %s cells at the wall. Simulation, not a measurement.'
+                   % (a.preset, ' with a generic trapway' if a.trap else '', CELLS),
                    position=(18, 12), font_size=9, color='#595959')
     p.enable_anti_aliasing('ssaa')
     p.screenshot(path, return_img=False)
