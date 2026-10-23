@@ -884,11 +884,11 @@
   }
 
   // ---- designs ----
-  const DKEYS = ['Vfull', 'Vpart', 'Hcr', 'Kpath', 'nJets', 'Anoz', 'hNoz', 'alpha', 'jetPhase', 'ovality', 'Rrim', 'Rpool', 'Dwall', 'seal', 'dTrap', 'Hs', 'Ks', 'Qgrav', 'Vtrap', 'refill'];
+  const DKEYS = ['Vfull', 'Vpart', 'Hcr', 'Kpath', 'nJets', 'Anoz', 'hNoz', 'alpha', 'jetPhase', 'ovality', 'Rrim', 'Rpool', 'Dwall', 'seal', 'dTrap', 'poolShift', 'crestRound', 'Kpass', 'Hs', 'Ks', 'Qgrav', 'Vtrap', 'refill'];
   function nzLabel(p) {
-    const d = M.defaults(p.type === 'siphonic' ? 'siphonic' : 'washdown');
+    const d = M.defaults(M.presetOf(p));
     const ch = DKEYS.filter((k) => Math.abs((+p[k]) - (+d[k])) > 1e-9).map((k) => { const s = A.SPECK[k]; return `${s.l.toLowerCase()} ${fmt(p[k], s.d)}${s.u ? ' ' + s.u : ''}`; });
-    return `${p.type === 'siphonic' ? 'Siphonic' : 'Washdown'}${p.flushMode === 'partial' ? ', partial flush' : ''}${ch.length ? ' · ' + ch.slice(0, 3).join(', ') + (ch.length > 3 ? ` and ${ch.length - 3} more` : '') : ' · preset'}`;
+    return `${{ siphonic: 'Siphonic', wallhung: 'Wall-hung', washdown: 'Washdown' }[M.presetOf(p)]}${p.flushMode === 'partial' ? ', partial flush' : ''}${ch.length ? ' · ' + ch.slice(0, 3).join(', ') + (ch.length > 3 ? ` and ${ch.length - 3} more` : '') : ' · preset'}`;
   }
   const sameDesign = (a, b) => DKEYS.concat(['type', 'flushMode']).every((k) => a[k] === b[k]);
   function nzSeries(d) { if (!d.ser) { const r = M.simulate(Object.assign({}, d.p), { light: true, Tend: 12, noiseSeries: true }); d.ser = r.noiseSeries; d.tEnd = r.tEnd; d.tEmpty = r.tEmpty; } return d.ser; }

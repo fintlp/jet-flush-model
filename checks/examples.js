@@ -9,8 +9,8 @@ const ok = (name, cond, info) => { if (cond) { pass++; console.log('PASS', name)
 
 // slider ranges from app.js: { g: '…', k: 'key', l: '…', u: '…', min: a, max: b, … }
 const app = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8');
-const SPEC = {}; for (const m of app.matchAll(/\{ g: '(\w+)', k: '(\w+)'[^}]*?min: ([\d.]+), max: ([\d.]+)/g)) SPEC[m[2]] = { g: m[1], min: +m[3], max: +m[4] };
-ok('app.js: slider ranges read for all 41 settings', Object.keys(SPEC).length === 41, Object.keys(SPEC).length);
+const SPEC = {}; for (const m of app.matchAll(/\{ g: '(\w+)', k: '(\w+)'[^}]*?min: (-?[\d.]+), max: (-?[\d.]+)/g)) SPEC[m[2]] = { g: m[1], min: +m[3], max: +m[4] };
+ok('app.js: slider ranges read for all 44 settings', Object.keys(SPEC).length === 44, Object.keys(SPEC).length);
 
 // batch-csv.js
 const bsrc = fs.readFileSync(path.join(EX, 'batch-csv.js'), 'utf8');

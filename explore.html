@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="A guide to the Tangential Jet Flush Model for simulation engineers and for colleagues who present it: ten recipes, the settings, where to be careful, and a demo playbook.">
+<meta name="description" content="A guide to the Tangential Jet Flush Model for simulation engineers and for colleagues who present it: eleven recipes, the settings, where to be careful, and a demo playbook.">
 <title>Explore It Yourself</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Ccircle cx=%2216%22 cy=%2216%22 r=%2215%22 fill=%22%230070ad%22/%3E%3Cpath d=%22M9 13a7 7 0 0 0 14 0%22 fill=%22none%22 stroke=%22%23fff%22 stroke-width=%223%22 stroke-linecap=%22round%22/%3E%3C/svg%3E">
 <link rel="preload" href="fonts/ubuntu-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
@@ -190,7 +190,7 @@ dl.qa dd{margin:4px 0 0;color:var(--ink)}
     <p class="lede">A guide for simulation engineers who want to try the model on their own questions, and for colleagues who show it to clients. Each recipe says what to set, where to look and how to read the result, with a link into the page.</p>
     <p class="meta">Peter Fintl · 22 October 2026</p>
     <div class="paths">
-      <a class="path" href="#recipes"><b>For simulation engineers</b><span>Ten recipes, the settings at a glance, and where to be careful</span></a>
+      <a class="path" href="#recipes"><b>For simulation engineers</b><span>Eleven recipes, the settings at a glance, and where to be careful</span></a>
       <a class="path" href="tutorials.html"><b>Optimiser and AI lab tutorials</b><span>Step by step, with screenshots and worked examples you can repeat</span></a>
       <a class="path" href="#present"><b>For colleagues who present</b><span>Which part for which audience, a checklist, and the questions you will hear</span></a>
     </div>
@@ -265,7 +265,7 @@ dl.qa dd{margin:4px 0 0;color:var(--ink)}
           <li>Optional: Robust mode rates each design at the low end of its tolerance spread (about seven times slower).</li>
           <li>Run, then load a recommended design into the simulator.</li>
         </ol>
-        <p class="read">Watch out: about 540 quick estimates in about 10 seconds, then the recommended designs are checked at full resolution. The sliders allow valve heights and nozzle areas beyond real cisterns; check the peak flow of a result (recipe 9, or the flow trace) before you trust it.</p>
+        <p class="read">Watch out: about 540 quick estimates in about 10 seconds, then the recommended designs are checked at full resolution. The sliders allow valve heights and nozzle areas beyond real cisterns; check the peak flow of a result (recipe 10, or the flow trace) before you trust it.</p>
       </div>
 
       <div class="recipe" id="r-cfd">
@@ -301,18 +301,31 @@ dl.qa dd{margin:4px 0 0;color:var(--ink)}
         <p class="read">Read it as: the mechanism (a fast model that learns from every expensive run needs fewer of them), against a synthetic reference with five settings to change.</p>
       </div>
 
+      <div class="recipe" id="r-wh">
+        <h3><span class="rn">9</span>Compare a round bowl with a European wall-hung pan</h3>
+        <p class="where">Where: the preset list in <a href="./#sim">Simulate</a>, <a href="./#results">Results</a>, the section drawing</p>
+        <ol>
+          <li>Pin the EU washdown preset as reference.</li>
+          <li>Choose the preset EU wall-hung: an oval opening of 330 × 275 mm, a small pool of 125 × 100 mm set 25 mm towards the front, 175 mm from the rim to the water, and a 70 mm trapway whose crest is the bottom of the round bore.</li>
+          <li>With the same jets it cleans about 9 points less, and the pool rises higher before the trap carries the flow. Set the pool offset to 0, or the trap crest to flat, to see what each feature costs: the offset about 5 points, the round crest about 2.</li>
+          <li>The jets were laid out for the round bowl. Run the design optimiser on the wall-hung pan to see what jets suit it.</li>
+        </ol>
+        <p class="read">Read it as: a representative pan, not a product. Its sizes come from a catalogue drawing, two data sheets and EN 997; the trapway loss of 1.5 velocity heads is an estimate until the CFD trapway runs give a fitted value.</p>
+      </div>
+
       <div class="recipe" id="r-node">
-        <h3><span class="rn">9</span>Run many designs outside the browser</h3>
+        <h3><span class="rn">10</span>Run many designs outside the browser</h3>
         <p class="where">Where: <code>examples/batch-csv.js</code> in the <a href="https://github.com/fintlp/jet-flush-model" target="_blank" rel="noopener">repository</a>; needs Node.js 18 or later</p>
         <div class="eq">git clone https://github.com/fintlp/jet-flush-model.git
 cd jet-flush-model
 node examples/batch-csv.js 1000 out.csv          <span class="c">1000 washdown designs, about a minute</span>
-node examples/batch-csv.js 300 sip.csv siphonic  <span class="c">the siphonic preset</span></div>
+node examples/batch-csv.js 300 sip.csv siphonic  <span class="c">the siphonic preset</span>
+node examples/batch-csv.js 300 wh.csv wallhung   <span class="c">the EU wall-hung preset</span></div>
         <p class="read">The script varies the settings listed at its top (edit them), spreads the designs evenly over each range (Latin hypercube, fixed seed) and writes one row per design: the settings, cleaning, rim line, wetted area, solids, paper, water, seal, peak flow, the noise peak and whether the run was valid. The model itself is one call: <code>FlushModel.simulate(settings, options)</code>, described in the <a href="https://github.com/fintlp/jet-flush-model#run-it-locally" target="_blank" rel="noopener">README</a> and method section 17.</p>
       </div>
 
       <div class="recipe" id="r-checks">
-        <h3><span class="rn">10</span>Check the model yourself</h3>
+        <h3><span class="rn">11</span>Check the model yourself</h3>
         <p class="where">Where: <code>checks/</code> in the repository</p>
         <p><code>node checks/physics.js</code> runs 61 physics checks: energy and angular momentum of a frictionless film, the water balance, closed-form cases, re-integration with Runge-Kutta, grid and time-step convergence. <code>node checks/literature.js</code> compares the presets with published toilet studies. <code>checks/README.md</code> lists all checks with what they test.</p>
         <p class="read">Read it as: the model solves its own equations correctly. It does not show that the equations describe a real bowl; that needs calibration.</p>
@@ -321,13 +334,13 @@ node examples/batch-csv.js 300 sip.csv siphonic  <span class="c">the siphonic pr
 
     <section id="settings">
       <h2>The settings at a glance</h2>
-      <p>41 settings in seven groups. Every slider has an <b>i</b> button with a short explanation; method section 12 gives defaults, units and what to fit each coefficient against.</p>
+      <p>44 settings in seven groups. Every slider has an <b>i</b> button with a short explanation; method section 12 gives defaults, units and what to fit each coefficient against.</p>
       <div class="tablewrap"><table class="map">
         <thead><tr><th>Group</th><th>Settings</th><th>What they are</th></tr></thead>
         <tbody>
           <tr><td><b>Cistern and flush</b></td><td class="num">4</td><td>Full and partial flush volume, valve height above the jets, supply path loss. Together they set the jet speed and the flush duration.</td></tr>
           <tr><td><b>Tangential jets</b></td><td class="num">5</td><td>Number of jets, nozzle area and height, downward angle, position round the rim.</td></tr>
-          <tr><td><b>Bowl and trap</b></td><td class="num">6</td><td>Ovality, rim and pool radius, rim-to-waterline depth, seal depth, trapway diameter.</td></tr>
+          <tr><td><b>Bowl and trap</b></td><td class="num">9</td><td>Ovality, rim and pool radius, rim-to-waterline depth, seal depth, trapway diameter; from 2.2 the pool offset towards the front, the trap crest (flat weir or round bore) and the trapway loss before the crest.</td></tr>
           <tr><td><b>Siphon</b></td><td class="num">5</td><td>Siphon drop and loss, trapway capacity before priming, water needed to prime, bowl refill. Used only for siphonic bowls.</td></tr>
           <tr><td><b>Test load</b></td><td class="num">2</td><td>Solid media and paper in the pool at the start.</td></tr>
           <tr><td><b>Model coefficients · advanced</b></td><td class="num">13</td><td>Film friction and spreading, soil shear and shear dose, swirl transfer and losses, transport thresholds, removal rates, weir coefficient. Uncalibrated defaults.</td></tr>
@@ -342,6 +355,7 @@ node examples/batch-csv.js 300 sip.csv siphonic  <span class="c">the siphonic pr
       <div class="tablewrap"><table class="map">
         <thead><tr><th>If you ask</th><th>What the model does</th><th>Read it as</th></tr></thead>
         <tbody>
+          <tr><td>Is the wall-hung preset a real product?</td><td>Sizes from a catalogue drawing, two data sheets and EN 997; the trapway loss is an estimate.</td><td>A representative European wall-hung pan. Compare it with the round bowl, not with a product test.</td></tr>
           <tr><td>Does this design splash or spill?</td><td>Splashing, jets hitting each other and spill-over are not modelled; only a pool reaching the rim is detected.</td><td>No answer on splashing. Check fast jets in CFD or on the rig.</td></tr>
           <tr><td>Very fast jets (high valve, low path loss, large nozzles)</td><td>The sliders go beyond real cisterns: about a third of random designs exceed the 2.4 L/s a free-outlet cistern delivers.</td><td>Check the peak flow before trusting such a design.</td></tr>
           <tr><td>Which trapway diameter is best for a siphonic bowl?</td><td>Priming does not depend on the trapway diameter, so removal simply falls with diameter. A published study finds an optimum at 50 to 53 mm.</td><td>No trap-size optimum from this model.</td></tr>
@@ -407,7 +421,7 @@ node examples/batch-csv.js 300 sip.csv siphonic  <span class="c">the siphonic pr
 
     <footer class="foot">
       <span class="navl"><a href="./">← Simulator</a><a href="why.html">Why</a><a href="method.html">Model description</a><a href="sources.html">Sources and references</a></span>
-      <span>Tangential Jet Flush Model · v2.1.1 preview · Peter Fintl</span>
+      <span>Tangential Jet Flush Model · v2.2 preview · Peter Fintl</span>
     </footer>
   </div>
 </div>

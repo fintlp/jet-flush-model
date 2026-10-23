@@ -21,9 +21,12 @@
     { g: 'bowl', k: 'ovality', l: 'Ovality, long ÷ short axis', u: '', min: 1, max: 1.6, st: 0.01, d: 2 },
     { g: 'bowl', k: 'Rrim', l: 'Rim radius, equivalent', u: 'mm', min: 110, max: 190, st: 1, d: 0 },
     { g: 'bowl', k: 'Rpool', l: 'Pool radius at waterline, equivalent', u: 'mm', min: 40, max: 110, st: 1, d: 0 },
-    { g: 'bowl', k: 'Dwall', l: 'Rim to waterline depth', u: 'mm', min: 90, max: 200, st: 1, d: 0 },
+    { g: 'bowl', k: 'Dwall', l: 'Rim to waterline depth', u: 'mm', min: 90, max: 250, st: 1, d: 0 },
     { g: 'bowl', k: 'seal', l: 'Water seal depth', u: 'mm', min: 40, max: 90, st: 1, d: 0 },
-    { g: 'bowl', k: 'dTrap', l: 'Trapway diameter', u: 'mm', min: 38, max: 65, st: 1, d: 0 },
+    { g: 'bowl', k: 'dTrap', l: 'Trapway diameter', u: 'mm', min: 38, max: 90, st: 1, d: 0 },
+    { g: 'bowl', k: 'poolShift', l: 'Pool offset towards the front', u: 'mm', min: -40, max: 40, st: 1, d: 0 },
+    { g: 'bowl', k: 'crestRound', l: 'Trap crest', u: '', min: 0, max: 1, st: 1, d: 0 },
+    { g: 'bowl', k: 'Kpass', l: 'Trapway loss before the crest', u: 'velocity heads', min: 0, max: 4, st: 0.1, d: 1 },
     { g: 'siph', k: 'Hs', l: 'Siphon drop below weir', u: 'mm', min: 120, max: 400, st: 5, d: 0 },
     { g: 'siph', k: 'Ks', l: 'Siphon loss coefficient', u: '', min: 1.5, max: 6, st: 0.1, d: 1 },
     { g: 'siph', k: 'Qgrav', l: 'Trapway capacity before priming', u: 'L/s', min: 0.2, max: 1.5, st: 0.05, d: 2 },
@@ -66,7 +69,10 @@
     Rpool: 'Size of the water surface at rest, given as an equivalent radius.',
     Dwall: 'Height of the wall the jets have to clean, from the rim down to the water surface.',
     seal: 'Depth of the water seal that keeps sewer gases out. 50 mm or more is usual.',
-    dTrap: 'Diameter of the passage behind the bowl. Wider passes more waste but needs more flow for the same speed.',
+    dTrap: 'Diameter of the passage behind the bowl. Wider passes more waste but needs more flow for the same speed. With the round crest, the bottom of this bore is the crest.',
+    poolShift: 'How far the centre of the pool sits in front of the centre of the bowl opening. Many wall-hung pans have a small pool set towards the front: a steep front wall and a long, flatter rear wall. The pool always stays at least 25 mm inside the rim.',
+    crestRound: 'Flat (0): the trap overflows a flat weir, as in every release before 2.2. Round (1): the crest is the bottom of the round trapway bore, as in a wall-hung pan with a horizontal outlet. A part-full round bore passes less water at low levels, and waste is carried at the speed over the crest. Washdown only.',
+    Kpass: 'Head lost in the bends of the trapway before the crest, in velocity heads of the full bore. Used with the round crest only. 1.5 is a first estimate until the CFD trapway runs give a better value.',
     Hs: 'How far the siphon leg drops below the weir. More drop pulls harder.',
     Ks: 'Flow losses in the siphon leg.',
     Qgrav: 'Flow the trapway can drain before it fills up and the siphon starts.',
@@ -99,7 +105,7 @@
   const GROUPS = [
     ['flush', 'Cistern and flush', true, ''],
     ['jets', 'Tangential jets', true, 'Jets sit at the rim, evenly spaced, all pointing the same way round the bowl. At 0° jet 1 sits at the end of the long axis, at 90° on the side.'],
-    ['bowl', 'Bowl and trap', true, 'An oval bowl keeps the area of a round bowl with the equivalent radius, so volumes and levels do not change with ovality. The pool radius always stays at least 25 mm smaller than the rim radius.'],
+    ['bowl', 'Bowl and trap', true, 'An oval bowl keeps the area of a round bowl with the equivalent radius, so volumes and levels do not change with ovality. The pool radius always stays at least 25 mm smaller than the rim radius, and an off-centre pool at least 25 mm inside the rim.'],
     ['siph', 'Siphon', false, 'Used only when the trap type is siphonic.'],
     ['load', 'Test load', false, 'Media placed in the pool before the flush.'],
     ['coef', 'Model coefficients · advanced', false, 'Uncalibrated defaults. Fit them to CFD or rig data, see Calibrating it below.'],
@@ -110,11 +116,15 @@
   // the pool must stay at least GAP smaller than the rim, or the bowl wall has no width (same rule as the AI lab)
   const GAP = 25;
   const gapOK = (q) => q.Rpool <= q.Rrim - GAP + 1e-9;
+  // largest pool offset for the current radii and ovality (the model clamps to the same limit)
+  const shiftMax = (q) => Math.max(0, (q.Rrim - GAP - q.Rpool) * Math.sqrt(Math.max(1, q.ovality || 1)));
+  const fitShift = () => { const m = shiftMax(P); if (Math.abs(P.poolShift || 0) > m + 1e-9) { P.poolShift = Math.sign(P.poolShift) * Math.floor(m); if (ctl.poolShift) { ctl.poolShift.inp.value = P.poolShift; setOut(ctl.poolShift.s); } } };
   const STORE = 'tfs-params-v1';
   try { const s = localStorage.getItem(STORE); if (s) { const o = JSON.parse(s); if (o && typeof o === 'object') for (const k in o) if (k in P) P[k] = o[k]; } } catch (e) { }
   if (!gapOK(P)) P.Rpool = Math.max(40, P.Rrim - GAP);   // a design saved before the rule existed
+  if (Math.abs(P.poolShift || 0) > shiftMax(P)) P.poolShift = Math.sign(P.poolShift) * Math.floor(shiftMax(P));
   // a returning visitor gets their last design back; say so when it differs from its preset
-  const restoredDiffers = (() => { const d = M.defaults(P.type === 'siphonic' ? 'siphonic' : 'washdown'); return Object.keys(d).some((k) => typeof d[k] === 'number' ? Math.abs((+P[k]) - d[k]) > 1e-9 : P[k] !== d[k]); })();
+  const restoredDiffers = (() => { const d = M.defaults(M.presetOf(P)); return Object.keys(d).some((k) => typeof d[k] === 'number' ? Math.abs((+P[k]) - d[k]) > 1e-9 : P[k] !== d[k]); })();
   // settings are remembered in this browser, except while the Demo me walkthrough drives the page
   function save() { if (document.body.classList.contains('touring')) return; try { localStorage.setItem(STORE, JSON.stringify(P)); } catch (e) { } }
 
@@ -156,28 +166,37 @@
         // the slider being moved stops at the gap; the other radius is never changed
         if (s.k === 'Rrim' && v < P.Rpool + GAP) { v = P.Rpool + GAP; inp.value = v; }
         if (s.k === 'Rpool' && v > P.Rrim - GAP) { v = P.Rrim - GAP; inp.value = v; }
+        if (s.k === 'poolShift' && Math.abs(v) > shiftMax(P)) { v = Math.sign(v) * Math.floor(shiftMax(P)); inp.value = v; }
         if (v === P[s.k]) return;
-        P[s.k] = v; setOut(s); changed();
+        P[s.k] = v; setOut(s);
+        if (s.k === 'Rrim' || s.k === 'Rpool' || s.k === 'ovality') fitShift();   // a smaller room for the pool pulls it back
+        if (s.k === 'crestRound' || s.k === 'poolShift') syncControls();         // the preset family may change
+        changed();
       });
       ctl[s.k] = { inp, w, s };
     });
     rail.appendChild(det);
   });
-  function setOut(s) { $('o_' + s.k).innerHTML = fmt(P[s.k], s.d) + (s.u ? `<span class="u">${s.u}</span>` : ''); }
+  function setOut(s) {
+    if (s.k === 'crestRound') { $('o_' + s.k).textContent = P.crestRound >= 0.5 ? 'round bore' : 'flat weir'; return; }
+    $('o_' + s.k).innerHTML = fmt(P[s.k], s.d) + (s.u ? `<span class="u">${s.u}</span>` : '');
+  }
   function syncControls() {
     for (const k in ctl) { ctl[k].inp.value = P[k]; setOut(ctl[k].s); }
     typeBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.type === P.type)));
     const siph = P.type === 'siphonic';
     SPEC.filter((s) => s.g === 'siph').forEach((s) => ctl[s.k].w.classList.toggle('off', !siph));
+    ctl.crestRound.w.classList.toggle('off', siph);
+    ctl.Kpass.w.classList.toggle('off', siph || !(P.crestRound >= 0.5));
     $('mFull').setAttribute('aria-pressed', String(P.flushMode !== 'partial'));
     $('mPart').setAttribute('aria-pressed', String(P.flushMode === 'partial'));
     ctl.Vfull.w.classList.toggle('off', P.flushMode === 'partial');
     ctl.Vpart.w.classList.toggle('off', P.flushMode !== 'partial');
-    $('preset').value = P.type === 'siphonic' ? 'siphonic' : 'washdown';   // the preset family always matches the trap type
+    $('preset').value = M.presetOf(P);   // the preset family follows the design: trap type, round crest, pool offset
   }
   $('mFull').addEventListener('click', () => { P.flushMode = 'full'; syncControls(); changed(); });
   $('mPart').addEventListener('click', () => { P.flushMode = 'partial'; syncControls(); changed(); });
-  $('preset').value = P.type;
+  $('preset').value = M.presetOf(P);
   $('preset').addEventListener('change', (e) => {
     const pre = M.PRESETS[e.target.value];
     for (const k in pre) if (k !== 'label') P[k] = pre[k];
@@ -211,7 +230,7 @@
      computed with the current model coefficients so that only the design differs */
   let refCache = { key: null, val: null };
   function presetNoise() {
-    const kind = P.type === 'siphonic' ? 'siphonic' : 'washdown', d = M.defaults(kind);
+    const kind = M.presetOf(P), d = M.defaults(kind);
     Object.keys(M.COEFFS).forEach((k) => { d[k] = P[k]; }); d.flushMode = P.flushMode;
     const key = JSON.stringify(d);
     if (refCache.key !== key) { const r = M.simulate(d, { light: true, Tend: SIM_T }); refCache = { key, val: { peak: r.noise.peak, energy: r.noise.energy, peakV: r.noise.peakV, energyV: r.noise.energyV, kind, mode: P.flushMode } }; }
@@ -234,7 +253,7 @@
     const pk = pinnedK();
     if (pk && pk.noise != null) return { peak: pk.noise, energy: pk.noiseE, peakV: pk.noiseV, energyV: pk.noiseEV, pin: true, label: `pinned reference from ${pinned.t}` };
     const v = presetNoise();
-    return { peak: v.peak, energy: v.energy, peakV: v.peakV, energyV: v.energyV, pin: false, label: `${v.kind === 'siphonic' ? 'Siphonic' : 'EU washdown'} preset, ${v.mode === 'partial' ? 'partial' : 'full'} flush` };
+    return { peak: v.peak, energy: v.energy, peakV: v.peakV, energyV: v.energyV, pin: false, label: `${M.PRESETS[v.kind].label.split(',')[0]} preset, ${v.mode === 'partial' ? 'partial' : 'full'} flush` };
   }
   let hist = [], committed = null, committedK = null, burst = false, burstT = null, baseline = null, pinned = null;
   function beginChange() {
@@ -331,26 +350,37 @@
     const E = Math.max(1, P.ovality || 1), sE = Math.sqrt(E);
     const sc = (Math.min(W, H) / 2 - 4 * dpr()) / ((g.Rr + lip) * sE), cx = W / 2, cy = H / 2;
     const idx = new Int32Array(W * H), shade = new Float32Array(W * H);
-    const ur = g.ur, NU = ur.length, NTH = R.NTH, NS = R.NS;
+    const ur = g.ur, uz = g.uz, NU = ur.length, NTH = R.NTH, NS = R.NS;
+    // off-centre pool: each wall section is moved along x by c(depth); find the section a pixel lies on by bisection
+    // (the radius shrinks faster with depth than the centre moves, so the sign change is unique)
+    const ex = M.poolX(P), kz = Math.PI / (2 * g.D), cOf = (dep) => (dep <= g.D ? ex * (1 - Math.cos(kz * dep)) : ex);
+    const rhoAt = (dx, dy, k) => { const X = dx - cOf(uz[k]); return Math.sqrt(X * X / E + E * dy * dy); };
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
         const i = y * W + x, dx = (x + 0.5 - cx) / sc, dy = (y + 0.5 - cy) / sc, rho = Math.sqrt(dx * dx / E + E * dy * dy);
         if (rho > g.Rr + lip) { idx[i] = -3; continue; }
         if (rho > g.Rr) { idx[i] = -2; continue; }
-        if (rho <= g.Rp) { idx[i] = -1; shade[i] = 1; continue; }
-        let lo = 0, hi = NU - 1;
-        while (hi - lo > 1) { const m = (lo + hi) >> 1; if (ur[m] >= rho) lo = m; else hi = m; }
-        const f = (ur[lo] - rho) / Math.max(1e-12, ur[lo] - ur[hi]);
+        let lo = 0, hi = NU - 1, f;
+        if (ex === 0) {
+          if (rho <= g.Rp) { idx[i] = -1; shade[i] = 1; continue; }
+          while (hi - lo > 1) { const m = (lo + hi) >> 1; if (ur[m] >= rho) lo = m; else hi = m; }
+          f = (ur[lo] - rho) / Math.max(1e-12, ur[lo] - ur[hi]);
+        } else {
+          if (rhoAt(dx, dy, NU - 1) <= g.Rp) { idx[i] = -1; shade[i] = 1; continue; }
+          while (hi - lo > 1) { const m = (lo + hi) >> 1; if (rhoAt(dx, dy, m) <= ur[m]) lo = m; else hi = m; }
+          const fl = rhoAt(dx, dy, lo) - ur[lo], fh = rhoAt(dx, dy, hi) - ur[hi];
+          f = Math.min(1, Math.max(0, -fl / Math.max(1e-12, fh - fl)));
+        }
         const s = g.S * (lo + f) / (NU - 1);
         const is = Math.min(NS - 1, Math.floor(s / R.dsb));
-        let th = Math.atan2(dy * sE, dx / sE); if (th < 0) th += TAU2;
+        let th = Math.atan2(dy * sE, (dx - cOf(uz[lo] + f * (uz[hi] - uz[lo]))) / sE); if (th < 0) th += TAU2;
         const it = Math.min(NTH - 1, Math.floor(th / (TAU2 / NTH)));
         idx[i] = is * NTH + it; shade[i] = 1 - 0.16 * s / g.S;
       }
     }
     topMap = { W, H, sc, cx, cy, idx, shade, img: cvTop.getContext('2d').createImageData(W, H), key: geomKey() };
   }
-  const geomKey = () => [P.Rrim, P.Rpool, P.Dwall, P.seal, P.ovality].join('|');
+  const geomKey = () => [P.Rrim, P.Rpool, P.Dwall, P.seal, P.ovality, P.poolShift].join('|');
 
   function cellColor(c, t, C) {
     if (R.tClean[c] <= t) return R.J[c] >= 3 * P.Jcrit ? C.cleanStrong : C.clean;
@@ -380,8 +410,10 @@
 
     const i = recIdx(t), rec = R.rec, z = rec.z[i] / 1000, vs = rec.vs[i], phi = rec.phi[i];
     const Rc = g.rAtLevel(z), rp = Rc * sc, om = vs / Rc, dip = vs * vs / (2 * 9.81) * 1000;
-    // pool water, swirl and media are drawn in a frame stretched to the oval
-    ctx.save(); ctx.translate(cx, cy); ctx.scale(sE, 1 / sE); ctx.translate(-cx, -cy);
+    // pool water, swirl and media are drawn in a frame stretched to the oval, centred on the pool (off-centre pool:
+    // the section at the current water level)
+    const exT = M.poolX(P), depS = g.D - z, cPool = exT === 0 ? 0 : (depS <= g.D ? exT * (1 - Math.cos(Math.PI / 2 * Math.max(0, depS) / g.D)) : exT);
+    ctx.save(); ctx.translate(cx + cPool * sc, cy); ctx.scale(sE, 1 / sE); ctx.translate(-cx, -cy);
     const df = Math.min(1, dip / 40);
     const gr = ctx.createRadialGradient(cx, cy, 0, cx, cy, rp);
     gr.addColorStop(0, rgba(C.waterDeep, 0.55 + 0.35 * df));
@@ -454,9 +486,14 @@
     const Rr = g.Rr * sE, Rp = g.Rp * sE, D = g.D, ds = g.ds, dt = p.dTrap / 1000, Hcr = p.Hcr / 1000, siph = p.type === 'siphonic';
     const Ac = p.Acist, hf = Math.max(p.Vfull, p.Vpart) / 1000 / Ac;
     const rWall = (dep) => dep <= D ? Rp + (Rr - Rp) * Math.cos(Math.PI / 2 * dep / D) : g.rAtLevel(D - dep) * sE;
+    // off-centre pool: each section moves along x by cS(depth); the front is to the left, the trapway to the right
+    const ex = M.poolX(p), cS = (dep) => (ex === 0 ? 0 : dep <= D ? ex * (1 - Math.cos(Math.PI / 2 * dep / D)) : ex);
+    const round = !siph && p.crestRound >= 0.5;   // round crest: the rising leg turns into a horizontal outlet at the crest
     const yb = D + ds + dt + 0.006, ycIn = yb - dt / 2;
-    const xr = Rp + dt / 2 + 0.014, xd = xr + dt * 1.5;
-    const outY = siph ? D + p.Hs / 1000 : D + 0.07, outX = siph ? xd : xd + 0.15;
+    // the rising leg sits behind the rear wall; with the round crest the outlet bore (up to dt above the crest) must
+    // clear the flaring wall too, so the leg moves out to the wall's position at that height
+    const xr = round ? Math.max(Rp + dt / 2 + 0.014 + ex, rWall(D - dt - 0.01) + cS(D - dt - 0.01) + dt / 2 + 0.012) : Rp + dt / 2 + 0.014 + ex, xd = xr + dt * 1.5;
+    const outY = siph ? D + p.Hs / 1000 : round ? D - dt / 2 : D + 0.07, outX = siph ? xd : xd + 0.15;
     const xmin = -Rr - 0.23, xmax = Math.max(Rr + 0.04, outX + 0.05), ymin = -(Hcr + hf + 0.06), ymax = Math.max(yb, outY) + 0.04;
     const sc = Math.min(W / (xmax - xmin), H / (ymax - ymin)) * 0.97;
     const ox = (W - (xmax - xmin) * sc) / 2, oy = (H - (ymax - ymin) * sc) / 2;
@@ -464,23 +501,23 @@
 
     // ceramic body
     const steps = 50, body = [], inner = [];
-    for (let k = 0; k <= steps; k++) { const dep = yb * k / steps; body.push([-(rWall(dep) + 0.02), dep]); inner.push([-rWall(dep), dep]); }
+    for (let k = 0; k <= steps; k++) { const dep = yb * k / steps; body.push([-(rWall(dep) + 0.02) + cS(dep), dep]); inner.push([-rWall(dep) + cS(dep), dep]); }
     const bodyPath = new Path2D();
     bodyPath.moveTo(X(-(Rr + 0.02)), Y(-0.012));
     body.forEach(([x, y]) => bodyPath.lineTo(X(x), Y(y)));
-    bodyPath.lineTo(X(-(rWall(yb) + 0.02)), Y(yb + 0.02)); bodyPath.lineTo(X(xd + dt), Y(yb + 0.02));
+    bodyPath.lineTo(X(-(rWall(yb) + 0.02) + cS(yb)), Y(yb + 0.02)); bodyPath.lineTo(X(xd + dt), Y(yb + 0.02));
     bodyPath.lineTo(X(xd + dt), Y(D - dt - 0.012)); bodyPath.lineTo(X(Rr + 0.02), Y(-0.012)); bodyPath.closePath();
     ctx.fillStyle = rgba(C.lip); ctx.fill(bodyPath); ctx.strokeStyle = rgba(C.lineStrong); ctx.lineWidth = 1.2 * d; ctx.stroke(bodyPath);
     const inPath = new Path2D();
     inPath.moveTo(X(-Rr), Y(-0.013));
     inner.forEach(([x, y]) => inPath.lineTo(X(x), Y(y)));
-    for (let k = steps; k >= 0; k--) { const dep = yb * k / steps; inPath.lineTo(X(rWall(dep)), Y(dep)); }
+    for (let k = steps; k >= 0; k--) { const dep = yb * k / steps; inPath.lineTo(X(rWall(dep) + cS(dep)), Y(dep)); }
     inPath.lineTo(X(Rr), Y(-0.013)); inPath.closePath();
     ctx.fillStyle = rgba(C.surface); ctx.fill(inPath); ctx.stroke(inPath);
 
     // trapway
-    const trapPts = [[rWall(yb) * 0.2, ycIn], [xr, ycIn], [xr, D - dt / 2], [xd, D - dt / 2], [xd, outY]];
-    if (!siph) trapPts.push([outX, outY]);
+    const trapPts = round ? [[rWall(yb) * 0.2 + ex, ycIn], [xr, ycIn], [xr, D - dt / 2], [outX, outY]] : [[rWall(yb) * 0.2 + ex, ycIn], [xr, ycIn], [xr, D - dt / 2], [xd, D - dt / 2], [xd, outY]];
+    if (!siph && !round) trapPts.push([outX, outY]);
     const poly = (pts) => { ctx.beginPath(); ctx.moveTo(X(pts[0][0]), Y(pts[0][1])); for (let k = 1; k < pts.length; k++) ctx.lineTo(X(pts[k][0]), Y(pts[k][1])); };
     ctx.lineJoin = 'round'; ctx.lineCap = 'butt';
     poly(trapPts); ctx.strokeStyle = rgba(C.lineStrong); ctx.lineWidth = dt * sc + 2.4 * d; ctx.stroke();
@@ -491,7 +528,7 @@
     // seal water in inlet and rising leg
     const legTop = primed ? D - dt / 2 : Math.max(Math.min(yl, ycIn), D - dt / 2);
     ctx.strokeStyle = water; ctx.lineWidth = dt * sc;
-    poly([[rWall(yb) * 0.2, ycIn], [xr, ycIn], [xr, legTop]]); ctx.stroke();
+    poly([[rWall(yb) * 0.2 + ex, ycIn], [xr, ycIn], [xr, legTop]]); ctx.stroke();
     // crest and down leg
     const downLen = outY - (D - dt / 2);
     if (primed) {
@@ -502,7 +539,7 @@
     }
     if (!primed && Qout > 0.02) {
       ctx.lineWidth = Math.max(1.5 * d, dt * sc * Math.min(0.8, 0.15 + Qout / 3));
-      const pts = [[xr, D - dt / 2 + 0.002], [xd, D - dt / 2 + 0.004], [xd, outY]]; if (!siph) pts.push([outX, outY]);
+      const pts = round ? [[xr, D - Math.min(dt / 2, 0.004 + Qout / 1000 * 4)], [outX, D - Math.min(dt / 2, 0.004 + Qout / 1000 * 4)]] : [[xr, D - dt / 2 + 0.002], [xd, D - dt / 2 + 0.004], [xd, outY]]; if (!siph && !round) pts.push([outX, outY]);
       poly(pts); ctx.stroke();
     }
     // pool
@@ -510,26 +547,28 @@
     const rl = rWall(Math.max(0, yl));
     ctx.beginPath();
     const n2 = 40;
-    for (let k = 0; k <= n2; k++) { const dep = yl + (yb - yl) * k / n2; ctx.lineTo(X(-rWall(dep)), Y(dep)); }
-    for (let k = n2; k >= 0; k--) { const dep = yl + (yb - yl) * k / n2; ctx.lineTo(X(rWall(dep)), Y(dep)); }
-    for (let k = 0; k <= 30; k++) { const x = rl - 2 * rl * k / 30; ctx.lineTo(X(x), Y(yl + dipM * (1 - (x / rl) ** 2))); }
+    for (let k = 0; k <= n2; k++) { const dep = yl + (yb - yl) * k / n2; ctx.lineTo(X(-rWall(dep) + cS(dep)), Y(dep)); }
+    for (let k = n2; k >= 0; k--) { const dep = yl + (yb - yl) * k / n2; ctx.lineTo(X(rWall(dep) + cS(dep)), Y(dep)); }
+    const cl = cS(Math.max(0, yl));
+    for (let k = 0; k <= 30; k++) { const x = rl - 2 * rl * k / 30; ctx.lineTo(X(x + cl), Y(yl + dipM * (1 - (x / rl) ** 2))); }
     ctx.closePath(); ctx.fillStyle = water; ctx.fill();
     // wall film
     if (Qin > 0.02) {
       ctx.strokeStyle = rgba(C.water, 0.9); ctx.lineWidth = (1.2 + 1.6 * Qin / 2) * d;
-      for (const sgn of [-1, 1]) { ctx.beginPath(); for (let k = 0; k <= 30; k++) { const dep = 0.004 + (Math.max(0.01, yl) - 0.004) * k / 30; ctx.lineTo(X(sgn * (rWall(dep) - 0.002)), Y(dep)); } ctx.stroke(); }
+      for (const sgn of [-1, 1]) { ctx.beginPath(); for (let k = 0; k <= 30; k++) { const dep = 0.004 + (Math.max(0.01, yl) - 0.004) * k / 30; ctx.lineTo(X(sgn * (rWall(dep) - 0.002) + cS(dep)), Y(dep)); } ctx.stroke(); }
     }
     // weir line
     ctx.setLineDash([4 * d, 4 * d]); ctx.strokeStyle = rgba(C.muted, 0.8); ctx.lineWidth = 1 * d;
-    ctx.beginPath(); ctx.moveTo(X(-rWall(D) - 0.05), Y(D)); ctx.lineTo(X(xd + dt * 0.5), Y(D)); ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(X(-rWall(D) - 0.05 + cS(D)), Y(D)); ctx.lineTo(X(round ? xr + dt * 0.5 : xd + dt * 0.5), Y(D)); ctx.stroke(); ctx.setLineDash([]);
     // seal bracket on the left
-    const bx = X(-rWall(D) - 0.045);
+    const bx = X(-rWall(D) - 0.045 + cS(D));
     ctx.strokeStyle = rgba(C.ink, 0.75); ctx.lineWidth = 1 * d;
     ctx.beginPath(); ctx.moveTo(bx - 4 * d, Y(D)); ctx.lineTo(bx + 4 * d, Y(D)); ctx.moveTo(bx, Y(D)); ctx.lineTo(bx, Y(D + ds)); ctx.moveTo(bx - 4 * d, Y(D + ds)); ctx.lineTo(bx + 4 * d, Y(D + ds)); ctx.stroke();
     ctx.fillStyle = rgba(C.muted); ctx.font = font(10.5); ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
     ctx.fillText(`seal ${p.seal} mm`, bx - 6 * d, Y(D + ds / 2));
     ctx.textAlign = 'left';
-    ctx.fillText('weir crest', X(xd + dt * 0.5) + 4 * d, Y(D));
+    if (round) { ctx.textBaseline = 'top'; ctx.fillText('crest', X(xr + dt * 0.5) + 4 * d, Y(D) + 3 * d); ctx.textBaseline = 'middle'; }
+    else ctx.fillText('weir crest', X(xd + dt * 0.5) + 4 * d, Y(D));
 
     // cistern
     const xL = -Rr - 0.2, xR = -Rr - 0.07, yC = -Hcr, yT = -Hcr - hf - 0.03, xc = (xL + xR) / 2;
@@ -834,7 +873,7 @@
   }));
 
   /* ---------------- sweep ---------------- */
-  const SW_P = ['Anoz', 'alpha', 'jetPhase', 'hNoz', 'nJets', 'ovality', 'Hcr', 'Kpath', 'Vfull', 'Vpart', 'Rrim', 'Rpool', 'Dwall', 'dTrap', 'seal'];
+  const SW_P = ['Anoz', 'alpha', 'jetPhase', 'hNoz', 'nJets', 'ovality', 'Hcr', 'Kpath', 'Vfull', 'Vpart', 'Rrim', 'Rpool', 'Dwall', 'dTrap', 'seal', 'poolShift', 'Kpass'];
   const SW_M = [
     ['cleanPct', 'Wall area cleaned', '%', 1, 1], ['solidsPct', 'Solids removed', '%', 1, 1], ['paperPct', 'Paper removed', '%', 1, 1],
     ['capS', 'Solids transport capacity', 'g', 0, 1], ['cleanPerL', 'Cleaned per litre', '%/L', 1, 1],

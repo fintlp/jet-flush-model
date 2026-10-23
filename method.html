@@ -102,7 +102,7 @@ h1,h2,h3,h4{letter-spacing:0}
     <span class="eyebrow">Model description · Tangential Jet Flush Model</span>
     <h1>How the jet flush model works</h1>
     <p class="lede">A reduced-order model of a rimless WC flushed by tangential rim jets. It traces each jet as a film on the bowl wall, follows the pool level, swirl and trap flow, and estimates cleaning, waste removal, water use and relative noise. One flush takes about 20 to 40 milliseconds to compute in a web browser.</p>
-    <p class="meta">Version 2.1.1 preview · the model is unchanged from 2.0.0 (21 October 2026) · <a href="https://github.com/fintlp/jet-flush-model#change-log">change log</a> · model code: <a href="https://github.com/fintlp/jet-flush-model/blob/main/model.js">model.js</a></p>
+    <p class="meta">Version 2.2 preview · from 2.1 the model adds an off-centre pool and a round trap crest, both off by default, for the new EU wall-hung preset (23 October 2026) · <a href="https://github.com/fintlp/jet-flush-model#change-log">change log</a> · model code: <a href="https://github.com/fintlp/jet-flush-model/blob/main/model.js">model.js</a></p>
   </header>
 
   <div class="layout">
@@ -263,6 +263,12 @@ h1,h2,h3,h4{letter-spacing:0}
         <div class="eq">F(x, y, z) = √(x²/e + e·y²) − R(z) = 0       <span class="c">F &lt; 0 inside the bowl</span></div>
         <p>The outward wall normal is the normalised gradient of <span class="sym">F</span>. Positions around the rim are given as the ellipse parameter angle θ, where 0° is the end of the long axis and 90° the middle of the long side.</p>
 
+        <h3>Off-centre pool</h3>
+        <p>Many wall-hung pans have a small pool set towards the front of the bowl opening, with a steep front wall and a long, flatter rear wall. The setting <em>pool offset towards the front</em> (from 2.2) moves the centre of each section along the long axis, from the bowl axis at the rim to the offset <span class="sym">c₀</span> at the waterline, along the same curve as the radius. Below the waterline the basin keeps the offset:</p>
+        <div class="eq">c(z) = c₀ · (1 − cos(π z / 2D)),     0 ≤ z ≤ D;     c(z) = c₀ below the waterline
+F(x, y, z) = √((x − c(z))²/e + e·y²) − R(z) = 0</div>
+        <p>The front is the end of the long axis away from the trapway. Each section keeps its area, so the level and volume tables do not change. The wall normal gains a term from the slope of <span class="sym">c(z)</span>, each wall cell keeps its true area on the shifted wall, and the angular momentum and splash of the film entering the pool are taken about the pool's own axis. The pool's long semi-axis plus the offset stays at least 25 mm inside the rim's. With two jets at the ends of the long axis, an offset to the front and the same offset to the rear give the same bowl turned round. An offset of 0 gives exactly the results of earlier releases.</p>
+
         <h3>Pool and seal</h3>
         <p>The pool level <span class="sym">z<sub>p</sub></span> is measured from the trap weir crest, which equals the static waterline. Above the crest the pool area follows the wall profile. Below it the basin narrows linearly to half the pool radius at the seal depth <span class="sym">d<sub>s</sub></span>. The model pre-computes the volume above or below the crest as a function of level, so each time step converts a volume into a level with one table lookup. A second table holds the pool's polar moment for the swirl (section 8).</p>
         <p>For the washdown preset the water surface at rest is 121 cm² and the pool below the crest holds 0.44 L. Published measurements of two wash-down dual-flush toilets give water surfaces of about 115 to 131 cm², so the preset fits there; one of them held 1.5 L of water at rest, apparently including the trapway, which suggests the model's basin is too small by a factor of about two. Two siphonic dual-flush toilets in the same source had water surfaces of 349 and 528 cm², against 201 cm² for the siphonic preset. The basin shape below the waterline is therefore a calibration item: it affects the swirl inertia, the siphon draw-down and the refill needed to restore the seal.</p>
@@ -333,6 +339,11 @@ Q_arr = Q_in + (V_wall − Q_in · τ̄) / τ̄          <span class="c">τ̄: m
 Q_cap  = 0.6 · A_t · √( 2 g (z_p + d_s) )
 Q_out  = min(Q_weir, Q_cap)</div>
         <p>The level cannot drop below the crest, so a washdown bowl always keeps its full seal. The orifice coefficient 0.6 is a fixed assumption and not among the coefficients of section 12. It matters: in the washdown preset the cap, not the weir, limits the outflow from about 2.2 to 3.1 s, so it sets the peak pool level. It belongs to the calibration items.</p>
+        <h3>Wall-hung pan: round crest</h3>
+        <p>In a wall-hung pan the trapway rises behind the bowl and turns into a horizontal outlet towards the wall. The crest is then the bottom of a round bore, not a flat weir. With the setting <em>trap crest</em> on round (from 2.2, washdown only), the flow over the crest is critical flow in the part-full bore of diameter <span class="sym">d<sub>t</sub></span>, and the bends before it cost <span class="sym">K<sub>pass</sub></span> velocity heads of the full bore:</p>
+        <div class="eq">Q = A √(g A / T),   H = y + A / (2T)        <span class="c">flow depth y over the crest, flow area A, surface width T</span>
+z_p = H(Q) + K_pass · (Q / A_t)² / 2g</div>
+        <p>Once the bore runs 90 % full, the outlet acts as an orifice: the flow grows with the square root of the head above the bore centre, without a step. The flat weir's coefficient 1.7 is exactly critical flow over a flat crest. A round bore is narrower at the surface when it runs shallow, so it passes less at the same level: a 70 mm bore passes 30 % of a flat 70 mm crest's flow at 5 mm and about 80 % at 58 mm. The passage loss replaces the orifice cap, which counted the seal depth as driving head; that does not hold when the outlet sits at crest level. <span class="sym">K<sub>pass</sub></span> = 1.5 is a first estimate, to be fitted from the CFD trapway runs. With the flat crest, the default, nothing changes against earlier releases.</p>
         <h3>Siphonic bowl</h3>
         <p>Before priming, water spills over the weir and part of it drains by gravity down the trapway, up to a capacity <span class="sym">Q<sub>g</sub></span>. Any excess fills the trapway. When the stored volume reaches the priming volume <span class="sym">V<sub>prime</sub></span>, the siphon starts and the outflow switches to full-bore flow driven by the drop <span class="sym">H<sub>s</sub></span> below the weir:</p>
         <div class="eq">dV_trap/dt = Q_weir − Q_g                 <span class="c">before priming, V_trap ≥ 0</span>
@@ -368,7 +379,7 @@ P_e   = π R_c · [ 3 (a + b) − √((3a + b)(a + 3b)) ]       <span class="c">
         <h2>9 · Waste transport</h2>
         <p>Waste is lumped into two classes that behave differently, similar in spirit to media tests with soybean-paste style solids and paper.</p>
         <h3>Solid media</h3>
-        <p>Solids leave once the mean trapway velocity <span class="sym">u<sub>t</sub> = Q<sub>out</sub> / A<sub>t</sub></span> exceeds a transport threshold. This is the velocity in the trap's rising leg, which in both bowl types runs full of water up to the weir; behind the weir a washdown trapway runs part full. A wider trapway therefore needs more flow for the same transport speed, while the benefit of its larger passage for bulky waste is not modelled. The removal rate is the smaller of a kinetic rate, proportional to the remaining mass, and a capacity limit set by the maximum volume fraction of solids the flow can carry:</p>
+        <p>Solids leave once the mean trapway velocity <span class="sym">u<sub>t</sub> = Q<sub>out</sub> / A<sub>t</sub></span> exceeds a transport threshold. This is the velocity in the trap's rising leg, which in both bowl types runs full of water up to the weir; behind the weir a washdown trapway runs part full. A wider trapway therefore needs more flow for the same transport speed, while the benefit of its larger passage for bulky waste is not modelled. With the round crest (section 7) the speed is taken in the flow section over the crest instead, <span class="sym">u<sub>t</sub> = Q<sub>out</sub> / A</span> with the flow area at critical depth: a wide wall-hung bore runs part full there, and its full-bore mean speed would understate the carrying speed by about half at 70 mm. The removal rate is the smaller of a kinetic rate, proportional to the remaining mass, and a capacity limit set by the maximum volume fraction of solids the flow can carry:</p>
         <div class="eq">f_S  = clamp( (u_t / u_cS − 1) / 0.5 , 0, 1 )
 dM/dt = −f_S · min( c_max · ρ_s · Q_out ,  k_S · M · (1 + β C_s) )
 capacity = ∫ f_S · c_max · ρ_s · Q_out dt     <span class="c">grams the flush could carry</span></div>
@@ -529,11 +540,30 @@ F(a) = (2/a² − 1)(1 − a²) + ½ + 2 ln a + 1 − a²
               <tr><td>Rim to waterline depth D</td><td class="num">150</td><td>mm</td><td>Height of the cleaned wall</td></tr>
               <tr><td>Water seal depth d<sub>s</sub></td><td class="num">55</td><td>mm</td><td>Weir crest to top of trap inlet</td></tr>
               <tr><td>Trapway diameter</td><td class="num">48</td><td>mm</td><td>Sets trap velocity for waste transport</td></tr>
+              <tr><td>Pool offset towards the front</td><td class="num">0</td><td>mm</td><td>Centre of the pool against the centre of the bowl opening (section 4)</td></tr>
+              <tr><td>Trap crest, trapway loss before the crest</td><td class="num">flat, 0</td><td>–, velocity heads</td><td>Round: the crest is the bottom of the trapway bore (section 7); the loss is used with the round crest only</td></tr>
               <tr><td>Siphon drop, loss, gravity capacity, priming volume, refill</td><td class="num">250, 3.0, 0.6, 0.5, 0</td><td>mm, –, L/s, L, L</td><td>Siphonic bowls only</td></tr>
               <tr><td>Test load</td><td class="num">250 g, 8 sheets</td><td>–</td><td>Solid media and paper in the pool at the start</td></tr>
             </tbody>
           </table>
         </div>
+        <h3>EU wall-hung preset</h3>
+        <p>From 2.2 a second washdown preset stands for a European wall-hung pan. It differs from the EU washdown preset in the bowl and the trap only; jets, cistern and coefficients are the same, so the comparison shows the effect of the bowl.</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Parameter</th><th>Value</th><th>Source</th></tr></thead>
+            <tbody>
+              <tr><td>Ovality, rim radius</td><td class="num">1.20, 150 mm</td><td>Bowl opening 330 × 275 mm on a catalogue drawing of a European wall-hung pan</td></tr>
+              <tr><td>Pool radius, equivalent</td><td class="num">56 mm</td><td>Water surface 125 × 100 mm (DXV Cossu) and 127 × 99 mm (Crosswater MPRO), wall-hung data sheets</td></tr>
+              <tr><td>Rim to waterline depth</td><td class="num">175 mm</td><td>DXV Cossu: water surface 175 mm below the rim</td></tr>
+              <tr><td>Pool offset towards the front</td><td class="num">25 mm</td><td>Scaled from the catalogue drawing; uncertain by about ±20 mm</td></tr>
+              <tr><td>Water seal depth</td><td class="num">55 mm</td><td>EN 997:2018 clause 5.1: at least 50 mm</td></tr>
+              <tr><td>Trapway diameter, crest</td><td class="num">70 mm, round</td><td>Between the narrowest passage of about 57 mm and the outlet bore of about 80 mm; the same bore as the CFD trapway case</td></tr>
+              <tr><td>Trapway loss before the crest</td><td class="num">1.5</td><td>First estimate, to be fitted from the CFD trapway runs</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Against the EU washdown preset it cleans about 9 points less with the same jets (77.9 % against 86.5 %), about 5 of them from the pool offset. Its pool rises to 74 mm above the crest at the peak, against 59 mm.</p>
         <h3>Model coefficients</h3>
         <div class="tablewrap">
           <table>
@@ -837,7 +867,7 @@ console.log(r.cleanPct, r.solidsPct, r.water, r.noise.peak);</div>
 
       <footer class="foot">
         <span class="navl"><a href="./">← Simulator</a><a href="why.html">Why</a><a href="sources.html">Sources and references</a></span>
-        <span>Tangential Jet Flush Model · v2.1.1 preview · Peter Fintl</span>
+        <span>Tangential Jet Flush Model · v2.2 preview · Peter Fintl</span>
       </footer>
     </main>
   </div>

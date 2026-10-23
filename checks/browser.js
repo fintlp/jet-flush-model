@@ -59,6 +59,19 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   await page.click('[data-type="washdown"]'); await page.waitForTimeout(150);
   ok('F04 trap button back to washdown sets dropdown', (await page.inputValue('#preset')) === 'washdown');
   ok('F10 preset label', (await page.textContent('#preset option[value=siphonic]')).includes('0.8 L refill'));
+  // 2.2: the EU wall-hung preset, its family follows the design, and the pool offset keeps 25 mm inside the rim
+  await page.selectOption('#preset', 'wallhung'); await page.waitForTimeout(400);
+  const wh = await page.evaluate(() => ({ p: FlushApp.getP(), k: FlushApp.kpis(), crest: document.getElementById('o_crestRound').textContent, kOff: document.getElementById('p_Kpass').closest('.ctl').classList.contains('off'), sel: document.getElementById('preset').value }));
+  ok('Wall-hung preset: loads the oval bowl with an off-centre pool and a round crest, Kpass enabled', wh.sel === 'wallhung' && wh.p.poolShift === 25 && wh.p.crestRound === 1 && wh.p.ovality === 1.2 && wh.crest === 'round bore' && !wh.kOff && Math.abs(wh.k.clean - 77.9) < 0.1, { p: { poolShift: wh.p.poolShift, crestRound: wh.p.crestRound }, clean: wh.k.clean, crest: wh.crest });
+  await slide('poolShift', 40); await slide('Rpool', 100); await page.waitForTimeout(300);
+  const lim = await P();
+  ok('Wall-hung preset: a larger pool pulls the offset back to keep 25 mm inside the rim', lim.Rpool === 100 && Math.abs(lim.poolShift) <= (lim.Rrim - 25 - lim.Rpool) * Math.sqrt(lim.ovality) + 1e-9 && lim.poolShift > 0, { Rpool: lim.Rpool, poolShift: lim.poolShift });
+  await page.selectOption('#preset', 'washdown'); await page.waitForTimeout(300);
+  const wd = await P();
+  await slide('crestRound', 1); await page.waitForTimeout(300);
+  ok('Preset family: the EU washdown preset has no offset and a flat crest; a round crest makes it a wall-hung design', wd.poolShift === 0 && wd.crestRound === 0 && (await page.inputValue('#preset')) === 'wallhung');
+  await page.click('#resetBtn'); await page.waitForTimeout(300);
+  ok('Preset family: reset of a wall-hung design gives the wall-hung preset', (await P()).poolShift === 25 && (await page.inputValue('#preset')) === 'wallhung');
 
   // F-06 rim gap
   await fresh();
@@ -365,7 +378,7 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   await page.goto(base + 'explore.html'); await page.waitForTimeout(300);
   const ex = await page.evaluate(() => ({ recipes: document.querySelectorAll('.recipe').length, careful: document.querySelectorAll('#careful tbody tr').length, qa: document.querySelectorAll('dl.qa dt').length, anchors: [...new Set([...document.querySelectorAll('a[href^="./#"]')].map((a) => a.getAttribute('href').slice(3)))], stance: document.querySelector('.stance').innerText }));
   const missing = await page.evaluate(async (anchors) => { const html = await (await fetch('./')).text(); return anchors.filter((a) => !['demo', 'cfd-tour', 'challenge-tour', 'value-tour'].includes(a) && !html.includes(`id="${a}"`)); }, ex.anchors);
-  ok('Explore page: ten recipes, the where-to-be-careful table, the questions, and every link into the simulator points at a section that exists', ex.recipes === 10 && ex.careful >= 8 && ex.qa === 6 && ex.anchors.length >= 8 && missing.length === 0 && ex.stance.includes('together'), { ex, missing });
+  ok('Explore page: eleven recipes, the where-to-be-careful table, the questions, and every link into the simulator points at a section that exists', ex.recipes === 11 && ex.careful >= 8 && ex.qa === 6 && ex.anchors.length >= 8 && missing.length === 0 && ex.stance.includes('together'), { ex, missing });
   // tutorials page (2.1.1): every screenshot loads, and the worked examples quote what tools/tutorial-shots.js recorded
   await page.goto(base + 'tutorials.html'); await page.waitForTimeout(300);
   // the screenshots load lazily, and a headless page never scrolls to them: load them now, and give up after 20 s

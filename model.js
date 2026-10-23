@@ -62,6 +62,10 @@
     return { lo, hi, list: out };
   }
 
+  // the preset family a design belongs to: siphonic by its trap type; a washdown design with a round crest or an
+  // off-centre pool is a wall-hung pan (2.2); everything else the EU washdown preset
+  function presetOf(p) { return p.type === 'siphonic' ? 'siphonic' : (p.crestRound >= 0.5 || (p.poolShift || 0) !== 0) ? 'wallhung' : 'washdown'; }
+
   function defaults(kind) {
     const pre = PRESETS[kind || 'washdown'];
     const p = Object.assign({}, COEFFS, pre, { flushMode: 'full', Ms: 250, Np: 8 });
@@ -222,6 +226,13 @@
     };
   }
 
+  // x of the pool centre at the waterline for the off-centre pool (2.2), m, signed (front is -x), as simulate uses it;
+  // the drawings move each wall section by poolX(p) (1 - cos(pi/2 depth/D)) above the waterline and poolX(p) below
+  function poolX(p) {
+    const sE = Math.sqrt(Math.max(1, p.ovality || 1)), eMax = Math.max(0, (p.Rrim - p.Rpool - 25) / 1000 * sE);
+    return -Math.max(-eMax, Math.min(eMax, (p.poolShift || 0) / 1000));
+  }
+
   /* ---------- round crest (2.2) ----------
      The trap's crest as the invert of a round bore of diameter D (a wall-hung pan's outlet), with the passage
      before it costing Kpass velocity heads of the full bore. Over the crest the flow is critical in the part-full
@@ -288,10 +299,13 @@
     // level table (rAtLevel). The film centreline stays above the waterline, but a step can end slightly below it.
     const Rz = (z) => z <= Dw ? Rp + (Rr - Rp) * Math.cos(kz * z) : Rp * Math.max(0.35, 1 - 0.5 * (z - Dw) / g.ds);
     const dRz = (z) => z <= Dw ? -(Rr - Rp) * kz * Math.sin(kz * z) : (1 - 0.5 * (z - Dw) / g.ds > 0.35 ? -0.5 * Rp / g.ds : 0);   // dR/dz
-    // off-centre pool (2.2): the centre of each wall section moves along the long axis (+x) from the bowl axis at the
-    // rim to poolShift at the waterline, along the same curve as the radius, and stays there below the waterline.
+    // off-centre pool (2.2): the centre of each wall section moves along the long axis from the bowl axis at the rim
+    // to poolShift at the waterline, along the same curve as the radius, and stays there below the waterline. The
+    // front is -x (the trapway and the wall are at +x), so a positive poolShift moves the pool towards -x. The pool's
+    // long semi-axis plus the offset stays at least 25 mm inside the rim's, as the page's rule for the pool radius.
     // poolShift 0 is the centred bowl of every earlier release, computed exactly as before.
-    const eSh = (p.poolShift || 0) / 1000;
+    const eMax = Math.max(0, (Rr - Rp - 0.025) * sE);
+    const eSh = -Math.max(-eMax, Math.min(eMax, (p.poolShift || 0) / 1000));
     const Cz = (z) => (eSh === 0 ? 0 : z <= Dw ? eSh * (1 - Math.cos(kz * z)) : eSh);
     const dCz = (z) => (eSh === 0 ? 0 : z <= Dw ? eSh * kz * Math.sin(kz * z) : 0);   // dC/dz
     for (let is = 0; is < NS; is++) {
@@ -758,5 +772,5 @@
     return out;
   }
 
-  root.FlushModel = { simulate, defaults, PRESETS, COEFFS, buildGeom, geomAt, sAtDepth, levelFromVol, volAtLevel, q4AtLevel, coreFactor, rankineF, noiseCorners, noiseEval, roundCrest, NTH: NTH0, NS: NS0 };
+  root.FlushModel = { simulate, defaults, PRESETS, COEFFS, buildGeom, geomAt, sAtDepth, levelFromVol, volAtLevel, q4AtLevel, coreFactor, rankineF, noiseCorners, noiseEval, roundCrest, poolX, presetOf, NTH: NTH0, NS: NS0 };
 })(typeof window !== 'undefined' ? window : globalThis);
