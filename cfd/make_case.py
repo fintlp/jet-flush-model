@@ -233,15 +233,17 @@ elif TRAP:
         # heading down gives horizontal rings (r cos t, y + r sin t, z), at z = 0 the same points as the pool profile
         return [(r * math.cos(t), y + r * math.sin(t) * ny_, z + r * math.sin(t) * nz_) for t in th]
     rings = [ring(*q) for q in TPATH]
+    iU = next(k for k, q in enumerate(TPATH) if abs(q[1] - zBot) < 1e-9 and q[2] == -math.pi / 2)
+    # separate wall patches for the torque on the water: bowl above the crest ('wall'), well below it ('wallWell'),
+    # trapway from the bottom of the well on ('wallTrap'); all walls, the mesh is the same as with one patch
     for k in range(len(rings) - 1):
-        r0_, r1_ = rings[k], rings[k + 1]
+        r0_, r1_ = rings[k], rings[k + 1]; wreg = 'wallWell' if k < iU else 'wallTrap'
         for i in range(NT):
-            tri('wall', r0_[i], r1_[i], r1_[i + 1]); tri('wall', r0_[i], r1_[i + 1], r0_[i + 1])
+            tri(wreg, r0_[i], r1_[i], r1_[i + 1]); tri(wreg, r0_[i], r1_[i + 1], r0_[i + 1])
     ye, ze, _, _ = TPATH[-1]
     for i in range(NT):
         tri('outlet', (0.0, ye, ze), rings[-1][i + 1], rings[-1][i])
     # closed surface of the trapway alone (from the bottom of the well to the outlet), for the 'trap' cell zone
-    iU = next(k for k, q in enumerate(TPATH) if abs(q[1] - zBot) < 1e-9 and q[2] == -math.pi / 2)
     trap_tris = []
     for k in range(iU, len(rings) - 1):
         r0_, r1_ = rings[k], rings[k + 1]
@@ -339,7 +341,7 @@ blocks ( hex (0 1 2 3 4 5 6 7) ({nx_} {ny_} {nz_}) simpleGrading (1 1 1) );
 edges ();
 boundary ( box {{ type patch; faces ( (0 3 2 1) (4 5 6 7) (0 1 5 4) (2 3 7 6) (1 2 6 5) (0 4 7 3) ); }} );
 ''')
-regs = ['wall', 'lid', 'atmosphere', 'outlet'] + [J['name'] for J in jets]
+regs = ['wall', 'lid', 'atmosphere', 'outlet'] + [J['name'] for J in jets] + (['wallWell', 'wallTrap'] if TRAP else [])
 regnames = '\n'.join(f'            {r} {{ name {r}; }}' for r in regs)
 d1, d2 = 2 * (h0 / 2 ** lvl) * 2, 3 * h0
 write('system/snappyHexMeshDict', 'dictionary', 'snappyHexMeshDict', f'''castellatedMesh true;
@@ -446,7 +448,50 @@ FRAMES_FO = '' if a.frames <= 0 else f'''    frames
         }}
     }}
 '''
-TRAP_FO = '' if not TRAP else f'''    outletTotal
+# vertical axis of the pool (through the pool centre at the waterline) for angular momentum and torques
+POOL_AXIS = (0.0, 0.0)
+ANG_FO = '' if not TRAP else ''.join(f'''    {fn}
+    {{
+        type exprField; libs (fieldFunctionObjects);
+        field {fn};
+        expression "{ex}";
+        dimensions {dm};
+        autowrite false;
+        log false;
+    }}
+''' for fn, ex, dm in (('LzDens', 'alpha.water*(pos().x()*U.y() - pos().y()*U.x())', '[0 2 -1 0 0 0 0]'),
+                        ('MxDens', 'alpha.water*U.x()', '[0 1 -1 0 0 0 0]'), ('MyDens', 'alpha.water*U.y()', '[0 1 -1 0 0 0 0]'))) + ''.join(f'''    {nm}
+    {{
+        type volFieldValue; libs (fieldFunctionObjects);
+        writeControl timeStep; writeInterval 5;
+        log false; writeFields false;
+        regionType cellZone; name {zn};
+        operation volIntegrate;
+        fields (LzDens MxDens MyDens);
+    }}
+''' for nm, zn in (('LzAbove', 'bowlAbove'), ('LzBelow', 'bowlBelow'))) + ''.join(f'''    {nm}
+    {{
+        type forces; libs (forces);
+        writeControl timeStep; writeInterval {FOEVERY};
+        log false;
+        patches ({pt});
+        rho rho;
+        CofR ({POOL_AXIS[0]} {POOL_AXIS[1]} 0);
+    }}
+''' for nm, pt in (('torqueBowl', 'wall'), ('torqueWell', 'wallWell'), ('torqueTrap', 'wallTrap'))) + f'''    jetPatches
+    {{
+        type surfaces; libs (sampling);
+        writeControl adjustableRunTime; writeInterval 0.01;
+        surfaceFormat vtk;
+        formatOptions {{ vtk {{ format ascii; legacy true; precision 8; }} }}
+        fields (U alpha.water);
+        surfaces
+        {{
+{chr(10).join(f"            {J['name']} {{ type patch; patches ({J['name']}); interpolate false; }}" for J in jets)}
+        }}
+    }}
+'''
+TRAP_FO = '' if not TRAP else ANG_FO + f'''    outletTotal
     {{
         type surfaceFieldValue; libs (fieldFunctionObjects);
         writeControl timeStep; writeInterval {FOEVERY};
@@ -514,7 +559,7 @@ write('0.orig/U', 'volVectorField', 'U', f'''dimensions [0 1 -1 0 0 0 0];
 internalField uniform (0 0 0);
 boundaryField
 {{
-    "(wall|lid)" {{ type noSlip; }}
+    "(wall.*|lid)" {{ type noSlip; }}
 {jetU}
     outlet
     {{
@@ -527,7 +572,7 @@ write('0.orig/alpha.water', 'volScalarField', 'alpha.water', f'''dimensions [0 0
 internalField uniform 0;
 boundaryField
 {{
-    "(wall|lid)" {{ type zeroGradient; }}
+    "(wall.*|lid)" {{ type zeroGradient; }}
     "({JETS})" {{ type fixedValue; value uniform 1; }}
     outlet {{ type inletOutlet; inletValue uniform {0 if TRAP else 1}; value uniform {0 if TRAP else 1}; }}
     atmosphere {{ type inletOutlet; inletValue uniform 0; value uniform 0; }}
@@ -537,7 +582,7 @@ write('0.orig/p_rgh', 'volScalarField', 'p_rgh', f'''dimensions [1 -1 -2 0 0 0 0
 internalField uniform 0;
 boundaryField
 {{
-    "(wall|lid|{JETS})" {{ type fixedFluxPressure; value uniform 0; }}
+    "(wall.*|lid|{JETS})" {{ type fixedFluxPressure; value uniform 0; }}
     outlet {{ {OUTLET_P} }}
     atmosphere {{ type totalPressure; p0 uniform 0; value uniform 0; }}
 }}
@@ -552,7 +597,7 @@ for fld, dim, val, wf in (('k', '[0 2 -2 0 0 0 0]', '1e-4', 'kqRWallFunction'), 
 internalField uniform {val};
 boundaryField
 {{
-    "(wall|lid)" {{ type {wf}; value uniform {val}; }}
+    "(wall.*|lid)" {{ type {wf}; value uniform {val}; }}
     {other}{rest}
 }}
 ''')
@@ -581,6 +626,10 @@ if TRAP:
     {{ name bowlAboveSet; type cellSet; action subtract; source surfaceToCell; file "<constant>/triSurface/trap.stl";
         outsidePoints ((0 0 0.1)); includeCut true; includeInside true; includeOutside false; nearDistance -1; curvature -100; }}
     {{ name bowlAbove; type cellZoneSet; action new; source setToCellZone; set bowlAboveSet; }}
+    {{ name bowlBelowSet; type cellSet; action new; source boxToCell; box (-1 -1 -1) (1 1 0); }}
+    {{ name bowlBelowSet; type cellSet; action subtract; source surfaceToCell; file "<constant>/triSurface/trap.stl";
+        outsidePoints ((0 0 0.1)); includeCut true; includeInside true; includeOutside false; nearDistance -1; curvature -100; }}
+    {{ name bowlBelow; type cellZoneSet; action new; source setToCellZone; set bowlBelowSet; }}
 );
 ''')
 # sample lines for the pool level (four points at 70 % of the pool radius) and planes for the swirl
@@ -736,6 +785,6 @@ shutil.copytree(os.path.join(a.out, '0.orig'), os.path.join(a.out, '0'))   # set
 json.dump({'mesh': a.mesh, 'h0': h0, 'zLo': zLo, 'Vstatic_model': S.get('Vstatic'), 'arrivalPlane': 0.003, 'rWallArrival': r_of_z(0.003), 'level': lvl, 'end': a.end, 'jets': info, 'outlet_deg': [40, 140], 'outlet_z': [outBot, outTop] if a.outlet_at != 'leg' else [zLeg, zLeg], 'outlet_kind': a.outlet, 'outlet_at': a.outlet_at if not TRAP else 'trap',
            'trap': ({**TRAP_ASSUMED, 'yCrest': yCrest, 'zOutlet': rT, 'yOutlet': TPATH[-1][0], 'zLowest': zTrapMin, 'yMax': yTrapMax, 'wellShift': 1.0, 'pathLength': sum(math.hypot(TPATH[i+1][0]-TPATH[i][0], TPATH[i+1][1]-TPATH[i][1]) for i in range(len(TPATH)-1))} if TRAP else None),
            'qout': [[t, q] for t, q in zip(S['tq'], S['Qout']) if t <= a.end + 0.05] if a.outlet == 'model' else None, 'zLeg': zLeg,
-           'legVolume_est': (math.pi * rb ** 2 * (zBot - zLeg)) if a.outlet_at == 'leg' else 0.0, 'zBot': zBot, 'zTop': zTop,
+           'legVolume_est': (math.pi * rb ** 2 * (zBot - zLeg)) if a.outlet_at == 'leg' else 0.0, 'zBot': zBot, 'zTop': zTop, 'poolAxis': list(POOL_AXIS) if TRAP else [0.0, 0.0],
            'D': D, 'Rr': Rr, 'Rp': Rp, 'ds': ds, 'triangles': {k: len(v) for k, v in tris.items()}}, open(os.path.join(a.out, 'case-info.json'), 'w'), indent=1)
 print(json.dumps(json.load(open(os.path.join(a.out, 'case-info.json')))))

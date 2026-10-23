@@ -188,6 +188,7 @@ for t, d in times_of('poolPlanes'):
     if den: swirl.append({'t': t, 'uTheta': num / den})
 
 # ---------- first water in the pool: downward water flux through the plane 3 mm above the crest ----------
+LAST_NORMALS = []   # unit normals of the polygons read last (polygon order, i.e. OpenFOAM's outward face normals)
 def read_vtk_polys(path):
     """legacy ascii VTK polydata (or XML ascii .vtp): polygon areas, centres and cell arrays"""
     txt = open(path, encoding='latin-1').read()
@@ -224,7 +225,7 @@ def read_vtk_polys(path):
             name, nc_, cnt_ = w, int(tok[k + 1]), int(tok[k + 2]); k += 4
             arrays[name] = ([float(x) for x in tok[k:k + nc_ * cnt_]], nc_); k += nc_ * cnt_
     P_ = [(pts[3 * q], pts[3 * q + 1], pts[3 * q + 2]) for q in range(len(pts) // 3)]
-    areas, cents = [], []
+    areas, cents, norms = [], [], []
     for poly in polys:
         q = [P_[v] for v in poly]; A2 = 0.0
         for r_ in range(len(q)): A2 += q[r_][0] * q[(r_ + 1) % len(q)][1] - q[(r_ + 1) % len(q)][0] * q[r_][1]
@@ -232,8 +233,10 @@ def read_vtk_polys(path):
         nx_ = sum((q[r_][1] - q[(r_ + 1) % len(q)][1]) * (q[r_][2] + q[(r_ + 1) % len(q)][2]) for r_ in range(len(q)))
         ny_ = sum((q[r_][2] - q[(r_ + 1) % len(q)][2]) * (q[r_][0] + q[(r_ + 1) % len(q)][0]) for r_ in range(len(q)))
         nz_ = sum((q[r_][0] - q[(r_ + 1) % len(q)][0]) * (q[r_][1] + q[(r_ + 1) % len(q)][1]) for r_ in range(len(q)))
-        areas.append(0.5 * math.sqrt(nx_ ** 2 + ny_ ** 2 + nz_ ** 2))
+        nn = math.sqrt(nx_ ** 2 + ny_ ** 2 + nz_ ** 2) or 1.0
+        areas.append(0.5 * nn); norms.append((nx_ / nn, ny_ / nn, nz_ / nn))
         cents.append(tuple(sum(v[k] for v in q) / len(q) for k in range(3)))
+    LAST_NORMALS[:] = norms
     return areas, cents, arrays
 
 arrival, arr_err = [], None
@@ -533,6 +536,99 @@ if TRAP:
         'end': bal[-1] if bal else None,
     }
 
+def angular_momentum(tb):
+    """Angular momentum of the water about the pool axis (vertical through the pool centre at the waterline): in the
+    bowl above and below the crest without the trapway, the flux entering
+    through the jet patches, the flux leaving through the dip section, and the torque of the walls on the water
+    (forces function objects: pressure and viscous parts, bowl above the crest, well, trapway); and the balance
+    dL/dt = jets - walls - dip flux"""
+    ax, ay = (info.get('poolAxis') or [0.0, 0.0])[:2]
+    def torque(fo):
+        out = {}
+        for _, d in times_of(fo):
+            f = os.path.join(d, 'moment.dat')
+            if not os.path.exists(f): continue
+            for line in open(f):
+                if line.startswith('#') or not line.strip(): continue
+                v = line.split()
+                try: out[float(v[0])] = (-float(v[3]), -float(v[6]), -float(v[9]))   # on the water: total, pressure, viscous
+                except (ValueError, IndexError): pass
+        return out
+    def lz(fo):
+        """water angular momentum about the pool axis from the integrals of alpha (x uy - y ux), alpha ux, alpha uy (origin
+        at x = y = 0): L = 998 (I0 - ax Iy + ay Ix)"""
+        out = {}
+        for _, d in times_of(fo):
+            for f in glob.glob(os.path.join(d, '*.dat')):
+                for line in open(f):
+                    if line.startswith('#') or not line.strip(): continue
+                    v = line.split()
+                    try: out[float(v[0])] = RHO * (float(v[1]) - ax * float(v[3]) + ay * float(v[2]))
+                    except (ValueError, IndexError): pass
+        return out
+    LA, LB = lz('LzAbove'), lz('LzBelow')
+    TB, TW, TT = torque('torqueBowl'), torque('torqueWell'), torque('torqueTrap')
+    if not LA: return None
+    jets = []
+    for t, d in times_of('jetPatches'):
+        Lin = Qin = 0.0; ok = False
+        for f in glob.glob(os.path.join(d, '**', '*.vtk'), recursive=True):
+            try: areas, cents, arr = read_vtk_polys(f)
+            except Exception: continue
+            nrm = list(LAST_NORMALS); U = arr['U'][0]; al = arr.get('alpha.water', ([1.0] * len(areas),))[0]; ok = True
+            for q, A_ in enumerate(areas):
+                ux, uy, uz = U[3 * q:3 * q + 3]; un = ux * nrm[q][0] + uy * nrm[q][1] + uz * nrm[q][2]
+                x, y = cents[q][0] - ax, cents[q][1] - ay
+                Lin += -RHO * al[q] * (x * uy - y * ux) * un * A_; Qin += -al[q] * un * A_
+        if ok: jets.append({'t': t, 'LdotIn': Lin, 'Qin': Qin})
+    dipL = []
+    for t, d in times_of('trapPlanes'):
+        f = next((c for c in sorted(glob.glob(os.path.join(d, '**', '*'), recursive=True))
+                  if os.path.isfile(c) and os.path.basename(c).startswith('dip') and c.endswith('.vtk')), None)
+        if not f: continue
+        try: areas, cents, arr = read_vtk_polys(f)
+        except Exception: continue
+        tr = info.get('trap') or {}; rT = 0.5 * tr.get('d', 0.07); zU = tr.get('zU', -0.09)
+        al = arr['alpha.water'][0]; U = arr['U'][0]; F = 0.0
+        for q, A_ in enumerate(areas):
+            if math.hypot(cents[q][0], cents[q][2] - zU) >= rT + 0.003: continue
+            ux, uy, uz = U[3 * q:3 * q + 3]; x, y = cents[q][0] - ax, cents[q][1] - ay
+            F += RHO * min(1.0, max(0.0, al[q])) * (x * uy - y * ux) * uy * A_     # dip section normal +y
+        dipL.append({'t': t, 'LdotOut': F})
+    ts_ = sorted(LA)
+    series = []
+    for t in ts_:
+        def near(dct):
+            if not dct: return None
+            k = min(dct, key=lambda x: abs(x - t)); return dct[k] if abs(k - t) < 0.006 else None
+        b, w, tt = near(TB), near(TW), near(TT)
+        series.append({'t': t, 'Labove': LA[t], 'Lbelow': LB.get(t),
+                       'torqueBowl': b, 'torqueWell': w, 'torqueTrap': tt})
+    # balance over 0.05 s steps: change of L (above + below) against the integrals of the jets, the walls and the dip
+    jt = [r['t'] for r in jets]; jl = [r['LdotIn'] for r in jets]
+    dt_ = [r['t'] for r in dipL]; dl = [r['LdotOut'] for r in dipL]
+    tw_t = sorted(set(TB) & set(TW)); tw_v = [TB[t][0] + TW[t][0] for t in tw_t]
+    def integ(tt, vv, a_, b_):
+        if not tt: return 0.0
+        n = 50; h = (b_ - a_) / n
+        return sum(lin(tt, vv, a_ + (i + 0.5) * h) for i in range(n)) * h
+    bal = []
+    for i in range(1, len(series)):
+        a_, b_ = series[i - 1]['t'], series[i]['t']
+        if series[i]['Lbelow'] is None or series[i - 1]['Lbelow'] is None: continue
+        dL = series[i]['Labove'] + series[i]['Lbelow'] - series[i - 1]['Labove'] - series[i - 1]['Lbelow']
+        Jin, Wall, Out = integ(jt, jl, a_, b_), integ(tw_t, tw_v, a_, b_), integ(dt_, dl, a_, b_)
+        bal.append({'t0': a_, 't1': b_, 'dL': dL, 'jets': Jin, 'walls': Wall, 'dip': Out, 'residual': dL - Jin - Wall + Out})
+    return {'axis': [ax, ay], 'series': series, 'jets': jets, 'dip': dipL, 'balance': bal,
+            'note': 'L in kg m2/s about the vertical pool axis through (axis x, axis y): Labove / Lbelow = integral of 998 alpha '
+                    '((x - axis x) uy - (y - axis y) ux) dV in the bowl above / below the crest without the trapway, every 5 solver steps; torque* = (total, pressure, viscous) z-torque of the wall patch on the '
+                    'fluid in N m, positive in the direction of positive L (wall: bowl above the crest; well: below the crest down '
+                    'to the half bend; trap: the trapway), every solver step; jets.LdotIn = angular momentum entering through the '
+                    'jet patches (N m), every 0.01 s; dip.LdotOut = water angular momentum leaving through the dip section towards '
+                    'the rising leg (N m), every 0.01 s; balance per 0.05 s: dL = change of Labove + Lbelow, jets, walls (bowl '
+                    'plus well, total torque) and dip as integrals over the step; residual = dL - jets - walls + dip (it also '
+                    'holds the angular momentum leaving over the rim and the torque of the air on the water surface)'}
+
 def valid_to_trap(tb, end):
     """Trapway runs: valid while the water balance closes within 1 % of the flush volume (45 mL) and less than 5 mL has
     left over the rim, rounded down to 0.05 s"""
@@ -544,6 +640,9 @@ def valid_to_trap(tb, end):
             return math.floor(r_['t'] * 20 + 1e-9) / 20, 'water balance does not close within 1 % of the flush volume'
     return end, ''
 
+if trap_out is not None:
+    try: trap_out['angularMomentum'] = angular_momentum(trap_out)
+    except Exception as e: trap_out['angularMomentumError'] = str(e)
 meta = run_meta(case)
 info.update(meta)
 if TRAP:
