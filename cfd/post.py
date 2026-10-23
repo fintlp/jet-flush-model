@@ -507,6 +507,9 @@ if TRAP:
     dip = plane_fluxes('trapPlanes', 'dip', lambda c: math.hypot(c[0], c[2] - zU) < rT + 0.003, 1, +1)
     swW = well_swirl(-0.030)
     wellL, riseL = line_level('wellLine'), line_level('riseLine')
+    # a run continued past the end it was generated for (endTime raised on restart): use the last written time
+    if ts and ts[-1] > (info.get('end') or 0) + 1e-6:
+        info['endGenerated'] = info.get('end'); info['end'] = round(ts[-1], 4)
     endt = info.get('end') or (ts[-1] if ts else 0)
     def tail_mean(ser, key='z', span=0.5):
         if not ser: return None
