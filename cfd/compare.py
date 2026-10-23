@@ -90,7 +90,7 @@ if TR:
             row(f'outflow at the outlet face at {t} s', f"{interp(ctt, ser('QoutCFD'), t):.3f}", f"{interp(ctt, ser('QoutModel'), t):.3f}", 'L/s')
             row(f'flow over the crest at {t} s', f"{interp(ctt, ser('QcrestCFD'), t):.3f}", '', 'L/s', f"depth {interp(ctt, ser('crestDepthCFD'), t):.1f} mm")
             row(f'water above the crest at {t} s', f"{interp(ctt, ser('VaboveCrestCFD'), t):.3f}", f"{interp(ctt, ser('VrelModel'), t):.3f}", 'L')
-            row(f'level from that volume (model table) at {t} s', f"{interp(ctt, ser('zFromVolumeCFD'), t):.1f}", f"{interp(ctt, ser('zModel'), t):.1f}", 'mm')
+            row(f'level from that volume (bowl table) at {t} s', f"{interp(ctt, ser('zFromVolumeCFD'), t):.1f}", f"{interp(ctt, ser('zModel'), t):.1f}", 'mm')
     st_ = TR['outflowStart']
     f2 = lambda v: f'{v:.2f}' if v is not None else 'none'
     row('start of outflow at the outlet (> 0.05 L/s)', f2(st_['outletCFD']), f2(st_['model']), 's')

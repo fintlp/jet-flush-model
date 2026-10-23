@@ -474,9 +474,10 @@ if TRAP:
             'note': 'mean level over the last 0.5 s of the run, from a vertical line through the well (25 mm behind the axis) '
                     'and one through the rising leg; seal = well level minus the dip (z = %.1f mm)' % (zDip * 1000)}
     M = model_series()
-    # the model's level table, from its own series: level z against the water above the crest Vrel
-    mt = sorted(set(zip(M['Vrel'], M['z']))) if M else []
-    mv, mz = [v for v, _ in mt], [z for _, z in mt]
+    # level table of the bowl above the crest (the model's round profile, the same as the model's own table for
+    # ovality 1): volume V(z) = integral of pi r(z)^2 from the crest up to z, to the rim
+    mz = [D * k / 600 for k in range(601)]; mv = [0.0]
+    for k in range(1, 601): mv.append(mv[-1] + math.pi * r_of_z(0.5 * (mz[k] + mz[k - 1])) ** 2 * (mz[k] - mz[k - 1]))
     cmp_ = []
     ot = [r_['t'] for r_ in bal]; oq = [r_['QoutWater'] for r_ in bal]; oa = [r_['VaboveCrest'] or 0 for r_ in bal]
     ct = [r_['t'] for r_ in crest]; cq = [r_['water'] for r_ in crest]; cd = [r_['depth'] for r_ in crest]
@@ -487,7 +488,7 @@ if TRAP:
         va = lin(ot, oa, t)
         row = {'t': t, 'QoutCFD': lin(ot, oq, t), 'QcrestCFD': lin(ct, cq, t) if crest else None,
                'crestDepthCFD': lin(ct, cd, t) if crest else None, 'VaboveCrestCFD': va,
-               'zLinesCFD': lin(lt, lz, t) if level else None, 'zFromVolumeCFD': lin(mv, mz, va) if mv else None}
+               'zLinesCFD': lin(lt, lz, t) if level else None, 'zFromVolumeCFD': lin(mv, mz, va)}
         if M: row.update({'QoutModel': lin(M['t'], M['Qout'], t), 'zModel': lin(M['t'], M['z'], t),
                           'VrelModel': lin(M['t'], M['Vrel'], t), 'vsModel': lin(M['t'], M['vs'], t) if 'vs' in M else None})
         cmp_.append(row)
