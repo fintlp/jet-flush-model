@@ -18,7 +18,7 @@ const a = run('washdown', { nJets: 3, ovality: 1.2, poolShift: 25, jetPhase: 0 }
 ok('Pool offset: offset +25 mm equals -25 mm with the jets turned by 180° (3 jets, oval bowl)', near(a, b, 1e-9) && Math.abs(a.noise.peak - b.noise.peak) < 1e-9, KEYS.map((k) => [k, a[k], b[k]]));
 // the wall area from the cells equals a fine triangulation of the shifted surface x = R(z) sE cos + C(z)
 const wallArea = (e) => {
-  const p = M.defaults('washdown'), Rr = p.Rrim / 1000, Rp = p.Rpool / 1000, D = p.Dwall / 1000, sE = Math.sqrt(1.2), kz = Math.PI / (2 * D), es = -e / 1000;
+  const p = M.defaults('washdown'), Rr = p.Rrim / 1000, Rp = p.Rpool / 1000, D = p.Dwall / 1000, sE = Math.sqrt(1.2), kz = Math.PI / (2 * D), es = e / 1000;
   const P = (th, z) => { const R = Rp + (Rr - Rp) * Math.cos(kz * z); return [R * sE * Math.cos(th) + es * (1 - Math.cos(kz * z)), R / sE * Math.sin(th), z]; };
   const tri = (u, v, w) => { const x1 = v[0] - u[0], y1 = v[1] - u[1], z1 = v[2] - u[2], x2 = w[0] - u[0], y2 = w[1] - u[1], z2 = w[2] - u[2]; return 0.5 * Math.hypot(y1 * z2 - z1 * y2, z1 * x2 - x1 * z2, x1 * y2 - y1 * x2); };
   let A = 0; const NT = 360, NZ = 300;
@@ -39,7 +39,7 @@ const mirror = run('washdown', { ovality: 1.2, poolShift: -25 }).cleanPct;
 ok('Pool offset: cleaning falls as the pool moves off centre, the same either way with two opposite jets', sweep.every((v, i) => i === 0 || v < sweep[i - 1]) && Math.abs(mirror - sweep[2]) < 1e-9, { sweep, mirror });
 // the offset is limited: the pool stays 25 mm inside the rim
 const pl = M.defaults('wallhung'), lim = (pl.Rrim - 25 - pl.Rpool) / 1000 * Math.sqrt(pl.ovality);
-ok('Pool offset: limited to keep the pool 25 mm inside the rim, in the model and for the page', Math.abs(M.poolX(Object.assign({}, pl, { poolShift: 500 })) + lim) < 1e-12 && run('wallhung', { poolShift: 500 }).cleanPct === run('wallhung', { poolShift: lim * 1000 }).cleanPct && M.poolX(pl) === -0.025);
+ok('Pool offset: limited to keep the pool 25 mm inside the rim, in the model and for the page', Math.abs(M.poolX(Object.assign({}, pl, { poolShift: 500 })) - lim) < 1e-12 && run('wallhung', { poolShift: 500 }).cleanPct === run('wallhung', { poolShift: lim * 1000 }).cleanPct && M.poolX(pl) === 0.025);
 
 // ---- round crest ----
 const D = 0.07, At = Math.PI * D * D / 4, rc = M.roundCrest(D, 0);

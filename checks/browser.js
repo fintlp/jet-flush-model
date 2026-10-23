@@ -62,7 +62,7 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   // 2.2: the EU wall-hung preset, its family follows the design, and the pool offset keeps 25 mm inside the rim
   await page.selectOption('#preset', 'wallhung'); await page.waitForTimeout(400);
   const wh = await page.evaluate(() => ({ p: FlushApp.getP(), k: FlushApp.kpis(), crest: document.getElementById('o_crestRound').textContent, kOff: document.getElementById('p_Kpass').closest('.ctl').classList.contains('off'), sel: document.getElementById('preset').value }));
-  ok('Wall-hung preset: loads the oval bowl with an off-centre pool and a round crest, Kpass enabled', wh.sel === 'wallhung' && wh.p.poolShift === 25 && wh.p.crestRound === 1 && wh.p.ovality === 1.2 && wh.crest === 'round bore' && !wh.kOff && Math.abs(wh.k.clean - 77.9) < 0.1, { p: { poolShift: wh.p.poolShift, crestRound: wh.p.crestRound }, clean: wh.k.clean, crest: wh.crest });
+  ok('Wall-hung preset: loads the oval bowl with an off-centre pool and a round crest, Kpass enabled', wh.sel === 'wallhung' && wh.p.poolShift === 25 && wh.p.crestRound === 1 && wh.p.ovality === 1.2 && wh.p.Dwall === 230 && wh.crest === 'round bore' && !wh.kOff && Math.abs(wh.k.clean - 70.0) < 0.1, { p: { poolShift: wh.p.poolShift, crestRound: wh.p.crestRound }, clean: wh.k.clean, crest: wh.crest });
   await slide('poolShift', 40); await slide('Rpool', 100); await page.waitForTimeout(300);
   const lim = await P();
   ok('Wall-hung preset: a larger pool pulls the offset back to keep 25 mm inside the rim', lim.Rpool === 100 && Math.abs(lim.poolShift) <= (lim.Rrim - 25 - lim.Rpool) * Math.sqrt(lim.ovality) + 1e-9 && lim.poolShift > 0, { Rpool: lim.Rpool, poolShift: lim.poolShift });

@@ -24,7 +24,7 @@
     { g: 'bowl', k: 'Dwall', l: 'Rim to waterline depth', u: 'mm', min: 90, max: 250, st: 1, d: 0 },
     { g: 'bowl', k: 'seal', l: 'Water seal depth', u: 'mm', min: 40, max: 90, st: 1, d: 0 },
     { g: 'bowl', k: 'dTrap', l: 'Trapway diameter', u: 'mm', min: 38, max: 90, st: 1, d: 0 },
-    { g: 'bowl', k: 'poolShift', l: 'Pool offset towards the front', u: 'mm', min: -40, max: 40, st: 1, d: 0 },
+    { g: 'bowl', k: 'poolShift', l: 'Pool offset towards the wall', u: 'mm', min: -40, max: 40, st: 1, d: 0 },
     { g: 'bowl', k: 'crestRound', l: 'Trap crest', u: '', min: 0, max: 1, st: 1, d: 0 },
     { g: 'bowl', k: 'Kpass', l: 'Trapway loss before the crest', u: 'velocity heads', min: 0, max: 4, st: 0.1, d: 1 },
     { g: 'siph', k: 'Hs', l: 'Siphon drop below weir', u: 'mm', min: 120, max: 400, st: 5, d: 0 },
@@ -70,7 +70,7 @@
     Dwall: 'Height of the wall the jets have to clean, from the rim down to the water surface.',
     seal: 'Depth of the water seal that keeps sewer gases out. 50 mm or more is usual.',
     dTrap: 'Diameter of the passage behind the bowl. Wider passes more waste but needs more flow for the same speed. With the round crest, the bottom of this bore is the crest.',
-    poolShift: 'How far the centre of the pool sits in front of the centre of the bowl opening. Many wall-hung pans have a small pool set towards the front: a steep front wall and a long, flatter rear wall. The pool always stays at least 25 mm inside the rim.',
+    poolShift: 'How far the centre of the pool and sump sits behind the centre of the bowl opening, towards the wall and the outlet; negative moves it towards the user. Many wall-hung pans have the sump set towards the wall: a steep rear wall and a long, flatter front wall. The pool always stays at least 25 mm inside the rim.',
     crestRound: 'Flat (0): the trap overflows a flat weir, as in every release before 2.2. Round (1): the crest is the bottom of the round trapway bore, as in a wall-hung pan with a horizontal outlet. A part-full round bore passes less water at low levels, and waste is carried at the speed over the crest. Washdown only.',
     Kpass: 'Head lost in the bends of the trapway before the crest, in velocity heads of the full bore. Used with the round crest only. 1.5 is a first estimate until the CFD trapway runs give a better value.',
     Hs: 'How far the siphon leg drops below the weir. More drop pulls harder.',
@@ -473,6 +473,10 @@
       ctx.fillStyle = rgba(C.accent, 1);
       ctx.beginPath(); ctx.moveTo(x + tx * s, y + ty * s); ctx.lineTo(x - tx * s * 0.6 + nx * s * 0.6, y - ty * s * 0.6 + ny * s * 0.6); ctx.lineTo(x - tx * s * 0.6 - nx * s * 0.6, y - ty * s * 0.6 - ny * s * 0.6); ctx.closePath(); ctx.fill();
     }
+    // where the user is and where the wall is (the long axis runs from front to wall, as in the section)
+    ctx.fillStyle = rgba(C.muted); ctx.font = font(10.5); ctx.textBaseline = 'bottom';
+    ctx.textAlign = 'left'; ctx.fillText('◀ front · user', 4 * d, cvTop.height - 4 * d);
+    ctx.textAlign = 'right'; ctx.fillText('wall ▶', cvTop.width - 4 * d, cvTop.height - 4 * d);
     const vj = rec.Qin[i] / 1000 / (nJ * P.Anoz * 1e-4);
     $('roTop').innerHTML = `<span>Jets <b>${vj.toFixed(2)} m/s</b></span><span>Pool swirl <b>${vs.toFixed(2)} m/s</b></span><span>Dip <b>${dip.toFixed(0)} mm</b></span>`;
   }
@@ -494,7 +498,9 @@
     // clear the flaring wall too, so the leg moves out to the wall's position at that height
     const xr = round ? Math.max(Rp + dt / 2 + 0.014 + ex, rWall(D - dt - 0.01) + cS(D - dt - 0.01) + dt / 2 + 0.012) : Rp + dt / 2 + 0.014 + ex, xd = xr + dt * 1.5;
     const outY = siph ? D + p.Hs / 1000 : round ? D - dt / 2 : D + 0.07, outX = siph ? xd : xd + 0.15;
-    const xmin = -Rr - 0.23, xmax = Math.max(Rr + 0.04, outX + 0.05), ymin = -(Hcr + hf + 0.06), ymax = Math.max(yb, outY) + 0.04;
+    // seen from the side as the user stands in front of the bowl: the front (user) on the left, the wall with the
+    // cistern, the jet supply and the outlet on the right
+    const xmin = -Rr - 0.1, xmax = Math.max(Rr + 0.23, outX + 0.05), ymin = -(Hcr + hf + 0.06), ymax = Math.max(yb, outY) + 0.05;
     const sc = Math.min(W / (xmax - xmin), H / (ymax - ymin)) * 0.97;
     const ox = (W - (xmax - xmin) * sc) / 2, oy = (H - (ymax - ymin) * sc) / 2;
     const X = (x) => ox + (x - xmin) * sc, Y = (y) => oy + (y - ymin) * sc;
@@ -571,8 +577,8 @@
     else ctx.fillText('weir crest', X(xd + dt * 0.5) + 4 * d, Y(D));
 
     // cistern
-    const xL = -Rr - 0.2, xR = -Rr - 0.07, yC = -Hcr, yT = -Hcr - hf - 0.03, xc = (xL + xR) / 2;
-    const pipe = [[xc, yC], [xc, -0.006], [-Rr + 0.002, -0.006]];
+    const xL = Rr + 0.07, xR = Rr + 0.2, yC = -Hcr, yT = -Hcr - hf - 0.03, xc = (xL + xR) / 2;
+    const pipe = [[xc, yC], [xc, -0.006], [Rr - 0.002, -0.006]];
     poly(pipe); ctx.strokeStyle = rgba(C.lineStrong); ctx.lineWidth = 7 * d; ctx.stroke();
     poly(pipe); ctx.strokeStyle = Qin > 0.02 ? water : rgba(C.surface); ctx.lineWidth = 4 * d; ctx.stroke();
     const hw = rec.Vc[i] / 1000 / Ac;
@@ -582,7 +588,12 @@
     ctx.fillStyle = rgba(C.muted); ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
     ctx.fillText('cistern', X(xc), Y(yT) - 4 * d);
     // nozzle marker
-    ctx.fillStyle = rgba(C.accent); ctx.beginPath(); ctx.arc(X(-Rr + 0.004), Y(-0.006), 3 * d, 0, TAU2); ctx.fill();
+    ctx.fillStyle = rgba(C.accent); ctx.beginPath(); ctx.arc(X(Rr - 0.004), Y(-0.006), 3 * d, 0, TAU2); ctx.fill();
+    // where the user is and where the wall is
+    ctx.fillStyle = rgba(C.muted); ctx.font = font(10.5); ctx.textBaseline = 'bottom';
+    ctx.textAlign = 'left'; ctx.fillText('◀ front · user', X(xmin) + 2 * d, Y(-0.03));
+    ctx.textAlign = 'right'; ctx.fillText('wall ▶', X(xmax) - 2 * d, Y(-0.03));
+    ctx.font = font(10.5);
     // siphon / outlet label
     ctx.textBaseline = 'top'; ctx.textAlign = 'center';
     ctx.fillStyle = primed ? rgba(C.accent) : rgba(C.muted);

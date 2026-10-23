@@ -14,14 +14,14 @@
       poolShift: 0, crestRound: 0, Kpass: 0,
       Hs: 250, Ks: 3.0, Qgrav: 0.6, Vtrap: 0.5, refill: 0.0
     },
-    // a European wall-hung washdown pan (2.2): oval opening 330 x 275 mm, a small pool 125 x 100 mm set 25 mm towards
-    // the front, 175 mm below the rim, and a 70 mm trapway with a horizontal outlet. Sources in plan-2.2 and on
-    // sources.html; the passage loss Kpass 1.5 is a first estimate, to be fitted from the CFD trapway runs.
+    // a European wall-hung washdown pan (2.2): oval opening 330 x 275 mm, a small pool 125 x 100 mm with its sump set
+    // 25 mm towards the wall, 230 mm below the rim, and a 70 mm trapway with a horizontal outlet. Sources in plan-2.2
+    // and on sources.html; the passage loss Kpass 1.5 is a first estimate, to be fitted from the CFD trapway runs.
     wallhung: {
       label: 'EU wall-hung, 4.5/3 L',
       type: 'washdown', Vfull: 4.5, Vpart: 3.0, Hcr: 250, Kpath: 1.0,
       nJets: 2, Anoz: 4.5, hNoz: 12, alpha: 10, jetPhase: 0,
-      Rrim: 150, Rpool: 56, ovality: 1.2, Dwall: 175, seal: 55, dTrap: 70,
+      Rrim: 150, Rpool: 56, ovality: 1.2, Dwall: 230, seal: 55, dTrap: 70,
       poolShift: 25, crestRound: 1, Kpass: 1.5,
       Hs: 250, Ks: 3.0, Qgrav: 0.6, Vtrap: 0.5, refill: 0.0
     },
@@ -226,11 +226,11 @@
     };
   }
 
-  // x of the pool centre at the waterline for the off-centre pool (2.2), m, signed (front is -x), as simulate uses it;
+  // x of the pool centre at the waterline for the off-centre pool (2.2), m, signed (the wall is +x), as simulate uses it;
   // the drawings move each wall section by poolX(p) (1 - cos(pi/2 depth/D)) above the waterline and poolX(p) below
   function poolX(p) {
     const sE = Math.sqrt(Math.max(1, p.ovality || 1)), eMax = Math.max(0, (p.Rrim - p.Rpool - 25) / 1000 * sE);
-    return -Math.max(-eMax, Math.min(eMax, (p.poolShift || 0) / 1000));
+    return Math.max(-eMax, Math.min(eMax, (p.poolShift || 0) / 1000));
   }
 
   /* ---------- round crest (2.2) ----------
@@ -301,11 +301,11 @@
     const dRz = (z) => z <= Dw ? -(Rr - Rp) * kz * Math.sin(kz * z) : (1 - 0.5 * (z - Dw) / g.ds > 0.35 ? -0.5 * Rp / g.ds : 0);   // dR/dz
     // off-centre pool (2.2): the centre of each wall section moves along the long axis from the bowl axis at the rim
     // to poolShift at the waterline, along the same curve as the radius, and stays there below the waterline. The
-    // front is -x (the trapway and the wall are at +x), so a positive poolShift moves the pool towards -x. The pool's
-    // long semi-axis plus the offset stays at least 25 mm inside the rim's, as the page's rule for the pool radius.
-    // poolShift 0 is the centred bowl of every earlier release, computed exactly as before.
+    // wall, the outlet and the cistern are at +x, the user's side (the front) at -x; a positive poolShift moves the
+    // pool and sump towards the wall. The pool's long semi-axis plus the offset stays at least 25 mm inside the rim's,
+    // as the page's rule for the pool radius. poolShift 0 is the centred bowl of every earlier release, unchanged.
     const eMax = Math.max(0, (Rr - Rp - 0.025) * sE);
-    const eSh = -Math.max(-eMax, Math.min(eMax, (p.poolShift || 0) / 1000));
+    const eSh = Math.max(-eMax, Math.min(eMax, (p.poolShift || 0) / 1000));
     const Cz = (z) => (eSh === 0 ? 0 : z <= Dw ? eSh * (1 - Math.cos(kz * z)) : eSh);
     const dCz = (z) => (eSh === 0 ? 0 : z <= Dw ? eSh * kz * Math.sin(kz * z) : 0);   // dC/dz
     for (let is = 0; is < NS; is++) {
