@@ -494,6 +494,11 @@
     const ex = M.poolX(p), cS = (dep) => (ex === 0 ? 0 : dep <= D ? ex * (1 - Math.cos(Math.PI / 2 * dep / D)) : ex);
     const round = !siph && p.crestRound >= 0.5;   // round crest: the rising leg turns into a horizontal outlet at the crest
     const yb = D + ds + dt + 0.006, ycIn = yb - dt / 2;
+    // no sharp corners in the sump: below the narrowing basin, the front wall turns into the floor of the trap
+    // passage along a quarter circle (radius three quarters of the trap bore); the ceramic outside follows at 20 mm
+    // (and no wider than the sump floor, so the curve ends inside the sump)
+    const yCone = D + 1.3 * ds, rc = Math.max(0.005, Math.min(0.75 * dt, yb - yCone, 2 * rWall(yb) - 0.008)), yv = yb - rc, xv = -rWall(yv) + cS(yv);
+    const xFront = (dep, off) => (dep <= yv ? -rWall(dep) + cS(dep) - off : xv + rc - Math.sqrt(Math.max(0, (rc + off) ** 2 - (dep - yv) ** 2)));
     // the rising leg sits behind the rear wall; with the round crest the outlet bore (up to dt above the crest) must
     // clear the flaring wall too, so the leg moves out to the wall's position at that height
     const xr = round ? Math.max(Rp + dt / 2 + 0.014 + ex, rWall(D - dt - 0.01) + cS(D - dt - 0.01) + dt / 2 + 0.012) : Rp + dt / 2 + 0.014 + ex, xd = xr + dt * 1.5;
@@ -507,11 +512,12 @@
 
     // ceramic body
     const steps = 50, body = [], inner = [];
-    for (let k = 0; k <= steps; k++) { const dep = yb * k / steps; body.push([-(rWall(dep) + 0.02) + cS(dep), dep]); inner.push([-rWall(dep) + cS(dep), dep]); }
+    for (let k = 0; k <= steps; k++) { const dep = yb * k / steps; body.push([xFront(dep, 0.02), dep]); inner.push([xFront(dep, 0), dep]); }
+    for (let k = 1; k <= 12; k++) { const dep = yb + 0.02 * k / 12; body.push([xFront(dep, 0.02), dep]); }
     const bodyPath = new Path2D();
     bodyPath.moveTo(X(-(Rr + 0.02)), Y(-0.012));
     body.forEach(([x, y]) => bodyPath.lineTo(X(x), Y(y)));
-    bodyPath.lineTo(X(-(rWall(yb) + 0.02) + cS(yb)), Y(yb + 0.02)); bodyPath.lineTo(X(xd + dt), Y(yb + 0.02));
+    bodyPath.lineTo(X(xd + dt), Y(yb + 0.02));
     bodyPath.lineTo(X(xd + dt), Y(D - dt - 0.012)); bodyPath.lineTo(X(Rr + 0.02), Y(-0.012)); bodyPath.closePath();
     ctx.fillStyle = rgba(C.lip); ctx.fill(bodyPath); ctx.strokeStyle = rgba(C.lineStrong); ctx.lineWidth = 1.2 * d; ctx.stroke(bodyPath);
     const inPath = new Path2D();
@@ -522,9 +528,20 @@
     ctx.fillStyle = rgba(C.surface); ctx.fill(inPath); ctx.stroke(inPath);
 
     // trapway
-    const trapPts = round ? [[rWall(yb) * 0.2 + ex, ycIn], [xr, ycIn], [xr, D - dt / 2], [outX, outY]] : [[rWall(yb) * 0.2 + ex, ycIn], [xr, ycIn], [xr, D - dt / 2], [xd, D - dt / 2], [xd, outY]];
+    const xs = rWall(yb) + cS(yb) - 0.006;   // the passage leaves through the rear wall of the sump
+    const trapPts = round ? [[xs, ycIn], [xr, ycIn], [xr, D - dt / 2], [outX, outY]] : [[xs, ycIn], [xr, ycIn], [xr, D - dt / 2], [xd, D - dt / 2], [xd, outY]];
     if (!siph && !round) trapPts.push([outX, outY]);
-    const poly = (pts) => { ctx.beginPath(); ctx.moveTo(X(pts[0][0]), Y(pts[0][1])); for (let k = 1; k < pts.length; k++) ctx.lineTo(X(pts[k][0]), Y(pts[k][1])); };
+    // bends are drawn as curves: each corner is rounded with three quarters of the bore on the centre line, so even
+    // the inner edge of the passage is a curve (limited to half the shorter neighbouring leg)
+    const poly = (pts) => {
+      ctx.beginPath(); ctx.moveTo(X(pts[0][0]), Y(pts[0][1]));
+      for (let k = 1; k < pts.length - 1; k++) {
+        const a = pts[k - 1], b = pts[k], c = pts[k + 1];
+        const rr = Math.min(0.75 * dt, 0.5 * Math.hypot(b[0] - a[0], b[1] - a[1]), 0.5 * Math.hypot(c[0] - b[0], c[1] - b[1]));
+        ctx.arcTo(X(b[0]), Y(b[1]), X(c[0]), Y(c[1]), Math.max(0, rr * sc));
+      }
+      const e = pts[pts.length - 1]; ctx.lineTo(X(e[0]), Y(e[1]));
+    };
     ctx.lineJoin = 'round'; ctx.lineCap = 'butt';
     poly(trapPts); ctx.strokeStyle = rgba(C.lineStrong); ctx.lineWidth = dt * sc + 2.4 * d; ctx.stroke();
     poly(trapPts); ctx.strokeStyle = rgba(C.surface); ctx.lineWidth = dt * sc; ctx.stroke();
@@ -534,7 +551,7 @@
     // seal water in inlet and rising leg
     const legTop = primed ? D - dt / 2 : Math.max(Math.min(yl, ycIn), D - dt / 2);
     ctx.strokeStyle = water; ctx.lineWidth = dt * sc;
-    poly([[rWall(yb) * 0.2 + ex, ycIn], [xr, ycIn], [xr, legTop]]); ctx.stroke();
+    poly([[xs + 0.006, ycIn], [xr, ycIn], [xr, legTop]]); ctx.stroke();   // from the sump's rear wall: the sump water is the pool fill
     // crest and down leg
     const downLen = outY - (D - dt / 2);
     if (primed) {
@@ -553,7 +570,7 @@
     const rl = rWall(Math.max(0, yl));
     ctx.beginPath();
     const n2 = 40;
-    for (let k = 0; k <= n2; k++) { const dep = yl + (yb - yl) * k / n2; ctx.lineTo(X(-rWall(dep) + cS(dep)), Y(dep)); }
+    for (let k = 0; k <= n2; k++) { const dep = yl + (yb - yl) * k / n2; ctx.lineTo(X(xFront(dep, 0)), Y(dep)); }
     for (let k = n2; k >= 0; k--) { const dep = yl + (yb - yl) * k / n2; ctx.lineTo(X(rWall(dep) + cS(dep)), Y(dep)); }
     const cl = cS(Math.max(0, yl));
     for (let k = 0; k <= 30; k++) { const x = rl - 2 * rl * k / 30; ctx.lineTo(X(x + cl), Y(yl + dipM * (1 - (x / rl) ** 2))); }
