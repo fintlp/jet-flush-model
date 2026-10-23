@@ -65,6 +65,10 @@ for (const kind of ['wallhung']) {
 const w = run('wallhung', {}), wp = run('wallhung', { flushMode: 'partial' });
 ok('Wall-hung preset: a valid run with a round crest and an off-centre pool; cleans less than the round EU washdown bowl', w.valid && !w.incomplete && wp.valid && w.cleanPct < run('washdown', {}).cleanPct && w.zPeak > 60 && w.solidsPct > 95, { clean: w.cleanPct, zPeak: w.zPeak, solids: w.solidsPct, paper: w.paperPct });
 ok('Preset family: siphonic by trap type, wall-hung by round crest or pool offset, else EU washdown', M.presetOf(M.defaults('wallhung')) === 'wallhung' && M.presetOf(M.defaults('washdown')) === 'washdown' && M.presetOf(M.defaults('siphonic')) === 'siphonic' && M.presetOf(Object.assign(M.defaults('washdown'), { poolShift: 5 })) === 'wallhung');
+// swirl loss at the trap (kSw, 2.2): off by default; on, the bowl holds more water and the trap starts later
+const sw = [0, 1, 2, 3].map((k) => { let t0 = null; const r = run('washdown', { dTrap: 70, crestRound: 1, Kpass: 1.5, kSw: k }, { probe: (o) => { if (t0 === null && o.Qout > 5e-5) t0 = o.t; } }); return { z: r.zPeak, t0 }; });
+ok('Swirl loss at the trap: the peak level rises and the outflow starts later as kSw grows (70 mm round crest)', sw.every((v, i) => i === 0 || (v.z > sw[i - 1].z && v.t0 > sw[i - 1].t0)), sw);
+ok('Swirl loss at the trap is ignored by a siphonic bowl', run('siphonic', { kSw: 3 }).zPeak === run('siphonic', {}).zPeak);
 ok('Round crest is ignored by a siphonic bowl', run('siphonic', { crestRound: 1, Kpass: 2 }).zPeak === run('siphonic', {}).zPeak);
 
 console.log(`${pass + fail} checks: ${fail} failed`);

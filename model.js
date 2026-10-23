@@ -283,6 +283,7 @@
     const siph = p.type === 'siphonic';
     // round crest and passage loss (washdown only, 2.2); off (0) is the flat weir of every earlier release
     const RC = !siph && p.crestRound >= 0.5 ? roundCrest(p.dTrap / 1000, p.Kpass || 0) : null;
+    const kSw = siph ? 0 : Math.max(0, p.kSw || 0);   // swirl loss at the trap, washdown only (2.2); 0 = earlier releases
     // oval pool: perimeter factor (Ramanujan) and extra swirl loss on non-circular walls
     const Eo = Math.max(1, p.ovality || 1), ea = Math.sqrt(Eo), eb = 1 / Math.sqrt(Eo);
     const perimF = Math.PI * (3 * (ea + eb) - Math.sqrt((3 * ea + eb) * (ea + 3 * eb))) / TAU2;
@@ -655,7 +656,11 @@
       let Qw = 0, Qout = 0, Qtrans = 0, Tout = 0, Tf = 0, Vpool = Vp0, Rc = g.rAtLevel(z), I = 1e-12, om = 0;
       for (let sb = 0; sb < nSub; sb++) {
         const zS = sb === 0 ? z : levelFromVol(g, Vrel), tS = t + sb * hs;
-        const qw = RC ? RC.q(zS) : zS > 0 ? p.Cweir * Lw * Math.pow(zS, 1.5) : 0;
+        // swirl at the trap (2.2, washdown): the trap sees the level less kSw swirl heads vs^2/2g of the pool's edge
+        // speed now; the swirl's energy is lost in the well and the bends instead of driving water over the crest
+        let zE = zS;
+        if (kSw > 0) { const vsS = L / Math.max(1e-12, 0.25 * RHO * (E + 1 / E) * q4AtLevel(g, zS)) * g.rAtLevel(zS); zE = zS - kSw * vsS * vsS / (2 * G); }
+        const qw = RC ? RC.q(zE) : zE > 0 ? p.Cweir * Lw * Math.pow(zE, 1.5) : 0;
         let qo, qt;
         if (!siph) {
           // flat weir: limited by the trap's capacity; round crest: the passage loss is already in qw
