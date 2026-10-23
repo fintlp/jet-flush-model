@@ -284,6 +284,7 @@
     // round crest and passage loss (washdown only, 2.2); off (0) is the flat weir of every earlier release
     const RC = !siph && p.crestRound >= 0.5 ? roundCrest(p.dTrap / 1000, p.Kpass || 0) : null;
     const kSw = siph ? 0 : Math.max(0, p.kSw || 0);   // swirl loss at the trap, washdown only (2.2); 0 = earlier releases
+    const kLout = p.kLout == null ? 1 : Math.max(0, p.kLout);   // share of the mean spin the outflow takes (2.2)
     // oval pool: perimeter factor (Ramanujan) and extra swirl loss on non-circular walls
     const Eo = Math.max(1, p.ovality || 1), ea = Math.sqrt(Eo), eb = 1 / Math.sqrt(Eo);
     const perimF = Math.PI * (3 * (ea + eb) - Math.sqrt((3 * ea + eb) * (ea + 3 * eb))) / TAU2;
@@ -690,7 +691,9 @@
         Vpool = Math.max(1e-9, g.Vstatic + Vrel); Rc = g.rAtLevel(zN);
         I = Math.max(1e-12, 0.25 * RHO * (E + 1 / E) * q4AtLevel(g, zN));   // integrated over the narrowing basin
         om = L / I;
-        const to = (qo / Vpool) * L;
+        // the outflow takes kLout times the pool's mean angular momentum per volume with it (2.2): the trap drains the
+        // slowly turning centre and well, so a swirling pool keeps more of its spin than a mixed one (1 = earlier releases)
+        const to = kLout * (qo / Vpool) * L;
         const Awet = Math.PI * Rc * Rc + perimF * TAU2 * Rc * (ds + 0.03 + Math.max(zN, 0));
         const tf = 0.5 * RHO * p.cfp * ovPen * Awet * (om * Rc) ** 2 * Rc;
         L = Math.max(0, L + (Tin - to - tf) * hs);

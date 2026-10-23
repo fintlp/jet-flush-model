@@ -69,6 +69,9 @@ ok('Preset family: siphonic by trap type, wall-hung by round crest or pool offse
 const sw = [0, 1, 2, 3].map((k) => { let t0 = null; const r = run('washdown', { dTrap: 70, crestRound: 1, Kpass: 1.5, kSw: k }, { probe: (o) => { if (t0 === null && o.Qout > 5e-5) t0 = o.t; } }); return { z: r.zPeak, t0 }; });
 ok('Swirl loss at the trap: the peak level rises and the outflow starts later as kSw grows (70 mm round crest)', sw.every((v, i) => i === 0 || (v.z > sw[i - 1].z && v.t0 > sw[i - 1].t0)), sw);
 ok('Swirl loss at the trap is ignored by a siphonic bowl', run('siphonic', { kSw: 3 }).zPeak === run('siphonic', {}).zPeak);
+// share of the pool's spin the outflow takes (kLout, 2.2): 1 by default; less keeps the pool swirling longer
+const spin = [1, 0.5, 0].map((k) => { const S = []; M.simulate(Object.assign(M.defaults('washdown'), { dTrap: 70, crestRound: 1, Kpass: 1.5, kSw: 2, kLout: k }), { light: true, Tend: 6, probe: (o) => S.push(o.om) }); return S[600] / S[290]; });
+ok('Outflow spin share: the less spin the outflow takes, the more swirl is left 3 s after the valve closes', spin[0] < spin[1] && spin[1] < spin[2] && run('washdown', { kLout: 1 }).cleanPct === run('washdown', {}).cleanPct, spin);
 ok('Round crest is ignored by a siphonic bowl', run('siphonic', { crestRound: 1, Kpass: 2 }).zPeak === run('siphonic', {}).zPeak);
 
 console.log(`${pass + fail} checks: ${fail} failed`);
