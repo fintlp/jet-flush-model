@@ -148,6 +148,38 @@ details.calc tr.tot td{font-weight:500;border-top:2px solid var(--line-strong)}
 .box.clocks p{margin-top:8px}
 table.map{min-width:720px}
 table.map td{font-size:14px}
+/* 2.1.1: the development chain, the roles and the levels */
+.chain{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:20px;list-style:none;padding:0;max-width:none}
+@media (max-width:820px){ .chain{grid-template-columns:minmax(0,1fr)} }
+.chain li{background:var(--raised);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:0;display:grid;gap:6px;align-content:start;min-width:0}
+.chain li h3{margin:0;font-size:17px}
+.chain li p{font-size:14.5px;margin:0}
+.chain li.now{border-color:var(--clean)}
+.chain li.next{border-color:var(--accent);border-style:dashed}
+.chip{justify-self:start;font-family:var(--f-display);font-weight:500;font-size:12px;letter-spacing:.04em;border-radius:999px;padding:2px 10px;border:1px solid var(--line-strong);color:var(--muted)}
+.chip.now{border-color:var(--clean);color:var(--clean)}
+.chip.next{border-color:var(--accent);color:var(--accent)}
+.roles{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin-top:20px;max-width:900px}
+.role{background:var(--raised);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:grid;gap:6px;align-content:start;min-width:0}
+.role h3{margin:0;font-size:17px}
+.role p{font-size:14.5px;margin:0}
+.role.maker{grid-column:1 / -1;background:var(--surface);border-color:var(--line-strong)}
+.role.us{border:2px solid var(--accent)}
+.key{font-size:17px;font-weight:500;max-width:62ch;margin-top:18px}
+table.levels{min-width:760px}
+table.levels td{font-size:14px}
+table.levels td.q{font-style:italic;color:var(--muted)}
+table.levels th.s1{color:var(--clean)}
+table.levels th.s2{color:var(--accent)}
+@media (max-width:720px){
+  table.levels{min-width:0}
+  table.levels thead{display:none}
+  table.levels tr{display:block;border-bottom:1px solid var(--line-strong);padding:8px 0}
+  table.levels td{display:block;border:0;padding:4px 12px}
+  table.levels td::before{content:attr(data-label);display:block;font-family:var(--f-display);font-weight:500;font-style:normal;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+  table.levels td:first-child{font-size:16px}
+  table.levels td:first-child::before{content:none}
+}
 
 /* Capgemini-inspired look: Ubuntu, brand blues, a thin brand gradient across the top, pill-shaped buttons */
 body::before{content:"";display:block;height:4px;background:linear-gradient(90deg,var(--brand-1),var(--brand-2))}
@@ -167,7 +199,7 @@ h1,h2,h3,h4{letter-spacing:0}
     <span class="eyebrow">Why we built this · Tangential Jet Flush Model</span>
     <h1>Why are we doing this?</h1>
     <p class="lede">Engineering rarely slows down because people run out of ideas. It slows down because every idea waits for a simulation, a prototype or a test slot. This simulator is a small, concrete example of a different way to work: answer most questions in seconds, and spend the slow, expensive tools only where they make the decision.</p>
-    <p class="meta">Peter Fintl · 19 October 2026, updated 22 October 2026</p>
+    <p class="meta">Peter Fintl · 19 October 2026, updated 26 October 2026</p>
   </header>
 
   <div class="why">
@@ -242,6 +274,24 @@ h1,h2,h3,h4{letter-spacing:0}
       </div>
     </section>
 
+    <section id="chain">
+      <h2>More than CFD: the whole development chain</h2>
+      <p>A new toilet goes through many steps before it reaches a bathroom. CFD and flush tests are only one part of them. Each step can send a design back to an earlier one, and the most expensive loops are often in moulds and firing, not in simulation.</p>
+      <ol class="chain" aria-label="Six steps of sanitary ware development, each marked with what the fast model does there">
+        <li><span class="ph">Step 1</span><h3>Industrial design</h3><p>Shape, look and what users need. Sketches, 3D models, renderings, feedback from the market.</p><span class="chip">Not part of this model</span></li>
+        <li class="now"><span class="ph">Step 2</span><h3>Product engineering</h3><p>Hydraulics: rim, jets, pool, trap, splash. Structure: the load on wall-hung pans. Interfaces: cistern, frame, seat. Ceramic design rules: wall thickness, support in the kiln.</p><span class="chip now">Helps today: hydraulics</span></li>
+        <li class="now"><span class="ph">Step 3</span><h3>Prototypes and tests</h3><p>Milled or 3D printed prototypes, flush tests on a rig, type tests to EN 997.</p><span class="chip now">Helps today: fewer prototype rounds</span></li>
+        <li class="next"><span class="ph">Step 4</span><h3>Moulds and firing</h3><p>Mould design and making, pilot casting, drying and firing, mould correction. The piece shrinks about 3 % in drying and about 10 % in firing, and sags under its own weight in the kiln.</p><span class="chip next">Possible next step</span></li>
+        <li><span class="ph">Step 5</span><h3>Series production</h3><p>Slip and glaze preparation, casting, drying, glazing, firing at about 1,250 °C, sorting and repair.</p><span class="chip">Not part of this model</span></li>
+        <li><span class="ph">Step 6</span><h3>Certification and quality</h3><p>Type tests, factory production control, CE marking.</p><span class="chip">Not part of this model</span></li>
+      </ol>
+      <div class="box">
+        <h4>Where the fast model fits</h4>
+        <p>Today it helps in step 2, for the hydraulics, and in step 3, because fewer designs need a prototype. Industrial design, structure and production are not part of it.</p>
+        <p>A possible next step links the hydraulics with the firing. A flush optimised in simulation only reaches the bathroom if the mould allows for the shrinkage and sagging in the kiln. Published work shows that finite element models can predict how a fired piece deforms to within a few percent. Combined with a fast flush model, the mould could be shaped for the bowl you want after firing, with fewer corrections in the pilot plant.</p>
+      </div>
+    </section>
+
     <section id="lifecycle">
       <h2>From idea to engineering to manufacturing</h2>
       <div class="phases">
@@ -288,6 +338,38 @@ h1,h2,h3,h4{letter-spacing:0}
       <p class="note">These rows are examples of where the pattern fits, not results: none of these fast models is part of this page.</p>
     </section>
 
+    <section id="roles">
+      <h2>Who does what</h2>
+      <p>Many players work on a new sanitary product. Here they are by role, not by company.</p>
+      <div class="roles">
+        <div class="role maker"><h3>The manufacturer</h3><p>Owns the product, the brand, the know-how and the data, and makes the decisions. Its engineers have developed bowls for generations.</p></div>
+        <div class="role"><h3>CAD and simulation software vendors</h3><p>Tools for design, CFD and structural analysis (FEM), licensed to the manufacturer.</p></div>
+        <div class="role"><h3>AI and agent platforms</h3><p>Software that connects tools and runs studies automatically, for example from CAD to simulation to evaluation.</p></div>
+        <div class="role"><h3>Equipment and plant suppliers</h3><p>Machines and complete plants for casting, glazing and firing. Moulds and mould making. Know-how on ceramic bodies, glazes and firing. Pilot trials and help to bring a product into production. Factory software.</p></div>
+        <div class="role"><h3>Research institutes</h3><p>New methods, such as physics-informed AI or simulating how a piece deforms in the kiln.</p></div>
+        <div class="role us"><span class="ph">Our role</span><h3>Engineering partner</h3><p>Fast models built on the manufacturer's own data, connecting the tools it already uses, changing methods and processes together with its engineers, and extra engineering capacity when it is needed.</p></div>
+      </div>
+      <p class="key">We don't build machines and we don't add one more tool. We help the people and tools a manufacturer already has work faster together.</p>
+    </section>
+
+    <section id="levels">
+      <h2>What changes on each level</h2>
+      <p>A new tool on its own changes little. Faster development needs six levels to move together, from the value for the business down to the data underneath. The table shows two steps. The first column holds questions, because every company starts from a different place.</p>
+      <div class="tablewrap"><table class="levels">
+        <thead><tr><th>Level</th><th>Today: questions to ask</th><th class="s1">Step 1: faster variants</th><th class="s2">Step 2: AI methods and agents</th></tr></thead>
+        <tbody>
+          <tr><td data-label="Level"><b>Value</b></td><td class="q" data-label="Today: questions to ask">How long does a new variant take, and what does it cost?</td><td data-label="Step 1: faster variants">More variants per year, fewer prototypes and mould corrections</td><td data-label="Step 2: AI methods and agents">Quicker reaction to market needs, know-how kept in models</td></tr>
+          <tr><td data-label="Level"><b>Organization and people</b></td><td class="q" data-label="Today: questions to ask">Where do projects wait: design, CFD, test rig, mould shop?</td><td data-label="Step 1: faster variants">Design, hydraulics and mould teams work on one shared model</td><td data-label="Step 2: AI methods and agents">New roles, clear rules on when to trust AI results</td></tr>
+          <tr><td data-label="Level"><b>Process</b></td><td class="q" data-label="Today: questions to ask">How many loops from design to the first good fired piece?</td><td data-label="Step 1: faster variants">Variants screened early, physical trials only to confirm</td><td data-label="Step 2: AI methods and agents">Agents run studies, engineers review and decide</td></tr>
+          <tr><td data-label="Level"><b>Method</b></td><td class="q" data-label="Today: questions to ask">Is each step checked on its own, one design at a time?</td><td data-label="Step 1: faster variants">Fast flush model calibrated with CFD and test data</td><td data-label="Step 2: AI methods and agents">Physics-informed networks, firing distortion prediction, designs derived from targets</td></tr>
+          <tr><td data-label="Level"><b>Tool</b></td><td class="q" data-label="Today: questions to ask">Which CAD, CFD, FEM and test tools are in use?</td><td data-label="Step 1: faster variants">Fast model next to the existing tools</td><td data-label="Step 2: AI methods and agents">Agent platform connecting CAD, simulation and mould design</td></tr>
+          <tr><td data-label="Level"><b>Data</b></td><td class="q" data-label="Today: questions to ask">Are test, pilot casting and scan data reused?</td><td data-label="Step 1: faster variants">Existing CFD and test results used for calibration</td><td data-label="Step 2: AI methods and agents">Each test, pilot casting and scan improves the models</td></tr>
+        </tbody>
+      </table></div>
+      <p class="key">A new tool alone is not enough. All six levels have to change.</p>
+      <p class="note">Step 1 is what this page shows: a fast model, calibrated with data that already exists, used to screen variants. Step 2 is where the same work can lead. It needs step 1 first, because agents and AI methods only work well on calibrated models and clean data.</p>
+    </section>
+
     <section id="start">
       <h2>How a team would start</h2>
       <ol class="steps">
@@ -309,7 +391,7 @@ h1,h2,h3,h4{letter-spacing:0}
         <a class="btn" href="slides/jet-flush-model.pptx" download>Slides, PowerPoint</a>
         <a class="btn" href="slides/jet-flush-model.pdf" target="_blank" rel="noopener">Slides, PDF</a>
       </div>
-      <p class="muted">Sources for the figures on this page are on the <a href="sources.html">sources and references page</a>. The flush times, the 540-design search and the iteration counts were measured with this simulator; the 2-hour CFD run is the medium-mesh OpenFOAM run of the CFD check (its computing time, without time the computer was asleep; a coarser mesh took 23 minutes); the one-day iteration comes from the Geberit report by CADFEM; the example hourly rate in the calculator from freelancermap's survey of freelance engineers in Germany.</p>
+      <p class="muted">Sources for the figures on this page are on the <a href="sources.html">sources and references page</a>. The flush times, the 540-design search and the iteration counts were measured with this simulator; the 2-hour CFD run is the medium-mesh OpenFOAM run of the CFD check (its computing time, without time the computer was asleep; a coarser mesh took 23 minutes); the one-day iteration comes from the Geberit report by CADFEM; the shrinkage figures in the development chain from a published firing simulation study; the example hourly rate in the calculator from freelancermap's survey of freelance engineers in Germany.</p>
     </section>
 
     <footer class="foot">

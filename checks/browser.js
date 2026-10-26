@@ -360,6 +360,17 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   await page.click('#value [data-act="clear"]');
   ok('Why page calculator: Clear empties every field', await page.evaluate(() => Object.values(FlushValueUI.first().values()).every((v) => v === '')));
   ok('Why page: the call to action offers the demo, the simulator and a contact for a workshop', await page.evaluate(() => { const t = document.getElementById('next').innerText; return t.includes('Start the guided demo') && t.includes('ask for a workshop'); }));
+  // why page (2.1.1): the development chain, the roles and the levels; players are named by role, never by company
+  const wc = await page.evaluate(() => { const txt = ['chain', 'roles', 'levels'].map((id) => (document.getElementById(id) || { innerText: '' }).innerText).join('\n');
+    return { steps: document.querySelectorAll('#chain .chain li').length, chips: [...document.querySelectorAll('#chain .chip')].map((c) => c.textContent), roles: document.querySelectorAll('#roles .role').length, us: !!document.querySelector('#roles .role.us'),
+      rows: document.querySelectorAll('#levels tbody tr').length, cells: [...document.querySelectorAll('#levels tbody tr')].every((r) => r.cells.length === 4 && [...r.cells].every((c) => c.textContent.trim() && c.dataset.label)),
+      names: ['Duravit', 'Sacmi', 'SACMI', 'Synera', 'Dassault', 'LIXIL', 'HygieneFlush', 'Geberit', 'Villeroy', 'TOTO', 'Siemens', 'Ansys'].filter((n) => txt.includes(n)) }; });
+  ok('Why page (2.1.1): the development chain has six steps, each saying in words what the fast model does there', wc.steps === 6 && wc.chips.length === 6 && wc.chips.filter((c) => c.startsWith('Helps today')).length === 2 && wc.chips.includes('Possible next step'), wc);
+  ok('Why page (2.1.1): six roles with ours marked, the six-level table complete, and no company named in the chain, the roles or the levels', wc.roles === 6 && wc.us && wc.rows === 6 && wc.cells && wc.names.length === 0, wc);
+  await page.setViewportSize({ width: 375, height: 800 }); await page.waitForTimeout(300);
+  const wp = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, head: getComputedStyle(document.querySelector('#levels thead')).display, label: getComputedStyle(document.querySelector('#levels tbody td:nth-child(2)'), '::before').content, cols: getComputedStyle(document.querySelector('#chain .chain')).gridTemplateColumns.split(' ').length }));
+  ok('Why page (2.1.1) on a phone: no sideways scrolling, the chain in one column, the levels table as one card per level with labelled cells', wp.sw <= 375 && wp.head === 'none' && wp.label.includes('Today') && wp.cols === 1, wp);
+  await page.setViewportSize({ width: 1400, height: 1000 });
 
   // explore page (2.1.1): the guide loads, its links into the simulator point at sections that exist
   await page.goto(base + 'explore.html'); await page.waitForTimeout(300);
