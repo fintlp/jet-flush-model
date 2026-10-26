@@ -317,6 +317,8 @@ Then money, with example values. Say one engineer works the whole day on an iter
 
 So the break-even: a fast model pays for itself within a year if building and calibrating it costs less than ${eur(ex.breakEven)}. We do not put a number on the building effort, because we have no measured figure for it; the calculator on the page takes your own estimate and gives the payback time.
 
+This counts only one lever, the number of iterations. A second lever multiplies with it: agent workflows that set up, run and evaluate each expensive run cut the time per iteration. We do not put a number on that here, because it depends on the workflow.
+
 Two cautions. The iteration counts come from a synthetic challenge, and race by race the saving varied from ${S.minSaved} to ${S.maxSaved}. And the money is only the people time. Finding a weak design weeks earlier, and getting to market sooner, is often worth much more.`);
 }
 
@@ -379,28 +381,30 @@ That is exactly the work a real project would do first. The next two slides show
   const sl = add('Message', 'What it means');
   kicker(sl, 'WHAT CHANGES ON EACH LEVEL');
   sl.addText('A new tool alone is not enough: six levels have to change', { placeholder: 'title' });
-  text(sl, 'Today as questions, since every company starts elsewhere. Step 1 is how a team starts; step 2 is where it can lead.', { x: 0.6, y: 1.5, w: 12.1, h: 0.45, fontSize: 15, color: MUTED, objectName: 'Lead' });
+  text(sl, 'Two levers multiply: AI-powered models cut the expensive iterations, agent workflows the time each one takes.', { x: 0.6, y: 1.5, w: 12.1, h: 0.45, fontSize: 15, color: MUTED, objectName: 'Lead' });
   const hd = (t, c) => ({ text: t, options: { bold: true, color: c || WHITE, fill: { color: NAVY }, fontSize: 12.5 } });
   const rows = [
     ['Value', 'How long does a new variant take, and what does it cost?', 'More variants per year, fewer prototypes and mould corrections', 'Quicker reaction to market needs, know-how kept in models'],
-    ['Organization and people', 'Where do projects wait: design, CFD, test rig, mould shop?', 'Design, hydraulics and mould teams work on one shared model', 'New roles, clear rules on when to trust AI results'],
-    ['Process', 'How many loops from design to the first good fired piece?', 'Variants screened early, physical trials only to confirm', 'Agents run studies, engineers review and decide'],
-    ['Method', 'Is each step checked on its own, one design at a time?', 'Fast flush model calibrated with CFD and test data', 'Physics-informed networks, firing distortion prediction, designs derived from targets'],
-    ['Tool', 'Which CAD, CFD, FEM and test tools are in use?', 'Fast model next to the existing tools', 'Agent platform connecting CAD, simulation and mould design'],
+    ['Organization and people', 'Where do projects wait: design, CFD, test rig, mould shop?', 'Design, hydraulics and mould teams work on one shared model', 'New roles such as workflow owner; rules for trusting AI and agents'],
+    ['Process', 'How many loops from design to the first good fired piece?', 'Variants screened early; an agent workflow sets up and evaluates runs', 'Agents run whole studies across the chain, engineers review and decide'],
+    ['Method', 'Is each step checked on its own, one design at a time?', 'Fast flush model calibrated with CFD and test data', 'Physics-informed networks, firing distortion, designs from targets'],
+    ['Tool', 'Which CAD, CFD, FEM and test tools are in use?', 'Fast model, plus a first agent workflow from CAD to simulation', 'Agent platform connecting CAD, simulation and mould design'],
     ['Data', 'Are test, pilot casting and scan data reused?', 'Existing CFD and test results used for calibration', 'Each test, pilot casting and scan improves the models']];
   sl.addTable([[hd('Level'), hd('Today: questions to ask'), hd('Step 1: faster variants', '9FE3C9'), hd('Step 2: AI methods and agents', CYAN)],
     ...rows.map((r, i) => r.map((c, j) => ({ text: c, options: { bold: j === 0, italic: j === 1, color: j === 1 ? MUTED : NAVY, fill: { color: i % 2 ? WHITE : TINT }, fontSize: 12 } })))],
   { x: 0.6, y: 2.05, w: 12.1, colW: [2.3, 3.2, 3.3, 3.3], rowH: 0.58, border: { type: 'solid', pt: 0.75, color: LINE }, valign: 'middle', margin: [0.05, 0.1, 0.05, 0.1], fontFace: 'Ubuntu', objectName: 'Levels table' });
-  caveat(sl, 'Step 1 starts small: one design question, in the four steps on the next slide. Step 2 needs step 1 first: agents and AI methods only work well on calibrated models and clean data.', false, 6.4);
+  caveat(sl, 'Today as questions: every company starts elsewhere. Step 1 starts small, in the four steps on the next slide. Workflow agents can start in step 1; agents that search for designs need calibrated models.', false, 6.5);
   sl.addNotes(`A fast model is a tool, and a new tool on its own changes little. Faster development needs six levels to move together, from the value for the business down to the data underneath.
+
+Two levers make the biggest difference, and they multiply. The time a design question takes is the number of expensive iterations times the time each one takes. AI-powered models and methods cut the first: in the challenge, to less than half. Agentic engineering cuts the second: agents that set up, run and evaluate the expensive runs across CAD, meshing and simulation, so each iteration needs less of an engineer's time. Each lever helps on its own; together they change how engineering works. The demo measures the first lever only; what the second saves depends on the workflow.
 
 The first column holds questions, not answers, because every company starts from a different place. In a workshop we fill it in together: how long a new variant takes and what it costs, where projects wait, how many loops it takes to the first good fired piece, how each step is checked, which tools are in use, and whether test, pilot and scan data are reused.
 
-This is not a reason to change everything at once. Step 1 is what this demo shows, faster variants, and it is also how a team starts. More variants per year with fewer prototypes and mould corrections; design, hydraulics and mould teams working on one shared model; variants screened early and physical trials only to confirm; a fast flush model calibrated with CFD and test data; the fast model next to the existing tools; and existing results used for calibration.
+This is not a reason to change everything at once. Step 1 is what this demo shows, faster variants, and it is also how a team starts: more variants per year with fewer prototypes and mould corrections; design, hydraulics and mould teams working on one shared model; variants screened early, with a first agent workflow that sets up and evaluates the expensive runs; a fast flush model calibrated with CFD and test data; and existing results used for calibration.
 
-Step 2 is where the same work can lead: AI methods and agents. A quicker reaction to market needs, with know-how kept in models; new roles and clear rules on when to trust AI results; agents that run studies while engineers review and decide; physics-informed networks, prediction of firing distortion, and designs derived from targets; an agent platform connecting CAD, simulation and mould design; and models that get better with every test, pilot casting and scan.
+Step 2 is where the same work can lead: AI methods and agents. A quicker reaction to market needs, with know-how kept in models; new roles such as a workflow owner, and clear rules on when to trust AI and agent results; agents that run whole studies across the chain while engineers review and decide; physics-informed networks, prediction of firing distortion, and designs derived from targets; an agent platform connecting CAD, simulation and mould design; and models that get better with every test, pilot casting and scan.
 
-Step 2 needs step 1 first. Agents and AI methods only work well on calibrated models and clean data. And step 1 does not mean changing everything at once: it starts with one design question, in the four steps on the next slide.`);
+Agents that automate a workflow can start right away, in step 1. Agents that search for designs on their own need fast, calibrated models and clean data first. And step 1 does not mean changing everything at once: it starts with one design question, in the four steps on the next slide.`);
 }
 
 // ---------- 12 · how a team would start ----------
