@@ -83,7 +83,7 @@ pres.addSection({ title: 'Opening' });
   video(sl, { type: 'video', path: M('flush-playback.mp4'), cover: b64(M('playback.png')), x: 12.73 - v.w, y: 0.75, w: v.w, h: v.h, objectName: 'Flush playback video' });
   caption(sl, 'The fast model on the page: one flush, computed in 20 to 40 ms. Films on the wall, pool swirl, waste.', 12.73 - v.w, 0.82 + v.h, v.w, true);
   card(sl, 0.6, 4.05, 6.5, 1.45, 'Key message card', { fill: '122333', line: '1C3044' });
-  stat(sl, 1, 0.85, 4.12, 6.0, `${f1(S.perProject)} fewer expensive iterations`, `per design question in the typical project of our challenge: ${f1(S.medClassic)} → ${f1(S.medAi)}, about ${f1(S.perProject)} working days (synthetic reference, see slide 6)`, { color: CYAN, lc: WHITE, size: 24, vh: 0.5, lh: 0.75, ls: 13.5 });
+  stat(sl, 1, 0.85, 4.12, 6.0, `${f1(S.perProject)} fewer expensive iterations`, `per design question in the typical project of our challenge: ${f1(S.medClassic)} → ${f1(S.medAi)}, about ${f1(S.perProject)} working days (synthetic reference, see slide 7)`, { color: CYAN, lc: WHITE, size: 24, vh: 0.5, lh: 0.75, ls: 13.5 });
   card(sl, 0.6, 5.68, 6.5, 0.55, 'Live link card', { fill: '122333', line: '1C3044' });
   sl.addText([{ text: 'Try it live   ', options: { bold: true, color: WHITE } }, { text: 'fintlp.github.io/jet-flush-model', options: { color: CYAN, hyperlink: { url: LIVE } } }], { x: 0.85, y: 5.68, w: 6.1, h: 0.55, fontSize: 15, valign: 'middle', margin: 0, isTextBox: true, objectName: 'Live link' });
   caveat(sl, 'A demonstrator: the model is physics-based but not yet calibrated against real bowls; the challenge uses a synthetic reference; the CFD is a second simulation of one design. Each slide says what is measured and what is assumed.', true);
@@ -93,7 +93,7 @@ The example is a rimless toilet flush: rim jets wash the bowl, the pool swirls, 
 
 The main message: in our engineering challenge, the typical design question needed ${f1(S.perProject)} fewer expensive iterations when a fast model learned from every expensive run, ${f1(S.medClassic)} against ${f1(S.medAi)}. At about one working day per iteration that is about ${f1(S.perProject)} working days per design question. The challenge uses a synthetic reference instead of real CFD, so read this as a demonstration of the mechanism, not as a result from a real project.
 
-The deck goes: the problem (slide 2), the approach (3), three proofs on the page (4 to 6), what it is worth and how to calculate it for your own team (7), where else it applies (8), the whole development chain and who does what in it (9), what changes on each level of a development (10), what is and is not shown (11), how a team would start (12), and what to do next (13).
+The deck goes: the problem (slide 2), the approach (3), where it fits in the development of a sanitary product (4), three proofs on the page (5 to 7), what it is worth and how to calculate it for your own team (8), where else it applies (9), what is and is not shown (10), what changes on each level of a development (11), how a team would start and who does what (12), and what to do next (13).
 
 Everything shown runs live at fintlp.github.io/jet-flush-model.`);
 }
@@ -169,7 +169,42 @@ Third, high fidelity where it counts. CFD, the test rig or a prototype check the
 The loop closes because every expensive run is used twice: for the decision, and to improve the fast model for the next question.`);
 }
 
-// ---------- 4 · proof 1, the fast model ----------
+// ---------- 4 · where it fits: the development chain ----------
+{
+  const sl = add('Message', 'Problem and approach');
+  kicker(sl, 'WHERE IT FITS');
+  sl.addText('CFD is one of six steps, and the fast model helps in two', { placeholder: 'title' });
+  text(sl, 'A new toilet goes through six steps. Each can send a design back; the costly loops are often in moulds and firing.', { x: 0.6, y: 1.5, w: 12.1, h: 0.45, fontSize: 15, color: MUTED, objectName: 'Lead' });
+  const steps = [
+    ['Industrial design', 'Shape, look and user needs; sketches, renderings, market feedback', 'Not in the model', 'off'],
+    ['Product engineering', 'Hydraulics, structure, interfaces, ceramic design rules', 'Helps today: hydraulics', 'now'],
+    ['Prototypes and tests', 'Prototypes, flush tests on the rig, EN 997 type tests', 'Helps today: fewer rounds', 'now'],
+    ['Moulds and firing', 'Moulds, pilot casting, firing, mould correction; about 10\u00a0% shrinkage in firing', 'Possible next step', 'next'],
+    ['Series production', 'Slip and glaze, casting, drying, glazing, firing, sorting', 'Not in the model', 'off'],
+    ['Certification', 'Type tests, factory production control, CE marking', 'Not in the model', 'off']];
+  const gw = 0.15, W = (12.13 - gw * 5) / 6, y0 = 2.1, H = 2.45;
+  steps.forEach(([h, d, st, k], i) => {
+    const x = 0.6 + i * (W + gw);
+    sl.addShape(pres.shapes.ROUNDED_RECTANGLE, { x, y: y0, w: W, h: H, rectRadius: 0.1, fill: { color: k === 'now' ? 'DCEFE9' : k === 'next' ? 'E3EEF5' : TINT }, line: { color: k === 'now' ? GREEN : k === 'next' ? BLUE : LINE, width: k === 'off' ? 0.75 : 1.25, dashType: k === 'next' ? 'dash' : 'solid' }, objectName: `Chain step ${i + 1} card` });
+    dot(sl, x + 0.12, y0 + 0.12, 0.42, i + 1, { name: `Chain step ${i + 1}`, size: 13, fill: k === 'now' ? GREEN : k === 'next' ? BLUE : MUTED });
+    sl.addText([{ text: h, options: { bold: true, color: NAVY, fontSize: 13.5, breakLine: true } }, { text: d, options: { color: NAVY, fontSize: 11.5 } }], { x: x + 0.12, y: y0 + 0.65, w: W - 0.24, h: 1.25, margin: 0, valign: 'top', isTextBox: true, objectName: `Chain step ${i + 1} text` });
+    sl.addText(st, { x: x + 0.12, y: y0 + H - 0.42, w: W - 0.24, h: 0.34, fontSize: 11, bold: true, color: k === 'now' ? GREEN : k === 'next' ? BLUE : MUTED, margin: 0, valign: 'bottom', isTextBox: true, objectName: `Chain step ${i + 1} status` });
+  });
+  card(sl, 0.6, 4.8, 12.13, 1.5, 'Where it fits card', { fill: 'D7E8F2', line: BLUE });
+  sl.addText([{ text: 'Today ', options: { bold: true, color: BLUE } }, { text: 'the fast model helps with the hydraulics in product engineering, and saves prototype rounds in testing. ', options: { color: NAVY, breakLine: true } },
+    { text: 'Next ', options: { bold: true, color: BLUE } }, { text: 'it could be linked with the firing: a flush optimised in simulation only reaches the bathroom if the mould allows for shrinkage and sagging in the kiln. Published finite element work predicts the fired shape to within a few percent.', options: { color: NAVY } }],
+  { x: 0.85, y: 4.85, w: 11.65, h: 1.4, fontSize: 14.5, valign: 'middle', margin: 0, paraSpaceAfter: 6, isTextBox: true, objectName: 'Where it fits text' });
+  caveat(sl, 'Shrinkage and sagging from published work on sanitary ware firing (sources page, section 11). The fast model covers the hydraulics only; the other steps are not part of it.', false, 6.42);
+  sl.addNotes(`Before the proofs, a word on where this fits. CFD is only one step in the development of a sanitary product.
+
+A new toilet goes through six steps. Industrial design sets the shape and the look. Product engineering covers the hydraulics, the structure of a wall-hung pan, the interfaces to cistern, frame and seat, and the design rules of ceramics. Prototypes are milled or printed and tested on the rig, and type tests follow EN 997. Then the moulds: mould design and making, pilot casting, drying and firing, and correcting the mould. The piece shrinks about 3 percent in drying and about 10 percent in firing, and it sags under its own weight in the kiln. After that come series production, and certification and quality.
+
+Each step can send a design back to an earlier one, and the most expensive loops are often in moulds and firing, not in simulation.
+
+The fast model helps today in two steps: in product engineering, for the hydraulics, and in prototypes and tests, because fewer designs need a prototype. A possible next step links the hydraulics with the firing. A flush optimised in simulation only reaches the bathroom if the mould allows for the shrinkage and sagging, and published work shows that finite element models can predict the fired shape to within a few percent. Industrial design, structure and production are not part of the fast model.`);
+}
+
+// ---------- 5 · proof 1, the fast model ----------
 pres.addSection({ title: 'Three proofs on the page' });
 {
   const sl = add('Message', 'Three proofs on the page');
@@ -194,7 +229,7 @@ The chart shows the search: each dot is one simulated flush, the curve the best 
 The numbers are estimates from a model that is not calibrated yet. The point is the speed of the loop, and that the result is a candidate for an expensive check, not a final answer.`);
 }
 
-// ---------- 5 · proof 2, checked against CFD ----------
+// ---------- 6 · proof 2, checked against CFD ----------
 {
   const sl = add('Message', 'Three proofs on the page');
   kicker(sl, '2 · CHECKED AGAINST CFD');
@@ -220,7 +255,7 @@ On the totals they are close: the CFD cleans ${pct(C.cClean)} of the wall, the f
 This is a second simulation of one design, not a measurement and not a validation. Whether the fast model gets the effect of design changes right needs CFD runs of several designs. That is why the next step matters: let the expensive runs correct the fast model during the design.`);
 }
 
-// ---------- 6 · proof 3, AI in the loop ----------
+// ---------- 7 · proof 3, AI in the loop ----------
 {
   const sl = add('Message', 'Three proofs on the page');
   kicker(sl, '3 · AI IN THE ENGINEERING LOOP');
@@ -253,7 +288,7 @@ AI-assisted: the same fast model, plus a correction learned after every expensiv
 Important: the expensive runs here come from a synthetic reference, the fast model with other coefficients and effects, not real CFD. It shows the mechanism, not a measured result. A hold-out set of eight more races, never used for tuning, gives the same picture.`);
 }
 
-// ---------- 7 · what it is worth ----------
+// ---------- 8 · what it is worth ----------
 pres.addSection({ title: 'What it means' });
 {
   const sl = add('Message', 'What it means');
@@ -285,7 +320,7 @@ So the break-even: a fast model pays for itself within a year if building and ca
 Two cautions. The iteration counts come from a synthetic challenge, and race by race the saving varied from ${S.minSaved} to ${S.maxSaved}. And the money is only the people time. Finding a weak design weeks earlier, and getting to market sooner, is often worth much more.`);
 }
 
-// ---------- 8 · beyond the toilet ----------
+// ---------- 9 · beyond the toilet ----------
 {
   const sl = add('Message', 'What it means');
   kicker(sl, 'BEYOND THE TOILET');
@@ -308,87 +343,7 @@ The same pattern fits wherever design decisions wait for expensive simulations o
 In each case the three words of the calculator translate directly: a fast model of the main mechanisms, an expensive run that decides, and an iteration that costs a day or more. These rows are examples of where the pattern applies; none of these fast models is part of this demo.`);
 }
 
-// ---------- 9 · the whole development chain, and who does what ----------
-{
-  const sl = add('Message', 'What it means');
-  kicker(sl, 'MORE THAN CFD');
-  sl.addText('CFD is one of six steps, and the fast model helps in two', { placeholder: 'title' });
-  text(sl, 'Each step can send a design back. The costly loops are often in moulds and firing, not in simulation.', { x: 0.6, y: 1.5, w: 12.1, h: 0.45, fontSize: 15, color: MUTED, objectName: 'Lead' });
-  const steps = [
-    ['Industrial design', 'Shape, look and what users need', 'Not in the model', 'off'],
-    ['Product engineering', 'Hydraulics, structure, interfaces, ceramic design rules', 'Helps today: hydraulics', 'now'],
-    ['Prototypes and tests', 'Prototypes, rig tests, EN 997 type tests', 'Helps today: fewer rounds', 'now'],
-    ['Moulds and firing', 'Mould, pilot casting; about 10 % shrinkage in firing, sagging', 'Possible next step', 'next'],
-    ['Series production', 'Casting, glazing, firing, sorting', 'Not in the model', 'off'],
-    ['Certification', 'Type tests, production control, CE marking', 'Not in the model', 'off']];
-  const gw = 0.15, W = (12.13 - gw * 5) / 6, y0 = 2.05, H = 1.6;
-  steps.forEach(([h, d, s, k], i) => {
-    const x = 0.6 + i * (W + gw);
-    sl.addShape(pres.shapes.ROUNDED_RECTANGLE, { x, y: y0, w: W, h: H, rectRadius: 0.1, fill: { color: k === 'now' ? 'DCEFE9' : k === 'next' ? 'E3EEF5' : TINT }, line: { color: k === 'now' ? GREEN : k === 'next' ? BLUE : LINE, width: k === 'off' ? 0.75 : 1.25, dashType: k === 'next' ? 'dash' : 'solid' }, objectName: `Chain step ${i + 1} card` });
-    sl.addText([{ text: `${i + 1} · ${h}`, options: { bold: true, color: NAVY, fontSize: 12.5, breakLine: true } }, { text: d, options: { color: NAVY, fontSize: 10.5 } }], { x: x + 0.1, y: y0 + 0.08, w: W - 0.2, h: 1.0, margin: 0, valign: 'top', isTextBox: true, objectName: `Chain step ${i + 1} text` });
-    sl.addText(s, { x: x + 0.1, y: y0 + H - 0.42, w: W - 0.2, h: 0.34, fontSize: 10.5, bold: true, color: k === 'now' ? GREEN : k === 'next' ? BLUE : MUTED, margin: 0, valign: 'bottom', isTextBox: true, objectName: `Chain step ${i + 1} status` });
-  });
-  text(sl, 'Who does what, by role', { x: 0.6, y: 3.85, w: 6, h: 0.3, fontSize: 14, bold: true, objectName: 'Roles heading' });
-  const ry = 4.2, rh = 1.0, rg = 0.12, mw = 2.75;
-  card(sl, 0.6, ry, mw, rh * 2 + rg, 'Role manufacturer card', { fill: 'E3EEF5', line: PALE });
-  sl.addText([{ text: 'The manufacturer', options: { bold: true, color: NAVY, fontSize: 13, breakLine: true } }, { text: 'Owns the product, the brand, the know-how and the data, and makes the decisions.', options: { color: NAVY, fontSize: 11.5 } }], { x: 0.75, y: ry + 0.12, w: mw - 0.3, h: rh * 2 - 0.1, margin: 0, valign: 'top', isTextBox: true, objectName: 'Role manufacturer text' });
-  const roles = [
-    ['CAD and simulation software vendors', 'Tools for design, CFD and FEM, licensed to the manufacturer.'],
-    ['AI and agent platforms', 'Connect tools and run studies automatically.'],
-    ['Equipment and plant suppliers', 'Machines and plants, moulds, ceramic process know-how, pilot trials, factory software.'],
-    ['Research institutes', 'New methods, such as physics-informed AI or firing simulation.'],
-    ['Our role: engineering partner', 'Fast models on the manufacturer\'s own data, connecting its tools, method and process change, extra capacity.', 'us']];
-  const gx = 0.6 + mw + 0.15, cw = (12.73 - gx - 0.15 * 2) / 3;
-  roles.forEach(([h, d, us], i) => {
-    const x = gx + (i % 3) * (cw + 0.15), y = ry + Math.floor(i / 3) * (rh + rg);
-    card(sl, x, y, cw, rh, `Role ${i + 1} card`, us ? { fill: 'D7E8F2', line: BLUE } : {});
-    sl.addText([{ text: h, options: { bold: true, color: us ? BLUE : NAVY, fontSize: 12, breakLine: true } }, { text: d, options: { color: NAVY, fontSize: 10.5 } }], { x: x + 0.12, y: y + 0.08, w: cw - 0.24, h: rh - 0.12, margin: 0, valign: 'top', isTextBox: true, objectName: `Role ${i + 1} text` });
-  });
-  const kx = gx + 2 * (cw + 0.15), ky = ry + rh + rg;
-  card(sl, kx, ky, cw, rh, 'Key message card', { fill: NAVY, line: NAVY });
-  sl.addText('We don\'t build machines and we don\'t add one more tool. We help the people and tools you have work faster together.', { x: kx + 0.12, y: ky + 0.05, w: cw - 0.24, h: rh - 0.1, fontSize: 11.5, bold: true, color: WHITE, margin: 0, valign: 'middle', isTextBox: true, objectName: 'Key message' });
-  caveat(sl, 'Players named by role, not by company. Shrinkage figures from published work on sanitary ware firing (sources page, section 11). The fast model covers the hydraulics only.', false, 6.5);
-  sl.addNotes(`CFD is only one step in the development of a sanitary product, and it is worth being clear about where a fast model helps and where it does not.
-
-A new toilet goes through six steps. Industrial design sets the shape and the look. Product engineering covers the hydraulics, the structure of a wall-hung pan, the interfaces to cistern, frame and seat, and the design rules of ceramics. Prototypes are milled or printed and tested on the rig, and type tests follow EN 997. Then the moulds: mould design and making, pilot casting, drying and firing, and correcting the mould. The piece shrinks about 3 percent in drying and about 10 percent in firing, and it sags under its own weight in the kiln. After that comes series production, and finally certification and quality.
-
-The fast model helps today in product engineering, for the hydraulics, and in prototypes and tests, because fewer designs need a prototype. A possible next step links the hydraulics with the firing: a flush optimised in simulation only reaches the bathroom if the mould allows for the shrinkage and sagging. The other steps are not part of the model.
-
-Many players work on this, and we name them by role. The manufacturer owns the product, the know-how and the data, and makes the decisions. Software vendors provide CAD, CFD and FEM tools. AI and agent platforms connect tools and run studies. Equipment and plant suppliers bring the machines and plants, moulds, ceramic process know-how, pilot trials and factory software. Research institutes bring new methods.
-
-Our role is the engineering partner: fast models built on the manufacturer's own data, connecting the tools it already uses, changing methods and processes together with its engineers, and extra capacity when it is needed. We don't build machines, and we don't add one more tool.`);
-}
-
-// ---------- 10 · what changes on each level ----------
-{
-  const sl = add('Message', 'What it means');
-  kicker(sl, 'WHAT CHANGES ON EACH LEVEL');
-  sl.addText('A new tool alone is not enough: six levels have to change', { placeholder: 'title' });
-  text(sl, 'Today as questions, since every company starts elsewhere. Step 1 is what the demo shows; step 2 is where it can lead.', { x: 0.6, y: 1.5, w: 12.1, h: 0.45, fontSize: 15, color: MUTED, objectName: 'Lead' });
-  const hd = (t, c) => ({ text: t, options: { bold: true, color: c || WHITE, fill: { color: NAVY }, fontSize: 12.5 } });
-  const rows = [
-    ['Value', 'How long does a new variant take, and what does it cost?', 'More variants per year, fewer prototypes and mould corrections', 'Quicker reaction to market needs, know-how kept in models'],
-    ['Organization and people', 'Where do projects wait: design, CFD, test rig, mould shop?', 'Design, hydraulics and mould teams work on one shared model', 'New roles, clear rules on when to trust AI results'],
-    ['Process', 'How many loops from design to the first good fired piece?', 'Variants screened early, physical trials only to confirm', 'Agents run studies, engineers review and decide'],
-    ['Method', 'Is each step checked on its own, one design at a time?', 'Fast flush model calibrated with CFD and test data', 'Physics-informed networks, firing distortion prediction, designs derived from targets'],
-    ['Tool', 'Which CAD, CFD, FEM and test tools are in use?', 'Fast model next to the existing tools', 'Agent platform connecting CAD, simulation and mould design'],
-    ['Data', 'Are test, pilot casting and scan data reused?', 'Existing CFD and test results used for calibration', 'Each test, pilot casting and scan improves the models']];
-  sl.addTable([[hd('Level'), hd('Today: questions to ask'), hd('Step 1: faster variants', '9FE3C9'), hd('Step 2: AI methods and agents', CYAN)],
-    ...rows.map((r, i) => r.map((c, j) => ({ text: c, options: { bold: j === 0, italic: j === 1, color: j === 1 ? MUTED : NAVY, fill: { color: i % 2 ? WHITE : TINT }, fontSize: 12 } })))],
-  { x: 0.6, y: 2.05, w: 12.1, colW: [2.3, 3.2, 3.3, 3.3], rowH: 0.58, border: { type: 'solid', pt: 0.75, color: LINE }, valign: 'middle', margin: [0.05, 0.1, 0.05, 0.1], fontFace: 'Ubuntu', objectName: 'Levels table' });
-  caveat(sl, 'Step 2 needs step 1 first: agents and AI methods only work well on calibrated models and clean data.', false, 6.4);
-  sl.addNotes(`A fast model is a tool, and a new tool on its own changes little. Faster development needs six levels to move together, from the value for the business down to the data underneath.
-
-The first column holds questions, not answers, because every company starts from a different place. In a workshop we fill it in together: how long a new variant takes and what it costs, where projects wait, how many loops it takes to the first good fired piece, how each step is checked, which tools are in use, and whether test, pilot and scan data are reused.
-
-Step 1 is what this demo shows: faster variants. More variants per year with fewer prototypes and mould corrections; design, hydraulics and mould teams working on one shared model; variants screened early and physical trials only to confirm; a fast flush model calibrated with CFD and test data; the fast model next to the existing tools; and existing results used for calibration.
-
-Step 2 is where the same work can lead: AI methods and agents. A quicker reaction to market needs, with know-how kept in models; new roles and clear rules on when to trust AI results; agents that run studies while engineers review and decide; physics-informed networks, prediction of firing distortion, and designs derived from targets; an agent platform connecting CAD, simulation and mould design; and models that get better with every test, pilot casting and scan.
-
-Step 2 needs step 1 first. Agents and AI methods only work well on calibrated models and clean data.`);
-}
-
-// ---------- 11 · what is shown, and what is not yet ----------
+// ---------- 10 · what is shown, and what is not yet ----------
 {
   const sl = add('Message', 'What it means');
   kicker(sl, 'HONEST ABOUT THE LIMITS');
@@ -416,7 +371,36 @@ What it shows: the fast model solves its own equations correctly, checked by 61 
 
 What it does not show yet: the coefficients have not been calibrated against real bowls on a rig. Only one design was compared with CFD, so whether the fast model gets design trends right is open. The expensive runs in the challenge come from a synthetic reference, not real CFD. And noise is a relative indicator that has not been fitted to real recordings.
 
-That is exactly the work a real project would do first, and the next slide shows the steps.`);
+That is exactly the work a real project would do first. The next two slides show what changes in a team, and how it would start.`);
+}
+
+// ---------- 11 · what changes on each level ----------
+{
+  const sl = add('Message', 'What it means');
+  kicker(sl, 'WHAT CHANGES ON EACH LEVEL');
+  sl.addText('A new tool alone is not enough: six levels have to change', { placeholder: 'title' });
+  text(sl, 'Today as questions, since every company starts elsewhere. Step 1 is how a team starts; step 2 is where it can lead.', { x: 0.6, y: 1.5, w: 12.1, h: 0.45, fontSize: 15, color: MUTED, objectName: 'Lead' });
+  const hd = (t, c) => ({ text: t, options: { bold: true, color: c || WHITE, fill: { color: NAVY }, fontSize: 12.5 } });
+  const rows = [
+    ['Value', 'How long does a new variant take, and what does it cost?', 'More variants per year, fewer prototypes and mould corrections', 'Quicker reaction to market needs, know-how kept in models'],
+    ['Organization and people', 'Where do projects wait: design, CFD, test rig, mould shop?', 'Design, hydraulics and mould teams work on one shared model', 'New roles, clear rules on when to trust AI results'],
+    ['Process', 'How many loops from design to the first good fired piece?', 'Variants screened early, physical trials only to confirm', 'Agents run studies, engineers review and decide'],
+    ['Method', 'Is each step checked on its own, one design at a time?', 'Fast flush model calibrated with CFD and test data', 'Physics-informed networks, firing distortion prediction, designs derived from targets'],
+    ['Tool', 'Which CAD, CFD, FEM and test tools are in use?', 'Fast model next to the existing tools', 'Agent platform connecting CAD, simulation and mould design'],
+    ['Data', 'Are test, pilot casting and scan data reused?', 'Existing CFD and test results used for calibration', 'Each test, pilot casting and scan improves the models']];
+  sl.addTable([[hd('Level'), hd('Today: questions to ask'), hd('Step 1: faster variants', '9FE3C9'), hd('Step 2: AI methods and agents', CYAN)],
+    ...rows.map((r, i) => r.map((c, j) => ({ text: c, options: { bold: j === 0, italic: j === 1, color: j === 1 ? MUTED : NAVY, fill: { color: i % 2 ? WHITE : TINT }, fontSize: 12 } })))],
+  { x: 0.6, y: 2.05, w: 12.1, colW: [2.3, 3.2, 3.3, 3.3], rowH: 0.58, border: { type: 'solid', pt: 0.75, color: LINE }, valign: 'middle', margin: [0.05, 0.1, 0.05, 0.1], fontFace: 'Ubuntu', objectName: 'Levels table' });
+  caveat(sl, 'Step 1 starts small: one design question, in the four steps on the next slide. Step 2 needs step 1 first: agents and AI methods only work well on calibrated models and clean data.', false, 6.4);
+  sl.addNotes(`A fast model is a tool, and a new tool on its own changes little. Faster development needs six levels to move together, from the value for the business down to the data underneath.
+
+The first column holds questions, not answers, because every company starts from a different place. In a workshop we fill it in together: how long a new variant takes and what it costs, where projects wait, how many loops it takes to the first good fired piece, how each step is checked, which tools are in use, and whether test, pilot and scan data are reused.
+
+This is not a reason to change everything at once. Step 1 is what this demo shows, faster variants, and it is also how a team starts. More variants per year with fewer prototypes and mould corrections; design, hydraulics and mould teams working on one shared model; variants screened early and physical trials only to confirm; a fast flush model calibrated with CFD and test data; the fast model next to the existing tools; and existing results used for calibration.
+
+Step 2 is where the same work can lead: AI methods and agents. A quicker reaction to market needs, with know-how kept in models; new roles and clear rules on when to trust AI results; agents that run studies while engineers review and decide; physics-informed networks, prediction of firing distortion, and designs derived from targets; an agent platform connecting CAD, simulation and mould design; and models that get better with every test, pilot casting and scan.
+
+Step 2 needs step 1 first. Agents and AI methods only work well on calibrated models and clean data. And step 1 does not mean changing everything at once: it starts with one design question, in the four steps on the next slide.`);
 }
 
 // ---------- 12 · how a team would start ----------
@@ -432,15 +416,27 @@ pres.addSection({ title: 'Next steps' });
     ['Close the loop', 'optimisation on top, and every new expensive run correcting the model']];
   const W = 2.78, gap = 0.33;
   steps.forEach(([h, d], i) => {
-    const x = 0.6 + i * (W + gap), y = 1.95;
-    card(sl, x, y, W, 3.0, `Step ${i + 1} card`);
-    dot(sl, x + 0.25, y + 0.25, 0.62, i + 1, { name: `Step ${i + 1}`, size: 18 });
-    text(sl, h, { x: x + 0.25, y: y + 1.05, w: W - 0.5, h: 0.45, fontSize: 18, bold: true, objectName: `Step ${i + 1} heading` });
-    text(sl, d, { x: x + 0.25, y: y + 1.6, w: W - 0.5, h: 1.25, fontSize: 15, objectName: `Step ${i + 1} text` });
-    if (i < steps.length - 1) arrow(sl, x + W + 0.04, y + 1.5, x + W + gap - 0.04, y + 1.5, `Step arrow ${i + 1}`, BLUE);
+    const x = 0.6 + i * (W + gap), y = 1.75;
+    card(sl, x, y, W, 2.1, `Step ${i + 1} card`);
+    dot(sl, x + 0.2, y + 0.2, 0.5, i + 1, { name: `Step ${i + 1}`, size: 16 });
+    text(sl, h, { x: x + 0.85, y: y + 0.22, w: W - 1.0, h: 0.45, fontSize: 17, bold: true, valign: 'middle', objectName: `Step ${i + 1} heading` });
+    text(sl, d, { x: x + 0.2, y: y + 0.85, w: W - 0.4, h: 1.15, fontSize: 14, objectName: `Step ${i + 1} text` });
+    if (i < steps.length - 1) arrow(sl, x + W + 0.04, y + 1.05, x + W + gap - 0.04, y + 1.05, `Step arrow ${i + 1}`, BLUE);
   });
-  card(sl, 0.6, 5.3, 12.13, 1.2, 'Workshop card', { fill: 'D7E8F2', line: BLUE });
-  sl.addText([{ text: 'In a workshop ', options: { bold: true, color: BLUE } }, { text: 'we take one of your design questions through these steps on paper: where the loop waits, which mechanisms a fast model needs, which data you already have to calibrate it, and what it would save with your own figures.', options: { color: NAVY } }], { x: 0.85, y: 5.3, w: 11.65, h: 1.2, fontSize: 16, valign: 'middle', margin: 0, isTextBox: true, objectName: 'Workshop text' });
+  text(sl, 'Who does what', { x: 0.6, y: 4.05, w: 6, h: 0.3, fontSize: 14, bold: true, objectName: 'Roles heading' });
+  const roles = [
+    ['You, the manufacturer', 'Own the product, the know-how and the data, and make the decisions.'],
+    ['Software vendors and AI platforms', 'CAD, CFD and FEM tools; agents that connect tools and run studies.'],
+    ['Equipment and plant suppliers', 'Machines and plants, moulds, ceramic process know-how, pilot trials.'],
+    ['Us, the engineering partner', 'Fast models on your data, connecting your tools, method change, extra capacity.', 'us']];
+  const RW = (12.13 - 0.15 * 3) / 4;
+  roles.forEach(([h, d, us], i) => {
+    const x = 0.6 + i * (RW + 0.15), y = 4.4;
+    card(sl, x, y, RW, 0.95, `Role ${i + 1} card`, us ? { fill: 'D7E8F2', line: BLUE } : {});
+    sl.addText([{ text: h, options: { bold: true, color: us ? BLUE : NAVY, fontSize: 12.5, breakLine: true } }, { text: d, options: { color: NAVY, fontSize: 11 } }], { x: x + 0.12, y: y + 0.07, w: RW - 0.24, h: 0.83, margin: 0, valign: 'top', isTextBox: true, objectName: `Role ${i + 1} text` });
+  });
+  card(sl, 0.6, 5.55, 12.13, 1.05, 'Workshop card', { fill: 'D7E8F2', line: BLUE });
+  sl.addText([{ text: 'In a workshop ', options: { bold: true, color: BLUE } }, { text: 'we take one of your design questions through these steps on paper: where the loop waits, which mechanisms a fast model needs, which data you already have to calibrate it, and what it would save with your own figures.', options: { color: NAVY } }], { x: 0.85, y: 5.55, w: 11.65, h: 1.05, fontSize: 15, valign: 'middle', margin: 0, isTextBox: true, objectName: 'Workshop text' });
   sl.addNotes(`How would a team start? Not with a platform, but with one design question.
 
 One: pick a recurring design question that today waits for CFD or tests. Recurring matters, because the fast model pays off over many questions.
@@ -450,6 +446,8 @@ Two: write down the main mechanisms with the people who know them, and build a f
 Three: calibrate it with CFD or test data the team already has, and check it on cases it has not seen.
 
 Four: close the loop. Put optimisation on top, and let every new expensive run correct the model, as in the challenge.
+
+Who does what in this? You, the manufacturer, own the product, the know-how and the data, and make the decisions. Software vendors and AI platforms bring the CAD, CFD and FEM tools, and agents that connect them. Equipment and plant suppliers bring the machines and plants, the moulds, the ceramic process know-how and the pilot trials. Our role is the engineering partner: we build the fast models on your data, connect the tools you already use, change methods and processes together with your engineers, and add capacity when it is needed. We don't build machines, and we don't add one more tool.
 
 In a workshop we take one of your design questions through these steps: where your loop waits, which mechanisms the fast model needs, which data you already have, and what it would save with your own figures in the calculator.`);
 }
