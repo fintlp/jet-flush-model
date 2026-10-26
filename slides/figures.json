@@ -1,5 +1,5 @@
 {
- "generated": "2026-10-21",
+ "generated": "2026-10-26",
  "preset": {
   "clean": 86.46302924569706,
   "solids": 99.24130294818156,
@@ -12,7 +12,7 @@
   "wallClock_s": 7420,
   "cores": 12,
   "end": 3.2,
-  "msModel": 37.5,
+  "msModel": 44.10000000000582,
   "cClean": 88.78646150318369,
   "mClean": 86.46323329820373,
   "cWet": 98.4348514964505,
@@ -112,7 +112,7 @@
   }
  },
  "optimiser": "Current design: cleaned 86 %, solids 99 %, paper 90 %, 4.5 L, score 91.0 (water 0.5 L over, cleaned 2 points short). Best design meeting all targets (highest score): cleaned 89 %, solids 99 %, paper 86 %, 4.0 L, noise −1.0 dB vs now (range −1.3 to −0.8), score 91.5. Load this design",
- "surrogate": "26.0 ms per flush with the physics model, 5.3 µs with the network: about 4,908 times faster.",
+ "surrogate": "32.7 ms per flush with the physics model, 7.6 µs with the network: about 4,334 times faster.",
  "demo": [
   {
    "step": "Part 1 of 4 · The fast model · Step 1 of 9",
@@ -153,7 +153,7 @@
   {
    "step": "Part 1 of 4 · The fast model · Step 7 of 9",
    "title": "Let the AI find a better design",
-   "text": "We asked the AI lab for a design that uses at most 4.0 L, less than now, and still cleans at least 89 %, with 95 % solids and 80 % paper removed, and is no louder than now. It may change the nozzles, jet angle and position, valve height and flush volume, but not the bowl. Done: 534 different designs simulated in 23.2 s, 43.4 ms each. Every recommendation and table row is checked at full resolution; the other points in the chart are quick estimates. 33 checked designs meet all targets. Best design meeting all targets (highest score): cleaned 89 %, solids 99 %, paper 84 %, 4.0 L, noise −1.1 dB vs now (range −1.3 to −1.0), score 91.0.",
+   "text": "We asked the AI lab for a design that uses at most 4.0 L, less than now, and still cleans at least 89 %, with 95 % solids and 80 % paper removed, and is no louder than now. It may change the nozzles, jet angle and position, valve height and flush volume, but not the bowl. Done: 534 different designs simulated in 17.3 s, 32.4 ms each. Every recommendation and table row is checked at full resolution; the other points in the chart are quick estimates. 33 checked designs meet all targets. Best design meeting all targets (highest score): cleaned 89 %, solids 99 %, paper 84 %, 4.0 L, noise −1.1 dB vs now (range −1.3 to −1.0), score 91.0.",
    "cont": false
   },
   {
@@ -165,19 +165,19 @@
   {
    "step": "Part 1 of 4 · The fast model · Step 9 of 9",
    "title": "Your turn",
-   "text": "Undo steps back one change at a time, Reset returns to the preset, and Pin as reference above the results compares every change with one fixed design. Each slider has an i button that explains it. Next: can we trust a model that answers in milliseconds? Part 2 puts it next to a full CFD simulation. Or end here: Finish brings your own design back. Bring my design back Keep this design Continue with part 2: Checked against CFD",
+   "text": "At the top of the panel on the left: the preset, Undo and Reset. Undo steps back one change at a time, Reset returns to the preset, and Pin as reference above the results compares every change with one fixed design. Full or partial flush is chosen next to Play flush. Each slider has an i button that explains it. Next: can we trust a model that answers in milliseconds? Part 2 puts it next to a full CFD simulation. Or end here: Finish brings your own design back. Bring my design back Keep this design Continue with part 2: Checked against CFD",
    "cont": true
   },
   {
    "step": "Part 2 of 4 · Checked against CFD · Step 1 of 5",
    "title": "How far can we trust the fast model?",
-   "text": "The fast model simplifies to answer in milliseconds. To see what that costs, we simulated the same bowl with the same jets in OpenFOAM, a full CFD code that simulates water and air in about 430,000 cells. For 3.2 s of flush, the CFD needed about 2 hours on 12 processor cores. The fast model: 68 ms.",
+   "text": "The fast model simplifies to answer in milliseconds. To see what that costs, we simulated the same bowl with the same jets in OpenFOAM, a full CFD code that simulates water and air in about 430,000 cells. For 3.2 s of flush, the CFD needed about 2 hours on 12 processor cores. The fast model: 40 ms.",
    "cont": false
   },
   {
    "step": "Part 2 of 4 · Checked against CFD · Step 2 of 5",
    "title": "When the water gets there",
-   "text": "Left the CFD, right the fast model, on the same colour scale. Dark means wetted early. In the end both wet nearly the whole wall: 98 % in the CFD, 96 % in the fast model by 3.2 s. The CFD gets there sooner: by 0.5 s 97 % against 87 %. The CFD wets most of the wall within half a second; the fast model reaches the lower wall later. The fast model gets this picture about 110 thousand times faster.",
+   "text": "Left the CFD, right the fast model, on the same colour scale. Dark means wetted early. In the end both wet nearly the whole wall: 98 % in the CFD, 96 % in the fast model by 3.2 s. The CFD gets there sooner: by 0.5 s 97 % against 87 %. The CFD wets most of the wall within half a second; the fast model reaches the lower wall later. The fast model gets this picture about 187 thousand times faster.",
    "cont": false
   },
   {
