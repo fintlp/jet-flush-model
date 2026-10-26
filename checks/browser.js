@@ -94,6 +94,18 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   await page.click('#undoBtn'); await page.waitForTimeout(100);
   ok('F05 first undo returns slider state', (await P()).alpha === 20, (await P()).alpha);
 
+  // 2.1.1: the design controls sit where they act: preset, Undo and Reset at the top of the left panel, the flush button next to Play flush
+  await fresh();
+  const lay = await page.evaluate(() => { const in_ = (id, sel) => !!document.getElementById(id).closest(sel); return { preset: in_('preset', '#railTop'), undo: in_('undoBtn', '#railTop'), reset: in_('resetBtn', '#railTop'), top: !!document.querySelector('#rail > #railTop:first-child'), full: in_('mFull', '.transport'), part: in_('mPart', '.transport'), header: document.querySelectorAll('header.top select, header.top button').length }; });
+  ok('Layout (2.1.1): preset, Undo and Reset at the top of the panel on the left, full or partial next to Play flush, no controls in the header', lay.preset && lay.undo && lay.reset && lay.top && lay.full && lay.part && lay.header === 0, lay);
+  await page.setViewportSize({ width: 390, height: 844 }); await page.waitForTimeout(300);
+  const lp = await page.evaluate(() => { const b = document.getElementById('mobarBtn').getBoundingClientRect(), f = document.getElementById('mFull').getBoundingClientRect(); return { phone: FlushApp.isPhone(), btn: b.width > 0 && b.bottom <= window.innerHeight + 1, full: f.width > 0, sw: document.documentElement.scrollWidth }; });
+  await page.click('#mobarBtn'); await page.waitForTimeout(400);
+  const lp2 = await page.evaluate(() => { const r = document.getElementById('preset').getBoundingClientRect(); return { visible: r.width > 0 && r.top >= 0 && r.bottom <= window.innerHeight }; });
+  await page.click('#mobarBtn'); await page.waitForTimeout(300);
+  ok('Layout (2.1.1) on a phone: Adjust design is on screen and opens the preset, Undo and Reset; full or partial stays next to Play flush; no sideways scrolling', lp.phone && lp.btn && lp.full && lp.sw <= 390 && lp2.visible, { lp, lp2 });
+  await page.setViewportSize({ width: 1400, height: 1000 }); await page.waitForTimeout(300);
+
   // F-05 demo leaves nothing behind
   await fresh();
   const preChips = await chips(), preUndo = await undoInfo();
@@ -107,6 +119,8 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   ok('Demo me: the AI search finds a design that meets every target (not only the closest one)', /meeting all targets/.test(demoBest) && !/No design met/.test(demoBest), demoBest.replace(/\s+/g, ' ').slice(0, 300));
   await next(); await page.waitForFunction(() => !document.getElementById('tourNext').disabled, null, { timeout: 60000 });
   ok('Demo me: the last step offers part 2 of the story, the CFD check', await page.evaluate(() => (document.getElementById('tourNextTour') || {}).textContent === 'Continue with part 2: Checked against CFD'));
+  const yt = await page.evaluate(() => { const sp = document.querySelector('.tour-spot').getBoundingClientRect(), rt = document.getElementById('railTop').getBoundingClientRect(); return { text: document.getElementById('tourText').innerText, spot: sp.width > 0 && sp.left <= rt.left + 1 && sp.right >= rt.right - 1 && sp.top <= rt.top + 1 && sp.bottom >= rt.bottom - 1 }; });
+  ok('Demo me (2.1.1): the last step points at the preset, Undo and Reset at the top of the panel on the left', yt.spot && yt.text.includes('top of the panel on the left') && yt.text.includes('Play flush'), yt);
   await page.click('#tourNext'); await page.waitForTimeout(300);   // Finish
   ok('F05 finish leaves no undo steps', (await undoInfo()).dis === preUndo.dis, await undoInfo());
   ok('F05 finish leaves no delta chips', (await chips()) === preChips, { before: preChips, after: await chips() });

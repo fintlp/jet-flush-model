@@ -62,20 +62,20 @@ button,select,input{font:inherit;color:inherit}
 .site a:hover{border-bottom-color:currentColor}
 /* header */
 .top{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,400px);gap:16px 40px;align-items:start;padding-bottom:18px;border-bottom:1px solid var(--line);margin-bottom:20px}
-.top .actions{grid-column:1 / -1;justify-content:flex-end}
 .whycard{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px;display:grid;gap:6px;align-self:start;margin-top:22px}
 .whycard .why-v{margin:0;font-size:17px;color:var(--ink)}
 .whycard .why-v b{font-family:var(--f-display);font-size:30px;color:var(--accent);margin-right:4px}
 .whycard .why-l{margin:0;font-size:13.5px;color:var(--muted)}
 .whycard .why-btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
 .whycard .btn{text-decoration:none}
-@media (max-width:860px){ .top{grid-template-columns:minmax(0,1fr)} .whycard{margin-top:0} .top .actions{justify-content:flex-start} }
+@media (max-width:860px){ .top{grid-template-columns:minmax(0,1fr)} .whycard{margin-top:0} }
 .top .title{display:grid;gap:6px;min-width:0;max-width:68ch}
 .top .lede{color:var(--muted);font-size:14px}
 .top .lede{color:var(--ink);font-size:15px}
 .top .lede-detail{color:var(--muted);font-size:13px;margin-top:2px}
 .top .lede-detail a{color:var(--accent)}
-.top .actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.rail-top{position:sticky;top:0;z-index:2;display:grid;grid-template-columns:minmax(0,1fr);gap:6px;justify-items:start;background:var(--bg);padding:2px 0 10px;border-bottom:1px solid var(--line)}
+.rail-top select{min-width:0;width:100%}
 .seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:8px;overflow:hidden;background:var(--surface)}
 .seg button{border:0;background:transparent;padding:7px 12px;cursor:pointer;font-size:13px;font-weight:500}
 .seg button+button{border-left:1px solid var(--line)}
@@ -373,20 +373,6 @@ a{color:var(--accent)}
       <p class="why-l">per design question in the typical project of our engineering challenge: <span data-vv="cl">10.5</span> → <span data-vv="ai">4.5</span>, about <span data-vv="days">6 working days</span>. Synthetic reference, explained step by step.</p>
       <div class="why-btns"><a class="btn primary" href="why.html" target="_blank" rel="noopener">Why we do this →</a><a class="btn" href="#value">What it saves your team</a></div>
     </aside>
-    <div class="actions">
-      <select id="preset" aria-label="Design preset">
-        <option value="washdown">Preset: EU washdown, 4.5/3 L</option>
-        <option value="siphonic">Preset: Siphonic, 4.8 L + 0.8 L refill</option>
-      </select>
-      <div class="seg" role="group" aria-label="Flush button">
-        <button type="button" id="mFull" aria-pressed="true">Full flush</button>
-        <button type="button" id="mPart" aria-pressed="false">Partial</button>
-      </div>
-      <div class="seg" role="group" aria-label="History">
-        <button type="button" id="undoBtn" disabled>Undo</button>
-        <button type="button" id="resetBtn" title="Back to the selected preset">Reset</button>
-      </div>
-    </div>
   </header>
 
   <p class="restored" id="restoredNote" role="status" hidden>Showing your last design from this browser. <button type="button" class="linkbtn" id="restoredReset">Reset to preset</button><button type="button" class="restored-x" id="restoredHide" aria-label="Hide this note">×</button></p>
@@ -407,7 +393,19 @@ a{color:var(--accent)}
   </nav>
 
   <div class="layout">
-    <aside class="rail" id="rail" aria-label="Design parameters"></aside>
+    <aside class="rail" id="rail" aria-label="Design parameters">
+      <div class="rail-top" id="railTop">
+        <span class="eyebrow">Your design</span>
+        <select id="preset" aria-label="Design preset">
+          <option value="washdown">Preset: EU washdown, 4.5/3 L</option>
+          <option value="siphonic">Preset: Siphonic, 4.8 L + 0.8 L refill</option>
+        </select>
+        <div class="seg" role="group" aria-label="History">
+          <button type="button" id="undoBtn" disabled>Undo</button>
+          <button type="button" id="resetBtn" title="Back to the selected preset">Reset</button>
+        </div>
+      </div>
+    </aside>
 
     <div class="main">
       <section class="panel" aria-label="Flush playback" id="sim">
@@ -432,6 +430,10 @@ a{color:var(--accent)}
         </div>
         <div class="transport">
           <button class="btn primary" type="button" id="play">Play flush</button>
+          <div class="seg" role="group" aria-label="Flush button">
+            <button type="button" id="mFull" aria-pressed="true">Full flush</button>
+            <button type="button" id="mPart" aria-pressed="false">Partial</button>
+          </div>
           <input type="range" id="scrub" min="0" max="10" step="0.02" value="1.6" aria-label="Flush time">
           <span class="tnow" id="tnow">1.60 s</span>
           <div class="seg" role="group" aria-label="Playback speed">
@@ -861,6 +863,6 @@ a{color:var(--accent)}
 <script src="field.js?v=26"></script>
 <script src="value-core.js?v=26"></script>
 <script src="value.js?v=26"></script>
-<script src="tour.js?v=26"></script>
+<script src="tour.js?v=27"></script>
 </body>
 </html>

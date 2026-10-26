@@ -17,8 +17,8 @@ const F = JSON.parse(fs.readFileSync(path.join(ROOT, 'slides', 'figures.json'), 
 global.window = global; require(path.join(ROOT, 'challenge-data.js'));
 const V = require(path.join(ROOT, 'value-core.js')), S = V.stats();
 const VERSION = 'v2.1.1', DATE = '26 October 2026', PDF = process.argv.includes('--pdf');
-// the story video was recorded with 2.1.0 and is unchanged in 2.1.1
-const REC = 'v2.1.0', REC_DATE = '22 October 2026';
+// the story video is recorded with tools/media.js from the same version
+const REC = VERSION, REC_DATE = DATE;
 const LIVE = 'https://fintlp.github.io/jet-flush-model/', CONTACT = 'https://fintlp.github.io/latest-news/#contact';
 // a video, or for the PDF its poster image
 const video = (sl, o) => (PDF ? sl.addImage({ data: o.cover, x: o.x, y: o.y, w: o.w, h: o.h, objectName: o.objectName }) : sl.addMedia(o));
