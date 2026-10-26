@@ -139,7 +139,7 @@ The coefficients that describe physics the model does not resolve (film friction
 
 ## Change log
 
-### 2.1.1 · in preparation
+### 2.1.1 · 26 October 2026
 
 A guide for people who want to explore the simulator on their own, and three new parts on the why page about the whole development of a sanitary product. The model and its results are unchanged.
 
