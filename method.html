@@ -94,7 +94,7 @@ h1,h2,h3,h4{letter-spacing:0}
 <body>
 <div class="wrap">
   <nav class="site" aria-label="Site">
-    <span class="navl"><a href="./">← Simulator</a><a href="why.html">Why</a><a href="sources.html">Sources and references</a></span>
+    <span class="navl"><a href="./">← Simulator</a><a href="why.html">Why</a><a href="sources.html">Sources and references</a><a href="explore.html">Explore it yourself</a></span>
     <a href="https://fintlp.github.io/latest-news/#contact" target="_blank" rel="noopener">Peter Fintl · Contact</a>
   </nav>
 
@@ -102,7 +102,7 @@ h1,h2,h3,h4{letter-spacing:0}
     <span class="eyebrow">Model description · Tangential Jet Flush Model</span>
     <h1>How the jet flush model works</h1>
     <p class="lede">A reduced-order model of a rimless WC flushed by tangential rim jets. It traces each jet as a film on the bowl wall, follows the pool level, swirl and trap flow, and estimates cleaning, waste removal, water use and relative noise. One flush takes about 20 to 40 milliseconds to compute in a web browser.</p>
-    <p class="meta">Version 2.1.0 · 22 October 2026 · the model is unchanged from 2.0.0 · <a href="https://github.com/fintlp/jet-flush-model#change-log">change log</a> · model code: <a href="https://github.com/fintlp/jet-flush-model/blob/main/model.js">model.js</a></p>
+    <p class="meta">Version 2.1.1 · the model is unchanged from 2.0.0 (21 October 2026) · <a href="https://github.com/fintlp/jet-flush-model#change-log">change log</a> · model code: <a href="https://github.com/fintlp/jet-flush-model/blob/main/model.js">model.js</a></p>
   </header>
 
   <div class="layout">
@@ -151,13 +151,13 @@ h1,h2,h3,h4{letter-spacing:0}
 
       <section id="using">
         <h2>2 · Using the simulator</h2>
-        <p>The simulator is built to be tried, not read. Every change recomputes the flush in milliseconds and shows how much it helped or hurt.</p>
+        <p>The simulator is built to be tried, not read. Every change recomputes the flush in milliseconds and shows how much it helped or hurt. For task-by-task recipes (a sensitivity study, a trade-off map, robustness, an optimisation, running many designs in Node) and where the model is known to be weak, see <a href="explore.html">Explore it yourself</a>.</p>
 
         <h3>Getting started</h3>
         <ul>
           <li><strong>Start here:</strong> the strip under the intro gives the three steps: set up a bowl, play the flush, let the AI lab search.</li>
           <li><strong>Demo me:</strong> the large button in that strip starts the guided walkthrough. Once you scroll past the strip, a small Demo me button appears in the section menu instead, so there is always exactly one on screen.</li>
-          <li><strong>Section menu:</strong> stays at the top while you scroll and jumps to Simulate, Results, Traces, Wall map, Sweep, Tolerances, CFD check, Challenge, AI lab or How it works.</li>
+          <li><strong>Section menu:</strong> stays at the top while you scroll and jumps to Simulate, Results, Traces, Wall map, Sweep, Tolerances, CFD check, Challenge, What it saves, AI lab or How it works.</li>
         </ul>
 
         <h3>Changing the design</h3>
@@ -635,7 +635,7 @@ F(a) = (2/a² − 1)(1 − a²) + ½ + 2 ln a + 1 − a²
 
       <section id="ailab">
         <h2>14 · AI lab</h2>
-        <p>The simulator has an AI lab with six tools, and the engineering challenge on the page puts several of them to work together. All use the physics model described above as their engine, and all run in the browser. They show different roles AI and data can play next to a physics model: searching designs, replacing the model with a faster learned copy, correcting the model with data, fitting it to measurements, learning from measurements and equations at once, and predicting whole result fields from expensive runs.</p>
+        <p>The simulator has an AI lab with six tools, and the engineering challenge on the page puts several of them to work together. Step-by-step tutorials with worked examples are on the <a href="tutorials.html">tutorials page</a>. All use the physics model described above as their engine, and all run in the browser. They show different roles AI and data can play next to a physics model: searching designs, replacing the model with a faster learned copy, correcting the model with data, fitting it to measurements, learning from measurements and equations at once, and predicting whole result fields from expensive runs.</p>
 
         <h3>Engineering challenge</h3>
         <p>The AI lab tools show single techniques. The challenge shows what they are for: fewer expensive runs before a design is done. A hidden reference model stands in for high-fidelity runs (CFD or a rig), and every run of it costs a virtual 8 hours, one run at a time. The fast flush model costs milliseconds and is not counted.</p>
@@ -698,7 +698,7 @@ F(a) = (2/a² − 1)(1 − a²) + ½ + 2 ln a + 1 − a²
           <li><strong>Checks:</strong> mean absolute error and R² on the unseen test designs, and the measured time per prediction against the physics model.</li>
         </ul>
         <p>The surrogate and the hybrid calibration below do not cover the noise indicator yet.</p>
-        <p>With 300 training flushes the network typically reaches an R² around 0.89 to 0.95 on unseen designs and answers in about 6 µs, a few thousand times faster than the physics model (about 4,500 to 5,000 times in the test browser; the page measures it). The physics model plays the part that high-fidelity runs (section 13) would play in practice. Trained on such runs, the same kind of network could be faster than a new high-fidelity run by a much larger factor. That is a rough expectation, not a benchmark, and each training run would cost minutes to hours.</p>
+        <p>With 300 training flushes on the EU washdown bowl made oval (1.35), the network reaches an R² of 0.83 for cleaning, 0.89 for solids and 0.93 for paper on unseen designs, with mean errors of 4 to 5 points (tutorial 2 on the tutorials page, <code>tools/tutorial-shots.js</code>; the 2.0 text said 0.89 to 0.95) and answers in about 6 µs, a few thousand times faster than the physics model (about 4,500 to 5,000 times in the test browser; the page measures it). The physics model plays the part that high-fidelity runs (section 13) would play in practice. Trained on such runs, the same kind of network could be faster than a new high-fidelity run by a much larger factor. That is a rough expectation, not a benchmark, and each training run would cost minutes to hours.</p>
 
         <h3>Hybrid calibration</h3>
         <p>An end-to-end run of the calibration workflow in <a href="#calibration">section 13</a>, against synthetic reference data.</p>
@@ -837,7 +837,7 @@ console.log(r.cleanPct, r.solidsPct, r.water, r.noise.peak);</div>
 
       <footer class="foot">
         <span class="navl"><a href="./">← Simulator</a><a href="why.html">Why</a><a href="sources.html">Sources and references</a></span>
-        <span>Tangential Jet Flush Model · v2.1.0 · Peter Fintl</span>
+        <span>Tangential Jet Flush Model · v2.1.1 · Peter Fintl</span>
       </footer>
     </main>
   </div>

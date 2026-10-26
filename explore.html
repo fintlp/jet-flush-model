@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="A guide to the Tangential Jet Flush Model for simulation engineers and for colleagues who present it: ten recipes, the settings, where to be careful, and a demo playbook.">
+<title>Explore It Yourself</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Ccircle cx=%2216%22 cy=%2216%22 r=%2215%22 fill=%22%230070ad%22/%3E%3Cpath d=%22M9 13a7 7 0 0 0 14 0%22 fill=%22none%22 stroke=%22%23fff%22 stroke-width=%223%22 stroke-linecap=%22round%22/%3E%3C/svg%3E">
+<link rel="preload" href="fonts/ubuntu-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/ubuntu-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+/* Layout: technical report. Narrow reading column with a sticky contents rail on wide screens; equations and tables sit in their own blocks. */
+:root{
+  --bg:#f3f5f8; --surface:#f9fafc; --raised:#ffffff; --ink:#0f2538; --muted:#52667a; --line:#d8e0e8; --line-strong:#a2b2c2;
+  --accent:#0070ad; --water:#3a8db6; --water-soft:#d6e9f2; --clean:#17876c; --solid:#8a5a2b; --warn:#8f5b08;
+  --f-display:"Ubuntu",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-body:"Ubuntu",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"Ubuntu Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --brand-1:#0070ad; --brand-2:#12abdb;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#08131d; --surface:#0d1b28; --raised:#122333; --ink:#e4ecf3; --muted:#8fa3b5; --line:#1c3044; --line-strong:#3e5a72;
+  --accent:#12abdb; --water:#4aa5d2; --water-soft:#1c3a48; --clean:#35b58e; --solid:#c48b52; --warn:#e2a646; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#08131d; --surface:#0d1b28; --raised:#122333; --ink:#e4ecf3; --muted:#8fa3b5; --line:#1c3044; --line-strong:#3e5a72;
+  --accent:#12abdb; --water:#4aa5d2; --water-soft:#1c3a48; --clean:#35b58e; --solid:#c48b52; --warn:#e2a646; color-scheme:dark }
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.62}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:20px 64px}
+a{color:var(--accent)}
+.site{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:22px;font-family:var(--f-display);font-weight:500;font-size:14px;letter-spacing:.02em}
+.site a{text-decoration:none}
+.site a:hover{text-decoration:underline}
+h1,h2,h3,h4{font-family:var(--f-display);text-wrap:balance;line-height:1.15;margin:0}
+h1{font-size:clamp(30px,4vw,44px);font-weight:700}
+h2{font-size:26px;font-weight:700;margin-top:56px;padding-top:12px;border-top:1px solid var(--line)}
+h3{font-size:19px;font-weight:500;margin-top:30px}
+h4{font-size:16px;font-weight:500;margin-top:20px}
+p,ul,ol{margin:12px 0 0;max-width:68ch}
+li{margin-top:4px}
+.eyebrow{font-family:var(--f-display);font-weight:500;font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.lede{font-size:18px;color:var(--muted);max-width:62ch;margin-top:12px}
+.meta{font-family:var(--f-mono);font-size:13px;color:var(--muted);margin-top:14px}
+.layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:48px;margin-top:34px;align-items:start}
+@media (max-width:900px){ .layout{grid-template-columns:minmax(0,1fr)} .toc{position:static!important;max-height:none!important} }
+.toc{position:sticky;top:calc(env(safe-area-inset-top, 0px) + 16px);max-height:calc(100vh - 32px);overflow:auto;font-size:14px;border-left:1px solid var(--line);padding-left:14px}
+.toc ol{list-style:none;padding:0;margin:8px 0 0}
+.toc li{margin:6px 0}
+.toc a{text-decoration:none;color:var(--ink)}
+.toc a:hover{color:var(--accent)}
+.toc .n{font-family:var(--f-mono);color:var(--muted);margin-right:6px;font-size:12.5px}
+main{min-width:0}
+main > section:first-child h2{margin-top:0}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin-top:18px;max-width:72ch}
+.box h4{margin-top:0}
+.box.note{border-color:var(--warn)}
+.eq{font-family:var(--f-mono);font-size:14.5px;background:var(--raised);border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-top:14px;max-width:72ch;overflow-x:auto;white-space:pre;line-height:1.7}
+.eq .c{color:var(--muted)}
+code{font-family:var(--f-mono);font-size:.9em;background:var(--raised);border:1px solid var(--line);border-radius:5px;padding:0 4px}
+.sym{font-style:italic;font-family:var(--f-body)}
+.tablewrap{overflow-x:auto;margin-top:16px;max-width:100%}
+table{border-collapse:collapse;font-size:14px;min-width:640px;width:100%;background:var(--raised);border:1px solid var(--line)}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--f-display);font-weight:500;font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--surface)}
+td.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+figure{margin:20px 0 0;max-width:100%}
+figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
+.diagram{overflow-x:auto;background:var(--raised);border:1px solid var(--line);border-radius:12px;padding:12px}
+.diagram svg{display:block;min-width:720px;width:100%;height:auto}
+.d-box{fill:var(--surface);stroke:var(--line-strong);stroke-width:1.2}
+.d-box.out{fill:var(--water-soft);stroke:var(--water)}
+.d-t{fill:var(--ink);font-family:var(--f-display);font-weight:500;font-size:15px}
+.d-s{fill:var(--muted);font-family:var(--f-mono);font-size:11.5px}
+.d-a{stroke:var(--muted);stroke-width:1.4;fill:none}
+.d-ah{fill:var(--muted)}
+.d-fb{stroke:var(--accent);stroke-width:1.4;fill:none;stroke-dasharray:5 4}
+.d-l{fill:var(--accent);font-family:var(--f-mono);font-size:11.5px}
+.steps{counter-reset:st;list-style:none;padding:0;max-width:72ch}
+.steps li{counter-increment:st;position:relative;padding-left:34px;margin-top:10px}
+.steps li::before{content:counter(st);position:absolute;left:0;top:1px;width:23px;height:23px;border-radius:50%;background:var(--accent);color:var(--raised);font-family:var(--f-mono);font-size:12.5px;display:grid;place-items:center}
+.foot{margin-top:64px;padding-top:14px;border-top:1px solid var(--line);font-size:14px;color:var(--muted);display:flex;flex-wrap:wrap;gap:8px 20px;justify-content:space-between}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.navl{display:inline-flex;gap:18px;flex-wrap:wrap}
+.why-hero{max-width:860px}
+.why-hero h1{font-size:clamp(34px,5vw,56px)}
+.why{max-width:1000px;margin-top:10px}
+.why section{margin-top:8px}
+.why h2{max-width:none}
+.statrow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:22px;max-width:900px}
+@media (max-width:720px){ .statrow{grid-template-columns:minmax(0,1fr)} }
+.loop{max-width:900px;margin-top:18px;display:grid;gap:10px}
+.loop-row{display:grid;grid-template-columns:minmax(150px,240px) 1fr auto;gap:12px;align-items:center}
+@media (max-width:720px){ .loop-row{grid-template-columns:1fr auto} .loop-row .loop-l{grid-column:1 / -1} }
+.loop-l{font-size:14px}
+.loop-bar{display:flex;gap:3px;flex-wrap:nowrap;min-height:22px}
+.loop-bar i{display:block;flex:0 0 auto;width:calc((100% - 33px) / 12);height:22px;border-radius:4px;background:var(--solid)}
+.loop-bar.ai i{background:var(--accent)}
+.loop-bar i.half{width:calc((100% - 33px) / 24)}
+.loop-v{font-weight:500;font-variant-numeric:tabular-nums;min-width:5.5em;text-align:right}
+.loop-scale{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:12.5px;color:var(--muted)}
+.stat{background:var(--raised);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:grid;gap:6px}
+.stat .v{font-family:var(--f-display);font-weight:700;font-size:32px;line-height:1;color:var(--accent);font-variant-numeric:tabular-nums}
+.stat .l{font-size:13.5px;color:var(--muted)}
+.funnel{margin-top:20px}
+.funnel svg{display:block;width:100%;height:auto;max-width:900px;min-width:620px}
+.funnel{overflow-x:auto}
+.f-band{stroke:none}
+.f-band.b1{fill:var(--water-soft)}
+.f-band.b2{fill:color-mix(in srgb, var(--accent) 22%, var(--raised))}
+.f-band.b3{fill:color-mix(in srgb, var(--clean) 26%, var(--raised))}
+.f-t{fill:var(--ink);font-family:var(--f-display);font-weight:500;font-size:17px}
+.f-s{fill:var(--muted);font-family:var(--f-mono);font-size:12px}
+.f-l{fill:var(--accent);font-family:var(--f-mono);font-size:12px}
+.f-n{fill:var(--muted);font-family:var(--f-body);font-size:12.5px}
+.f-fb{fill:none;stroke:var(--accent);stroke-width:1.6;stroke-dasharray:6 5}
+.f-ah{fill:var(--accent)}
+.tiers,.phases{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:20px}
+@media (max-width:820px){ .tiers,.phases{grid-template-columns:minmax(0,1fr)} }
+.tier,.phase{background:var(--raised);border:1px solid var(--line);border-radius:12px;padding:16px 18px;min-width:0}
+.tier h3{margin-top:0}
+.tier p,.phase p{font-size:15px}
+.ph{display:inline-block;font-family:var(--f-display);font-weight:700;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.note{font-size:14px;color:var(--muted)}
+.ticks{list-style:none;padding:0;max-width:72ch}
+.ticks li{position:relative;padding-left:24px;margin-top:8px}
+.ticks li::before{content:"";position:absolute;left:4px;top:.55em;width:9px;height:9px;border-radius:2px;background:var(--clean)}
+.uses{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:18px}
+.uses div{background:var(--raised);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:grid;gap:3px}
+.uses b{font-family:var(--f-display);font-weight:500}
+.uses span{font-size:14px;color:var(--muted)}
+.cta{border-top:0}
+.cta-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+.btn{display:inline-block;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);border-radius:9px;padding:9px 16px;font-family:var(--f-display);font-weight:500;font-size:15px;text-decoration:none}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--raised)}
+.muted{color:var(--muted);font-size:14px;margin-top:14px}
+.stat{align-content:start}
+details.calc{margin-top:4px;font-size:13.5px}
+details.calc summary{cursor:pointer;color:var(--accent);font-weight:500;min-height:24px}
+details.calc p,details.calc ul{margin-top:8px;max-width:none}
+details.calc ul{padding-left:18px}
+details.calc table.races{min-width:0;font-size:13px}
+details.calc table.races th,details.calc table.races td{padding:4px 6px}
+details.calc tr.tot td{font-weight:500;border-top:2px solid var(--line-strong)}
+@media (min-width:721px){ .statrow:has(details[open]){align-items:start} }
+.box.clocks p{margin-top:8px}
+table.map{min-width:720px}
+table.map td{font-size:14px}
+
+/* Capgemini-inspired look: Ubuntu, brand blues, a thin brand gradient across the top, pill-shaped buttons */
+body::before{content:"";display:block;height:4px;background:linear-gradient(90deg,var(--brand-1),var(--brand-2))}
+h1,h2,h3,h4{letter-spacing:0}
+.eyebrow{color:var(--accent);letter-spacing:.07em}
+.btn{border-radius:999px}
+
+/* explore page */
+.paths{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:22px;max-width:1000px}
+@media (max-width:720px){ .paths{grid-template-columns:minmax(0,1fr)} }
+.path{display:grid;gap:4px;background:var(--raised);border:1px solid var(--line);border-radius:14px;padding:14px 18px;text-decoration:none;color:var(--ink)}
+.path:hover{border-color:var(--accent)}
+.path b{font-family:var(--f-display);font-weight:500;font-size:17px;color:var(--accent)}
+.path span{font-size:14px;color:var(--muted)}
+.recipe{background:var(--raised);border:1px solid var(--line);border-radius:12px;padding:14px 20px 16px;margin-top:16px;max-width:900px}
+.recipe h3{margin-top:0;display:flex;align-items:center;gap:10px}
+.rn{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--raised);font-family:var(--f-mono);font-size:14px;flex:0 0 auto}
+.recipe .where{font-size:14px;color:var(--muted);margin-top:6px}
+.recipe ol,.recipe ul{padding-left:22px;max-width:none}
+.recipe .read{font-size:14.5px;border-left:3px solid var(--line-strong);padding-left:12px;max-width:none}
+.recipe .eq{max-width:none}
+table.map{min-width:680px}
+table.map td{font-size:14px}
+.box.stance{border-color:var(--accent);max-width:900px}
+dl.qa{max-width:72ch;margin-top:12px}
+dl.qa dt{font-family:var(--f-display);font-weight:500;margin-top:14px}
+dl.qa dd{margin:4px 0 0;color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="site" aria-label="Site">
+    <span class="navl"><a href="./">← Simulator</a><a href="why.html">Why</a><a href="method.html">Model description</a><a href="sources.html">Sources</a></span>
+    <a href="https://fintlp.github.io/latest-news/#contact" target="_blank" rel="noopener">Peter Fintl · Contact</a>
+  </nav>
+
+  <header class="why-hero">
+    <span class="eyebrow">Explore it yourself · Tangential Jet Flush Model</span>
+    <h1>Explore the simulator yourself</h1>
+    <p class="lede">A guide for simulation engineers who want to try the model on their own questions, and for colleagues who show it to clients. Each recipe says what to set, where to look and how to read the result, with a link into the page.</p>
+    <p class="meta">Peter Fintl · 22 October 2026</p>
+    <div class="paths">
+      <a class="path" href="#recipes"><b>For simulation engineers</b><span>Ten recipes, the settings at a glance, and where to be careful</span></a>
+      <a class="path" href="tutorials.html"><b>Optimiser and AI lab tutorials</b><span>Step by step, with screenshots and worked examples you can repeat</span></a>
+      <a class="path" href="#present"><b>For colleagues who present</b><span>Which part for which audience, a checklist, and the questions you will hear</span></a>
+    </div>
+  </header>
+
+  <div class="why">
+    <section id="start">
+      <h2>Start in five minutes</h2>
+      <ol class="steps">
+        <li><b>Open the <a href="./">simulator</a></b> and pick a preset: EU washdown or siphonic.</li>
+        <li><b>Press Play flush</b> and read the four result cards: cleaning, waste removal, water use and relative noise.</li>
+        <li><b>Press Pin as reference.</b> From now on every change is compared with this design, until you clear the pin.</li>
+        <li><b>Move one slider</b>, for example Ovality in Bowl and trap. The green and red chips show how much each result moved. Undo steps back.</li>
+        <li><b>Open the advanced groups</b> at the bottom of the settings: Model coefficients and Noise model. These are the values a calibration would fit, not design choices.</li>
+      </ol>
+      <p class="note">Everything runs in your browser. Nothing you set or enter is sent anywhere; your last design is remembered in this browser only.</p>
+    </section>
+
+    <section id="recipes">
+      <h2>Recipes for simulation engineers</h2>
+      <p>Each recipe answers one question. They need no installation, except the last two, which use Node.js.</p>
+
+      <div class="recipe" id="r-one">
+        <h3><span class="rn">1</span>What does one change do?</h3>
+        <p class="where">Where: <a href="./#sim">Simulate</a>, <a href="./#results">Results</a>, <a href="./#traces">Traces</a></p>
+        <ol>
+          <li>Pin the current design as reference.</li>
+          <li>Change one setting and watch the chips on the result cards.</li>
+          <li>Open Flush traces to see why: flow in and out, bowl level, pool swirl, waste left, noise. Click a trace to jump the playback to that moment.</li>
+        </ol>
+        <p class="read">Read it as: the direction and size of the change, against your pinned design. The values themselves are not calibrated.</p>
+      </div>
+
+      <div class="recipe" id="r-sweep">
+        <h3><span class="rn">2</span>Map a trade-off between two settings</h3>
+        <p class="where">Where: <a href="./#sweep">Design sweep</a></p>
+        <ol>
+          <li>Choose two settings for the axes and one result, for example nozzle area and jet angle against cleaning.</li>
+          <li>Run the sweep: 144 flushes on a 12 × 12 grid in one to two seconds. The best cell is outlined.</li>
+          <li>Click a cell to load that design into the simulator and look at it in full.</li>
+        </ol>
+        <p class="read">Watch out: the sweep retraces the films less often than the simulator to save time, so a loaded design can differ from its cell, usually by less than half a point of cleaning. The sweep offers design settings only; for the model coefficients see recipe 3.</p>
+      </div>
+
+      <div class="recipe" id="r-coef">
+        <h3><span class="rn">3</span>How much do the uncalibrated coefficients matter?</h3>
+        <p class="where">Where: Model coefficients · advanced, in the settings; or <code>examples/coef-sensitivity.js</code></p>
+        <ol>
+          <li>Pin your design, then change one coefficient, for example the critical soil shear τc or the shear dose to clean.</li>
+          <li>For all 13 coefficients at once, run <code>node examples/coef-sensitivity.js washdown 0.25 ovality=1.35</code>: each coefficient is moved 25 % down and up, one at a time, and the changes are listed, largest first.</li>
+        </ol>
+        <p class="read">What it shows: which coefficients to calibrate first for that design. For the round washdown preset, cleaning moves by about 2 points with τc or the shear dose; for the same bowl made oval (ovality 1.35), by 6 to 8 points. Paper removal depends most on the paper transport threshold and removal rate. Method section 12 lists what each coefficient controls and what to fit it against.</p>
+      </div>
+
+      <div class="recipe" id="r-tol">
+        <h3><span class="rn">4</span>Is the design robust to production tolerances?</h3>
+        <p class="where">Where: <a href="./#tolerance">Tolerance study</a></p>
+        <ol>
+          <li>Check or edit the tolerances: nozzles and jets, bowl shape, valve height, supply path loss, flush volume. The defaults are assumptions.</li>
+          <li>Run 40, 100 or 200 varied copies of the current design.</li>
+          <li>Read the spread of each result and "Spread mostly from": the tolerances that explain most of it.</li>
+        </ol>
+        <p class="read">Watch out: a low R² in the chart means thresholds or interactions matter, and the shares are rough. A spread smaller than about one point of cleaning is within the model's own resolution.</p>
+      </div>
+
+      <div class="recipe" id="r-opt">
+        <h3><span class="rn">5</span>Find designs that meet your targets</h3>
+        <p class="where">Where: <a href="./#ai-lab">AI lab</a>, Design optimiser · full tutorial: <a href="tutorials.html#optimiser">Design optimiser</a></p>
+        <ol>
+          <li>Choose which settings may change: jets, flush, bowl geometry.</li>
+          <li>Choose Meet targets and set them, for example at most 4.0 L, at least 88 % cleaned, a noise limit of "no louder than now".</li>
+          <li>Optional: Robust mode rates each design at the low end of its tolerance spread (about seven times slower).</li>
+          <li>Run, then load a recommended design into the simulator.</li>
+        </ol>
+        <p class="read">Watch out: about 540 quick estimates in about 10 seconds, then the recommended designs are checked at full resolution. The sliders allow valve heights and nozzle areas beyond real cisterns; check the peak flow of a result (recipe 9, or the flow trace) before you trust it.</p>
+      </div>
+
+      <div class="recipe" id="r-cfd">
+        <h3><span class="rn">6</span>How does the fast model compare with full CFD?</h3>
+        <p class="where">Where: <a href="./#cfd">Checked against CFD</a>, or part 2 of the story (<a href="./#cfd-tour">#cfd-tour</a>)</p>
+        <ol>
+          <li>Play the wetting maps: CFD left, fast model right, the wall unrolled.</li>
+          <li>Switch to the cleaning view and read "Where they differ".</li>
+        </ol>
+        <p class="read">Read it as: one OpenFOAM simulation of the washdown preset on two meshes, a second simulation, not a measurement. Totals are close (cleaned 89 % against 86 %); the pattern of uncleaned areas is not (11 % overlap). Use the fast model for totals and trends, not for cell-by-cell maps.</p>
+      </div>
+
+      <div class="recipe" id="r-cal">
+        <h3><span class="rn">7</span>See how calibration would work</h3>
+        <p class="where">Where: <a href="./#ai-lab">AI lab</a>: Hybrid calibration, Noise calibration, Physics-informed network, Field surrogate · full tutorials: <a href="tutorials.html">Optimiser and AI lab tutorials</a></p>
+        <ul>
+          <li><b>Hybrid calibration:</b> six coefficients fitted to a few reference runs with Nelder-Mead, plus a Gaussian process for what is left, checked on unseen designs.</li>
+          <li><b>Noise calibration:</b> fits the noise coefficients to recordings; the only tool that accepts your own data (audio files or meter readings, analysed in the browser).</li>
+          <li><b>Physics-informed network:</b> finds the weir coefficient from a pool level record and the model's equation.</li>
+          <li><b>Field surrogate:</b> predicts whole cleaning maps from 10 to 80 expensive runs.</li>
+        </ul>
+        <p class="read">Read it as: the workflow, not real accuracy. The reference data are synthetic (the model with other coefficients and extra effects), and each tab says so. Method sections 13 and 14 describe how a calibration against real CFD or rig data would run.</p>
+      </div>
+
+      <div class="recipe" id="r-ch">
+        <h3><span class="rn">8</span>How many expensive runs does a design task take?</h3>
+        <p class="where">Where: <a href="./#challenge">Engineering challenge</a>, then <a href="./#value">What it saves</a></p>
+        <ol>
+          <li>Play the race: three ways of working, eight starts of the same task, each expensive run costing a virtual 8 hours.</li>
+          <li>In Your turn, use the simulator as your fast model and send designs to the reference yourself. Can you beat the AI route?</li>
+          <li>Put your own figures into the calculator in What it saves.</li>
+        </ol>
+        <p class="read">Read it as: the mechanism (a fast model that learns from every expensive run needs fewer of them), against a synthetic reference with five settings to change.</p>
+      </div>
+
+      <div class="recipe" id="r-node">
+        <h3><span class="rn">9</span>Run many designs outside the browser</h3>
+        <p class="where">Where: <code>examples/batch-csv.js</code> in the <a href="https://github.com/fintlp/jet-flush-model" target="_blank" rel="noopener">repository</a>; needs Node.js 18 or later</p>
+        <div class="eq">git clone https://github.com/fintlp/jet-flush-model.git
+cd jet-flush-model
+node examples/batch-csv.js 1000 out.csv          <span class="c">1000 washdown designs, about a minute</span>
+node examples/batch-csv.js 300 sip.csv siphonic  <span class="c">the siphonic preset</span></div>
+        <p class="read">The script varies the settings listed at its top (edit them), spreads the designs evenly over each range (Latin hypercube, fixed seed) and writes one row per design: the settings, cleaning, rim line, wetted area, solids, paper, water, seal, peak flow, the noise peak and whether the run was valid. The model itself is one call: <code>FlushModel.simulate(settings, options)</code>, described in the <a href="https://github.com/fintlp/jet-flush-model#run-it-locally" target="_blank" rel="noopener">README</a> and method section 17.</p>
+      </div>
+
+      <div class="recipe" id="r-checks">
+        <h3><span class="rn">10</span>Check the model yourself</h3>
+        <p class="where">Where: <code>checks/</code> in the repository</p>
+        <p><code>node checks/physics.js</code> runs 61 physics checks: energy and angular momentum of a frictionless film, the water balance, closed-form cases, re-integration with Runge-Kutta, grid and time-step convergence. <code>node checks/literature.js</code> compares the presets with published toilet studies. <code>checks/README.md</code> lists all checks with what they test.</p>
+        <p class="read">Read it as: the model solves its own equations correctly. It does not show that the equations describe a real bowl; that needs calibration.</p>
+      </div>
+    </section>
+
+    <section id="settings">
+      <h2>The settings at a glance</h2>
+      <p>41 settings in seven groups. Every slider has an <b>i</b> button with a short explanation; method section 12 gives defaults, units and what to fit each coefficient against.</p>
+      <div class="tablewrap"><table class="map">
+        <thead><tr><th>Group</th><th>Settings</th><th>What they are</th></tr></thead>
+        <tbody>
+          <tr><td><b>Cistern and flush</b></td><td class="num">4</td><td>Full and partial flush volume, valve height above the jets, supply path loss. Together they set the jet speed and the flush duration.</td></tr>
+          <tr><td><b>Tangential jets</b></td><td class="num">5</td><td>Number of jets, nozzle area and height, downward angle, position round the rim.</td></tr>
+          <tr><td><b>Bowl and trap</b></td><td class="num">6</td><td>Ovality, rim and pool radius, rim-to-waterline depth, seal depth, trapway diameter.</td></tr>
+          <tr><td><b>Siphon</b></td><td class="num">5</td><td>Siphon drop and loss, trapway capacity before priming, water needed to prime, bowl refill. Used only for siphonic bowls.</td></tr>
+          <tr><td><b>Test load</b></td><td class="num">2</td><td>Solid media and paper in the pool at the start.</td></tr>
+          <tr><td><b>Model coefficients · advanced</b></td><td class="num">13</td><td>Film friction and spreading, soil shear and shear dose, swirl transfer and losses, transport thresholds, removal rates, weir coefficient. Uncalibrated defaults.</td></tr>
+          <tr><td><b>Noise model · advanced</b></td><td class="num">6</td><td>Coefficients of the relative noise indicator. Uncalibrated defaults.</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="careful">
+      <h2>Where to be careful</h2>
+      <p>The model is physics-based but not calibrated. These are the places where it is known to be blind or off; the model description (sections 4, 13 and 16) has the details.</p>
+      <div class="tablewrap"><table class="map">
+        <thead><tr><th>If you ask</th><th>What the model does</th><th>Read it as</th></tr></thead>
+        <tbody>
+          <tr><td>Does this design splash or spill?</td><td>Splashing, jets hitting each other and spill-over are not modelled; only a pool reaching the rim is detected.</td><td>No answer on splashing. Check fast jets in CFD or on the rig.</td></tr>
+          <tr><td>Very fast jets (high valve, low path loss, large nozzles)</td><td>The sliders go beyond real cisterns: about a third of random designs exceed the 2.4 L/s a free-outlet cistern delivers.</td><td>Check the peak flow before trusting such a design.</td></tr>
+          <tr><td>Which trapway diameter is best for a siphonic bowl?</td><td>Priming does not depend on the trapway diameter, so removal simply falls with diameter. A published study finds an optimum at 50 to 53 mm.</td><td>No trap-size optimum from this model.</td></tr>
+          <tr><td>Full against partial flush in the washdown preset</td><td>All cleaning happens in the first 1.1 s or so, so both buttons clean the same area.</td><td>The buttons differ in waste removal and refill only.</td></tr>
+          <tr><td>When does the water reach the pool?</td><td>Later and more at once than in CFD (0.54 s against 0.14 s); the swirling pool does not wash the wall near the waterline.</td><td>Early wetting and the band at the waterline are weak spots.</td></tr>
+          <tr><td>Where exactly does the wall stay dirty?</td><td>Totals are close to CFD; the uncleaned areas overlap only 11 % with the CFD's.</td><td>Use totals and trends, not cell maps.</td></tr>
+          <tr><td>How much water is in the bowl at rest?</td><td>The basin below the waterline has an assumed shape; real bowls hold about twice as much.</td><td>Pool volume and swirl inertia are rough.</td></tr>
+          <tr><td>An asymmetric bowl or an off-centre trap</td><td>The oval has the same axis ratio at every depth, and the trap sits in the centre.</td><td>Not represented.</td></tr>
+          <tr><td>Is design A quieter than design B?</td><td>Noise is a relative indicator from four sources, with a range over uncertain coefficients; comparisons across trap types are not robust.</td><td>Trust a direction only when the card says Quieter or Louder.</td></tr>
+          <tr><td>What is the real cleaning value?</td><td>All coefficients are uncalibrated defaults.</td><td>Compare designs; do not quote absolute values.</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="present">
+      <h2>For colleagues: showing it to clients</h2>
+      <div class="box stance">
+        <h4>The stance</h4>
+        <p>The simulator does not show that we know bowls better than the client's engineers, who have developed them for generations. It shows how a fast physics model and AI can speed up their way of working, and that we want to develop that method together with them. Their knowledge goes into the model; our methods make it usable faster.</p>
+        <p>How we see the other players, from software vendors to equipment suppliers, and what changes on each level of a development: the why page, <a href="why.html#roles">Who does what</a> and <a href="why.html#levels">What changes on each level</a>. CFD is one step of many; the <a href="why.html#chain">development chain</a> shows where the fast model helps and where it does not.</p>
+      </div>
+
+      <h3>Pick the part for the audience</h3>
+      <div class="tablewrap"><table class="map">
+        <thead><tr><th>Audience</th><th>Start with</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td><b>General and engineering managers</b></td><td><a href="./#value-tour">Part 4, What it means for your team</a> (7 steps), then part 1 if there is time</td><td>The saving per design question, the calculator and how a team would start</td></tr>
+          <tr><td><b>Design and test engineers</b></td><td><a href="./#demo">Part 1, the fast model</a> (9 steps)</td><td>A design change answered in the meeting, then the AI search</td></tr>
+          <tr><td><b>Simulation engineers</b></td><td><a href="./#cfd-tour">Part 2, checked against CFD</a> (5 steps), then this guide</td><td>Where the fast model agrees with CFD and where it does not</td></tr>
+          <tr><td><b>R&amp;D and digitalisation leads</b></td><td><a href="./#challenge-tour">Part 3, AI in the engineering loop</a> (9 steps)</td><td>Why a model that learns from expensive runs needs fewer of them</td></tr>
+        </tbody>
+      </table></div>
+      <p class="note">Every part can be started on its own with its link and ends by offering the next. The whole story, recorded at reading pace, takes about 4 minutes 40 seconds; live, with questions, it takes longer. The slides are on the <a href="why.html#next">why page</a>; the story video is <a href="media/demo-walkthrough.mp4" target="_blank" rel="noopener">here</a>.</p>
+
+      <h3>Before the meeting</h3>
+      <ul class="ticks">
+        <li>Open the page and run Demo me once, so the CFD data and the fonts are loaded.</li>
+        <li>Use a full-screen browser window at 100 % zoom.</li>
+        <li>Have the slides (PDF) and the story video at hand in case the internet fails.</li>
+        <li>If a visitor has changed settings, Reset brings the preset back; at the end of each part, Bring my design back restores the design from before the tour.</li>
+      </ul>
+
+      <h3>Questions you will hear</h3>
+      <dl class="qa">
+        <dt>Is it calibrated?</dt><dd>No. The coefficients are physics-based defaults. Calibrating them against the client's CFD or rig data would be the first step of a real project; recipe 3 shows which coefficients matter most.</dd>
+        <dt>Does it replace CFD?</dt><dd>No. It decides where CFD is worth running, and every CFD run improves it. Part 2 shows one CFD comparison, honestly, including where they differ.</dd>
+        <dt>Are the 6 fewer iterations real?</dt><dd>They come from a synthetic design task, labelled as such, and show the mechanism. Every step of the calculation is on the why page; the calculator takes the client's own figures.</dd>
+        <dt>Why a toilet?</dt><dd>It combines free-surface flow, thin films, swirl and solids, and everyone understands the result. The same pattern fits vehicle water management, lubrication, appliances or sensor cleaning; the why page has a table.</dd>
+        <dt>Is our data safe?</dt><dd>Everything runs in the browser. Nothing entered on the page, including figures in the calculator or recordings in the noise calibration, is sent anywhere.</dd>
+        <dt>What would it take for our product?</dt><dd>One recurring design question, a fast model of its main mechanisms, calibration with data they already have, then the loop. That is what a workshop looks at.</dd>
+      </dl>
+    </section>
+
+    <section id="next" class="cta">
+      <h2>Next</h2>
+      <div class="cta-row">
+        <a class="btn primary" href="./">Open the simulator</a>
+        <a class="btn" href="./#demo">▶ Start the guided story</a>
+        <a class="btn" href="method.html">Model description</a>
+        <a class="btn" href="https://fintlp.github.io/latest-news/#contact" target="_blank" rel="noopener">Contact Peter Fintl · ask for a workshop</a>
+      </div>
+      <p class="muted">The example scripts and the checks are in the <a href="https://github.com/fintlp/jet-flush-model" target="_blank" rel="noopener">repository</a>, under the MIT licence.</p>
+    </section>
+
+    <footer class="foot">
+      <span class="navl"><a href="./">← Simulator</a><a href="why.html">Why</a><a href="method.html">Model description</a><a href="sources.html">Sources and references</a></span>
+      <span>Tangential Jet Flush Model · v2.1.1 · Peter Fintl</span>
+    </footer>
+  </div>
+</div>
+</body>
+</html>

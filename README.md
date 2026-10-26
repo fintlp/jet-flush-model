@@ -4,6 +4,8 @@ A fast model of how a rimless toilet flushes. Rim jets wash the bowl, swirl the 
 
 - **Live simulator:** https://fintlp.github.io/jet-flush-model/
 - **Guided story, four parts:** [1 the fast model](https://fintlp.github.io/jet-flush-model/#demo) · [2 checked against CFD](https://fintlp.github.io/jet-flush-model/#cfd-tour) · [3 AI in the engineering loop](https://fintlp.github.io/jet-flush-model/#challenge-tour) · [4 what it means for your team](https://fintlp.github.io/jet-flush-model/#value-tour)
+- **Explore it yourself:** https://fintlp.github.io/jet-flush-model/explore.html (recipes for simulation engineers, where to be careful, and a playbook for presenting)
+- **Optimiser and AI lab tutorials:** https://fintlp.github.io/jet-flush-model/tutorials.html (step by step, with screenshots and worked examples)
 - **How the model works:** https://fintlp.github.io/jet-flush-model/method.html
 - **Sources and references:** https://fintlp.github.io/jet-flush-model/sources.html
 - **Why we built this:** https://fintlp.github.io/jet-flush-model/why.html
@@ -90,6 +92,13 @@ console.log(r.cleanPct, r.solidsPct, r.paperPct, r.water);
 
 `simulate(p, opts)` takes the same parameters as the sliders. Options: `light` skips the time traces, `coarse` uses the looser wall film retrace tolerance of the sweep and the optimiser search, `filmTol` sets that tolerance (0 retraces at every time step, the reference for the checks), `Tend` sets the simulated time in seconds (default 12; the run goes on until the flush has settled, at most `Tmax`, default 60).
 
+To run many designs and get CSV, or to see which uncalibrated coefficients matter for a design, use the example scripts:
+
+```bash
+node examples/batch-csv.js 1000 out.csv      # 1000 designs, settings varied as listed at the top of the script
+node examples/coef-sensitivity.js washdown 0.25 ovality=1.35
+```
+
 The checks run in Node too, for example `node checks/physics.js` and `node checks/regression.js`; `checks/README.md` lists them all with what they test and how long they take.
 
 ## Files
@@ -117,15 +126,37 @@ The checks run in Node too, for example `node checks/physics.js` and `node check
 | `method.html` | Full model description: equations, numerics, coefficients, calibration |
 | `sources.html` | Sources and references |
 | `why.html` | Why we built this: faster loops from idea to engineering to manufacturing |
+| `tutorials.html` | Optimiser and AI lab tutorials: which tool for which question, then the design optimiser, neural surrogate, hybrid calibration, physics-informed network, field surrogate and noise calibration, each with annotated screenshots, a worked example you can repeat, how to read it and what changes with real data |
+| `explore.html` | Explore it yourself: ten recipes for simulation engineers, the settings at a glance, where to be careful, and a playbook for colleagues who present |
+| `examples/` | `batch-csv.js` runs many designs and writes CSV; `coef-sensitivity.js` lists which of the 13 model coefficients move the results most for a design |
 | `media/` | Video of a flush (`flush-playback.mp4`), the whole guided story recorded at reading pace (`demo-walkthrough.mp4`) and stills of each view, the CFD maps, the challenge, the savings calculator and every AI lab tool, made by `tools/media.js`; `qr-live.png`, the link to the live page for the slides |
-| `slides/jet-flush-model.pptx`, `.pdf` | Eleven slides that work without a presenter: each title states its message, every slide has speaker notes with the full story, and the two videos are embedded (the PDF shows their posters). Each slide carries the author, the repository link, the version and the date. `slides/figures.json` holds the page figures the slides quote, read from the live page by `tools/media.js`; the challenge and savings figures come from `value-core.js` |
-| `tools/` | `media.js` regenerates the stills, the videos and `slides/figures.json` from the page; `slides.js` builds the deck from them (needs `pptxgenjs`). Commands in the file headers |
+| `slides/jet-flush-model.pptx`, `.pdf` | Thirteen slides that work without a presenter: each title states its message, every slide has speaker notes with the full story, and the two videos are embedded (the PDF shows their posters). Each slide carries the author, the repository link, the version and the date. `slides/figures.json` holds the page figures the slides quote, read from the live page by `tools/media.js`; the challenge and savings figures come from `value-core.js` |
+| `tools/` | `media.js` regenerates the stills, the videos and `slides/figures.json` from the page; `slides.js` builds the deck from them (needs `pptxgenjs`); `tutorial-shots.js` runs every AI lab tool as the tutorials describe and writes the screenshots and `media/tutorial/results.json`. Commands in the file headers |
 
 ## Calibration
 
 The coefficients that describe physics the model does not resolve (film friction, spreading, soil shear threshold, swirl transfer, transport thresholds and others) are fitted to a few reference runs. The procedure, the order of fitting and which measurement or CFD output to use for each coefficient are in [section 13 of the model description](https://fintlp.github.io/jet-flush-model/method.html#calibration). The reference runs can come from any high-fidelity free-surface solver: particle-based (SPH) such as PreonLab, nanoFluidX or the SPH solver of Simcenter STAR-CCM+, or mesh-based (VOF) such as Ansys Fluent or CFX, Simcenter STAR-CCM+, OpenFOAM or FLOW-3D. Section 13 compares them for this job. A good start is one preset in one tool of each family, checked against a simple rig measurement; paper removal is best calibrated against physical tests.
 
 ## Change log
+
+### 2.1.1 · 26 October 2026
+
+A guide for people who want to explore the simulator on their own, and three new parts on the why page about the whole development of a sanitary product. The model and its results are unchanged.
+
+- **Why page, More than CFD: the whole development chain.** Six steps from industrial design to certification: industrial design, product engineering, prototypes and tests, moulds and firing, series production, certification and quality. Each step says in words what the fast model does there: it helps today in product engineering (the hydraulics) and in prototypes and tests (fewer rounds); a possible next step links the hydraulics with the firing, because a piece shrinks about 3 % in drying and about 10 % in firing and sags in the kiln; the other steps are not part of the model.
+- **Why page, Who does what.** The players by role, not by company: the manufacturer (owns the product, the know-how, the data and the decisions), CAD and simulation software vendors, AI and agent platforms, equipment and plant suppliers (machines and plants, moulds, ceramic process know-how, pilot trials, factory software), research institutes, and our role as engineering partner: fast models on the manufacturer's own data, connecting the tools already in use, method and process change, extra capacity.
+- **Why page, What changes on each level.** Value, organization and people, process, method, tool and data, each for today (as questions, since every company starts elsewhere), step 1 (faster variants) and step 2 (AI methods and agents). A box names the two levers that multiply: AI-powered models and methods cut the number of expensive iterations (measured on this page), agentic engineering cuts the time each one takes (not quantified, since it depends on the workflow). A first agent workflow from CAD to simulation is part of step 1; agents that search for designs on their own come in step 2, once the models are calibrated. On a phone the table turns into one card per level.
+- **Slides:** thirteen slides now, with one message each. New slide 4, after the approach: where it fits, the six-step development chain and the two steps in which the fast model helps. New slide 11, after the limits: what changes on each level, led by the two levers that multiply (AI-powered models cut the iterations, agent workflows the time per iteration), with a first agent workflow in step 1 and step 1 as how a team starts. The notes of slide 8 name the second lever without a number. Slide 12, how a team would start, now also shows who does what, by role. The other slides are unchanged apart from their numbers, the version and the date; the title slide points to slide 7 for the challenge. Both videos and the stills are recorded again from 2.1.1.
+- **Simulator page: design controls where they act.** The preset, Undo and Reset moved from the header to the top of the panel on the left, under "Your design", where they stay in view while the panel scrolls; on a phone they are at the top of Adjust design. Full or partial flush moved next to Play flush, because it chooses which flush plays. The header now holds only the message and the why card. The last step of story part 1 points at the new place (the Adjust design button on a phone). Two new browser checks cover the layout on desktop and phone and the tour step.
+- **Sources:** new section 11, development chain and ceramic manufacturing (a published firing simulation study, a paper on the sagging of sanitary ware in the kiln, a second source for firing shrinkage, a description of sanitary ware production, the EN 997 table of contents). The guide's section for colleagues links to the three new parts.
+
+- **Explore it yourself** (`explore.html`, linked from every page and the section menu): for simulation engineers, ten recipes (one change, a trade-off map, the effect of the uncalibrated coefficients, tolerances, optimisation to targets, the CFD comparison, the calibration workflows, the engineering challenge, running many designs in Node, checking the model), the 41 settings at a glance, and a table of where the model is known to be blind or off. For colleagues who present: the stance (we develop the method together with the client's engineers, we do not claim to know their bowls better), which story part for which audience, a checklist before the meeting, and honest answers to the questions clients ask.
+- **Optimiser and AI lab tutorials** (`tutorials.html`, linked from the guide and the AI lab): which tool for which question, then six tutorials. The design optimiser in depth: the oval bowl brought back to target (4.0 L, 87 % cleaned, 95 % solids, 80 % paper, no louder), what the chart and table show, a robust search under production tolerances, and the trade-off mode. Then the neural surrogate, hybrid calibration, physics-informed network (with the record that stops after 3 s), field surrogate and noise calibration (with the steps for your own recordings). Each has annotated screenshots of the real controls and a worked example you can repeat: the tools use fixed seeds, so the numbers match. `tools/tutorial-shots.js` makes the screenshots and records the numbers.
+- **Model description:** the neural surrogate's accuracy restated from the tutorial run: R² 0.83 for cleaning, 0.89 for solids and 0.93 for paper with 300 training flushes (the 2.0 text said 0.89 to 0.95).
+- **Example scripts** (`examples/`): `batch-csv.js` runs any number of designs, spread evenly over the ranges you choose, and writes the results as CSV; `coef-sensitivity.js` moves each of the 13 model coefficients up and down and lists the effect on cleaning, solids, paper and seal, largest first. For the oval washdown bowl, the soil shear threshold and the shear dose move cleaning by 6 to 8 points at ±25 %.
+- **Checks:** new `checks/examples.js` (8 checks): both scripts run, the CSV holds what it promises and matches a direct model run, and their ranges are the page's slider ranges. `checks/browser.js` now has 101 checks, adding the guide (its recipes, tables and questions are there, and every link into the simulator points at a section that exists), the tutorials (every screenshot loads, and the worked examples quote the results that `tools/tutorial-shots.js` recorded) and the three new why page parts (six steps with their labels, six roles with ours marked, the complete level table, no company named in them, and the phone layout without sideways scrolling). All pass; regression 0 differences.
+- The model description's section 2 points to the guide and lists What it saves in the section menu.
+
 
 ### 2.1.0 · 22 October 2026
 

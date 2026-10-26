@@ -94,6 +94,18 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   await page.click('#undoBtn'); await page.waitForTimeout(100);
   ok('F05 first undo returns slider state', (await P()).alpha === 20, (await P()).alpha);
 
+  // 2.1.1: the design controls sit where they act: preset, Undo and Reset at the top of the left panel, the flush button next to Play flush
+  await fresh();
+  const lay = await page.evaluate(() => { const in_ = (id, sel) => !!document.getElementById(id).closest(sel); return { preset: in_('preset', '#railTop'), undo: in_('undoBtn', '#railTop'), reset: in_('resetBtn', '#railTop'), top: !!document.querySelector('#rail > #railTop:first-child'), full: in_('mFull', '.transport'), part: in_('mPart', '.transport'), header: document.querySelectorAll('header.top select, header.top button').length }; });
+  ok('Layout (2.1.1): preset, Undo and Reset at the top of the panel on the left, full or partial next to Play flush, no controls in the header', lay.preset && lay.undo && lay.reset && lay.top && lay.full && lay.part && lay.header === 0, lay);
+  await page.setViewportSize({ width: 390, height: 844 }); await page.waitForTimeout(300);
+  const lp = await page.evaluate(() => { const b = document.getElementById('mobarBtn').getBoundingClientRect(), f = document.getElementById('mFull').getBoundingClientRect(); return { phone: FlushApp.isPhone(), btn: b.width > 0 && b.bottom <= window.innerHeight + 1, full: f.width > 0, sw: document.documentElement.scrollWidth }; });
+  await page.click('#mobarBtn'); await page.waitForTimeout(400);
+  const lp2 = await page.evaluate(() => { const r = document.getElementById('preset').getBoundingClientRect(); return { visible: r.width > 0 && r.top >= 0 && r.bottom <= window.innerHeight }; });
+  await page.click('#mobarBtn'); await page.waitForTimeout(300);
+  ok('Layout (2.1.1) on a phone: Adjust design is on screen and opens the preset, Undo and Reset; full or partial stays next to Play flush; no sideways scrolling', lp.phone && lp.btn && lp.full && lp.sw <= 390 && lp2.visible, { lp, lp2 });
+  await page.setViewportSize({ width: 1400, height: 1000 }); await page.waitForTimeout(300);
+
   // F-05 demo leaves nothing behind
   await fresh();
   const preChips = await chips(), preUndo = await undoInfo();
@@ -107,6 +119,8 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   ok('Demo me: the AI search finds a design that meets every target (not only the closest one)', /meeting all targets/.test(demoBest) && !/No design met/.test(demoBest), demoBest.replace(/\s+/g, ' ').slice(0, 300));
   await next(); await page.waitForFunction(() => !document.getElementById('tourNext').disabled, null, { timeout: 60000 });
   ok('Demo me: the last step offers part 2 of the story, the CFD check', await page.evaluate(() => (document.getElementById('tourNextTour') || {}).textContent === 'Continue with part 2: Checked against CFD'));
+  const yt = await page.evaluate(() => { const sp = document.querySelector('.tour-spot').getBoundingClientRect(), rt = document.getElementById('railTop').getBoundingClientRect(); return { text: document.getElementById('tourText').innerText, spot: sp.width > 0 && sp.left <= rt.left + 1 && sp.right >= rt.right - 1 && sp.top <= rt.top + 1 && sp.bottom >= rt.bottom - 1 }; });
+  ok('Demo me (2.1.1): the last step points at the preset, Undo and Reset at the top of the panel on the left', yt.spot && yt.text.includes('top of the panel on the left') && yt.text.includes('Play flush'), yt);
   await page.click('#tourNext'); await page.waitForTimeout(300);   // Finish
   ok('F05 finish leaves no undo steps', (await undoInfo()).dis === preUndo.dis, await undoInfo());
   ok('F05 finish leaves no delta chips', (await chips()) === preChips, { before: preChips, after: await chips() });
@@ -360,6 +374,39 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   await page.click('#value [data-act="clear"]');
   ok('Why page calculator: Clear empties every field', await page.evaluate(() => Object.values(FlushValueUI.first().values()).every((v) => v === '')));
   ok('Why page: the call to action offers the demo, the simulator and a contact for a workshop', await page.evaluate(() => { const t = document.getElementById('next').innerText; return t.includes('Start the guided demo') && t.includes('ask for a workshop'); }));
+  // why page (2.1.1): the development chain, the roles and the levels; players are named by role, never by company
+  const wc = await page.evaluate(() => { const txt = ['chain', 'roles', 'levels'].map((id) => (document.getElementById(id) || { innerText: '' }).innerText).join('\n');
+    return { steps: document.querySelectorAll('#chain .chain li').length, chips: [...document.querySelectorAll('#chain .chip')].map((c) => c.textContent), roles: document.querySelectorAll('#roles .role').length, us: !!document.querySelector('#roles .role.us'),
+      rows: document.querySelectorAll('#levels tbody tr').length, cells: [...document.querySelectorAll('#levels tbody tr')].every((r) => r.cells.length === 4 && [...r.cells].every((c) => c.textContent.trim() && c.dataset.label)),
+      names: ['Duravit', 'Sacmi', 'SACMI', 'Synera', 'Dassault', 'LIXIL', 'HygieneFlush', 'Geberit', 'Villeroy', 'TOTO', 'Siemens', 'Ansys'].filter((n) => txt.includes(n)) }; });
+  ok('Why page (2.1.1): the development chain has six steps, each saying in words what the fast model does there', wc.steps === 6 && wc.chips.length === 6 && wc.chips.filter((c) => c.startsWith('Helps today')).length === 2 && wc.chips.includes('Possible next step'), wc);
+  ok('Why page (2.1.1): six roles with ours marked, the six-level table complete, and no company named in the chain, the roles or the levels', wc.roles === 6 && wc.us && wc.rows === 6 && wc.cells && wc.names.length === 0, wc);
+  await page.setViewportSize({ width: 375, height: 800 }); await page.waitForTimeout(300);
+  const wp = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, head: getComputedStyle(document.querySelector('#levels thead')).display, label: getComputedStyle(document.querySelector('#levels tbody td:nth-child(2)'), '::before').content, cols: getComputedStyle(document.querySelector('#chain .chain')).gridTemplateColumns.split(' ').length }));
+  ok('Why page (2.1.1) on a phone: no sideways scrolling, the chain in one column, the levels table as one card per level with labelled cells', wp.sw <= 375 && wp.head === 'none' && wp.label.includes('Today') && wp.cols === 1, wp);
+  await page.setViewportSize({ width: 1400, height: 1000 });
+
+  // explore page (2.1.1): the guide loads, its links into the simulator point at sections that exist
+  await page.goto(base + 'explore.html'); await page.waitForTimeout(300);
+  const ex = await page.evaluate(() => ({ recipes: document.querySelectorAll('.recipe').length, careful: document.querySelectorAll('#careful tbody tr').length, qa: document.querySelectorAll('dl.qa dt').length, anchors: [...new Set([...document.querySelectorAll('a[href^="./#"]')].map((a) => a.getAttribute('href').slice(3)))], stance: document.querySelector('.stance').innerText }));
+  const missing = await page.evaluate(async (anchors) => { const html = await (await fetch('./')).text(); return anchors.filter((a) => !['demo', 'cfd-tour', 'challenge-tour', 'value-tour'].includes(a) && !html.includes(`id="${a}"`)); }, ex.anchors);
+  ok('Explore page: ten recipes, the where-to-be-careful table, the questions, and every link into the simulator points at a section that exists', ex.recipes === 10 && ex.careful >= 8 && ex.qa === 6 && ex.anchors.length >= 8 && missing.length === 0 && ex.stance.includes('together'), { ex, missing });
+  // tutorials page (2.1.1): every screenshot loads, and the worked examples quote what tools/tutorial-shots.js recorded
+  await page.goto(base + 'tutorials.html'); await page.waitForTimeout(300);
+  // the screenshots load lazily, and a headless page never scrolls to them: load them now, and give up after 20 s
+  const tut = await page.evaluate(async () => { const imgs = [...document.querySelectorAll('img')]; imgs.forEach((i) => { i.loading = 'eager'; });
+    await Promise.race([Promise.all(imgs.map((i) => (i.complete ? 0 : new Promise((r) => { i.addEventListener('load', r); i.addEventListener('error', r); })))), new Promise((r) => setTimeout(r, 20000))]); return { sections: ['optimiser', 'surrogate', 'hybrid', 'pinn', 'field', 'noise'].filter((id) => document.getElementById(id)).length, imgs: imgs.length, broken: imgs.filter((i) => !i.naturalWidth).map((i) => i.src), text: document.body.innerText }; });
+  const TR = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'media', 'tutorial', 'results.json'), 'utf8'));
+  const want = [
+    (TR.optBest.match(/Best design meeting all targets \(highest score\): (cleaned [^,]+, solids [^,]+, paper [^,]+, [\d.]+ L)/) || [])[1],
+    (TR.optStatus.match(/(\d+) checked designs meet all targets/) || [])[1] + ' checked designs meet all targets',
+    ...(TR.surTable.match(/0\.\d{3}/g) || []),
+    ...(TR.hybSum.match(/uncalibrated (\d+(?:\.\d+)?) \/ (\d+(?:\.\d+)?), calibrated (\d+(?:\.\d+)?) \/ (\d+(?:\.\d+)?), hybrid (\d+(?:\.\d+)?) \/ (\d+(?:\.\d+)?)/) || []).slice(1),
+    (TR.pnDense.match(/weir coefficient of ([\d.]+)/) || [])[1], (TR.pnCut.match(/weir coefficient of ([\d.]+)/) || [])[1],
+    ...(TR.fsTable.match(/\d+\.\d %/g) || []).slice(0, 4),
+    ...(TR.nzSum.match(/current coefficients (\d+(?:\.\d+)?), fitted (\d+(?:\.\d+)?)\. On designs left out of the fit one at a time: current (\d+(?:\.\d+)?), fitted (\d+(?:\.\d+)?)/) || []).slice(1)];
+  const absent = want.filter((w) => !w || !tut.text.includes(w));
+  ok('Tutorials page: six tutorials, every screenshot loads, and the worked examples quote the recorded results', tut.sections === 6 && tut.imgs >= 9 && tut.broken.length === 0 && want.length >= 20 && absent.length === 0 && TR.pageErrors.length === 0, { sections: tut.sections, imgs: tut.imgs, broken: tut.broken, absent });
 
   // simulator page (2.1): What it saves, and part 4 of the story for managers
   await fresh();
@@ -394,8 +441,8 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   // look and feel: self-hosted Ubuntu, nothing from other hosts on any of the four pages
   await fresh(); await page.waitForTimeout(600);
   ok('Look: Ubuntu and Ubuntu Mono load from the page itself', await page.evaluate(async () => { await document.fonts.ready; return document.fonts.check('16px Ubuntu') && document.fonts.check('500 16px Ubuntu') && document.fonts.check('16px "Ubuntu Mono"') && [...document.fonts].some((f) => f.family.replace(/"/g, '') === 'Ubuntu' && f.status === 'loaded'); }));
-  for (const pg of ['why.html', 'method.html', 'sources.html']) { await page.goto(base + pg); await page.waitForTimeout(500); }
-  ok('Look: no requests to other hosts on the simulator, why, method and sources pages', foreign.size === 0, [...foreign]);
+  for (const pg of ['why.html', 'method.html', 'sources.html', 'explore.html', 'tutorials.html']) { await page.goto(base + pg); await page.waitForTimeout(500); }
+  ok('Look: no requests to other hosts on the simulator, why, method, sources, explore and tutorials pages', foreign.size === 0, [...foreign]);
   ok('No page errors', errs.length === 0, errs.slice(0, 5));
   console.log(out.join('\n'));
   const failed = out.filter((l) => l.startsWith('FAIL')).length;

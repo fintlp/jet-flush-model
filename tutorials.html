@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Step-by-step tutorials for the design optimiser and the AI lab of the Tangential Jet Flush Model, with screenshots and worked examples you can repeat.">
+<title>AI Lab Tutorials</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Ccircle cx=%2216%22 cy=%2216%22 r=%2215%22 fill=%22%230070ad%22/%3E%3Cpath d=%22M9 13a7 7 0 0 0 14 0%22 fill=%22none%22 stroke=%22%23fff%22 stroke-width=%223%22 stroke-linecap=%22round%22/%3E%3C/svg%3E">
+<link rel="preload" href="fonts/ubuntu-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/ubuntu-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+/* Layout: technical report. Narrow reading column with a sticky contents rail on wide screens; equations and tables sit in their own blocks. */
+:root{
+  --bg:#f3f5f8; --surface:#f9fafc; --raised:#ffffff; --ink:#0f2538; --muted:#52667a; --line:#d8e0e8; --line-strong:#a2b2c2;
+  --accent:#0070ad; --water:#3a8db6; --water-soft:#d6e9f2; --clean:#17876c; --solid:#8a5a2b; --warn:#8f5b08;
+  --f-display:"Ubuntu",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-body:"Ubuntu",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"Ubuntu Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --brand-1:#0070ad; --brand-2:#12abdb;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#08131d; --surface:#0d1b28; --raised:#122333; --ink:#e4ecf3; --muted:#8fa3b5; --line:#1c3044; --line-strong:#3e5a72;
+  --accent:#12abdb; --water:#4aa5d2; --water-soft:#1c3a48; --clean:#35b58e; --solid:#c48b52; --warn:#e2a646; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#08131d; --surface:#0d1b28; --raised:#122333; --ink:#e4ecf3; --muted:#8fa3b5; --line:#1c3044; --line-strong:#3e5a72;
+  --accent:#12abdb; --water:#4aa5d2; --water-soft:#1c3a48; --clean:#35b58e; --solid:#c48b52; --warn:#e2a646; color-scheme:dark }
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.62}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:20px 64px}
+a{color:var(--accent)}
+.site{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:22px;font-family:var(--f-display);font-weight:500;font-size:14px;letter-spacing:.02em}
+.site a{text-decoration:none}
+.site a:hover{text-decoration:underline}
+h1,h2,h3,h4{font-family:var(--f-display);text-wrap:balance;line-height:1.15;margin:0}
+h1{font-size:clamp(30px,4vw,44px);font-weight:700}
+h2{font-size:26px;font-weight:700;margin-top:56px;padding-top:12px;border-top:1px solid var(--line)}
+h3{font-size:19px;font-weight:500;margin-top:30px}
+h4{font-size:16px;font-weight:500;margin-top:20px}
+p,ul,ol{margin:12px 0 0;max-width:68ch}
+li{margin-top:4px}
+.eyebrow{font-family:var(--f-display);font-weight:500;font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.lede{font-size:18px;color:var(--muted);max-width:62ch;margin-top:12px}
+.meta{font-family:var(--f-mono);font-size:13px;color:var(--muted);margin-top:14px}
+.layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:48px;margin-top:34px;align-items:start}
+@media (max-width:900px){ .layout{grid-template-columns:minmax(0,1fr)} .toc{position:static!important;max-height:none!important} }
+.toc{position:sticky;top:calc(env(safe-area-inset-top, 0px) + 16px);max-height:calc(100vh - 32px);overflow:auto;font-size:14px;border-left:1px solid var(--line);padding-left:14px}
+.toc ol{list-style:none;padding:0;margin:8px 0 0}
+.toc li{margin:6px 0}
+.toc a{text-decoration:none;color:var(--ink)}
+.toc a:hover{color:var(--accent)}
+.toc .n{font-family:var(--f-mono);color:var(--muted);margin-right:6px;font-size:12.5px}
+main{min-width:0}
+main > section:first-child h2{margin-top:0}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin-top:18px;max-width:72ch}
+.box h4{margin-top:0}
+.box.note{border-color:var(--warn)}
+.eq{font-family:var(--f-mono);font-size:14.5px;background:var(--raised);border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-top:14px;max-width:72ch;overflow-x:auto;white-space:pre;line-height:1.7}
+.eq .c{color:var(--muted)}
+code{font-family:var(--f-mono);font-size:.9em;background:var(--raised);border:1px solid var(--line);border-radius:5px;padding:0 4px}
+.sym{font-style:italic;font-family:var(--f-body)}
+.tablewrap{overflow-x:auto;margin-top:16px;max-width:100%}
+table{border-collapse:collapse;font-size:14px;min-width:640px;width:100%;background:var(--raised);border:1px solid var(--line)}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--f-display);font-weight:500;font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--surface)}
+td.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+figure{margin:20px 0 0;max-width:100%}
+figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:72ch}
+.diagram{overflow-x:auto;background:var(--raised);border:1px solid var(--line);border-radius:12px;padding:12px}
+.diagram svg{display:block;min-width:720px;width:100%;height:auto}
+.d-box{fill:var(--surface);stroke:var(--line-strong);stroke-width:1.2}
+.d-box.out{fill:var(--water-soft);stroke:var(--water)}
+.d-t{fill:var(--ink);font-family:var(--f-display);font-weight:500;font-size:15px}
+.d-s{fill:var(--muted);font-family:var(--f-mono);font-size:11.5px}
+.d-a{stroke:var(--muted);stroke-width:1.4;fill:none}
+.d-ah{fill:var(--muted)}
+.d-fb{stroke:var(--accent);stroke-width:1.4;fill:none;stroke-dasharray:5 4}
+.d-l{fill:var(--accent);font-family:var(--f-mono);font-size:11.5px}
+.steps{counter-reset:st;list-style:none;padding:0;max-width:72ch}
+.steps li{counter-increment:st;position:relative;padding-left:34px;margin-top:10px}
+.steps li::before{content:counter(st);position:absolute;left:0;top:1px;width:23px;height:23px;border-radius:50%;background:var(--accent);color:var(--raised);font-family:var(--f-mono);font-size:12.5px;display:grid;place-items:center}
+.foot{margin-top:64px;padding-top:14px;border-top:1px solid var(--line);font-size:14px;color:var(--muted);display:flex;flex-wrap:wrap;gap:8px 20px;justify-content:space-between}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.navl{display:inline-flex;gap:18px;flex-wrap:wrap}
+.why-hero{max-width:860px}
+.why-hero h1{font-size:clamp(34px,5vw,56px)}
+.why{max-width:1000px;margin-top:10px}
+.why section{margin-top:8px}
+.why h2{max-width:none}
+.statrow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:22px;max-width:900px}
+@media (max-width:720px){ .statrow{grid-template-columns:minmax(0,1fr)} }
+.loop{max-width:900px;margin-top:18px;display:grid;gap:10px}
+.loop-row{display:grid;grid-template-columns:minmax(150px,240px) 1fr auto;gap:12px;align-items:center}
+@media (max-width:720px){ .loop-row{grid-template-columns:1fr auto} .loop-row .loop-l{grid-column:1 / -1} }
+.loop-l{font-size:14px}
+.loop-bar{display:flex;gap:3px;flex-wrap:nowrap;min-height:22px}
+.loop-bar i{display:block;flex:0 0 auto;width:calc((100% - 33px) / 12);height:22px;border-radius:4px;background:var(--solid)}
+.loop-bar.ai i{background:var(--accent)}
+.loop-bar i.half{width:calc((100% - 33px) / 24)}
+.loop-v{font-weight:500;font-variant-numeric:tabular-nums;min-width:5.5em;text-align:right}
+.loop-scale{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:12.5px;color:var(--muted)}
+.stat{background:var(--raised);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:grid;gap:6px}
+.stat .v{font-family:var(--f-display);font-weight:700;font-size:32px;line-height:1;color:var(--accent);font-variant-numeric:tabular-nums}
+.stat .l{font-size:13.5px;color:var(--muted)}
+.funnel{margin-top:20px}
+.funnel svg{display:block;width:100%;height:auto;max-width:900px;min-width:620px}
+.funnel{overflow-x:auto}
+.f-band{stroke:none}
+.f-band.b1{fill:var(--water-soft)}
+.f-band.b2{fill:color-mix(in srgb, var(--accent) 22%, var(--raised))}
+.f-band.b3{fill:color-mix(in srgb, var(--clean) 26%, var(--raised))}
+.f-t{fill:var(--ink);font-family:var(--f-display);font-weight:500;font-size:17px}
+.f-s{fill:var(--muted);font-family:var(--f-mono);font-size:12px}
+.f-l{fill:var(--accent);font-family:var(--f-mono);font-size:12px}
+.f-n{fill:var(--muted);font-family:var(--f-body);font-size:12.5px}
+.f-fb{fill:none;stroke:var(--accent);stroke-width:1.6;stroke-dasharray:6 5}
+.f-ah{fill:var(--accent)}
+.tiers,.phases{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:20px}
+@media (max-width:820px){ .tiers,.phases{grid-template-columns:minmax(0,1fr)} }
+.tier,.phase{background:var(--raised);border:1px solid var(--line);border-radius:12px;padding:16px 18px;min-width:0}
+.tier h3{margin-top:0}
+.tier p,.phase p{font-size:15px}
+.ph{display:inline-block;font-family:var(--f-display);font-weight:700;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.note{font-size:14px;color:var(--muted)}
+.ticks{list-style:none;padding:0;max-width:72ch}
+.ticks li{position:relative;padding-left:24px;margin-top:8px}
+.ticks li::before{content:"";position:absolute;left:4px;top:.55em;width:9px;height:9px;border-radius:2px;background:var(--clean)}
+.uses{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:18px}
+.uses div{background:var(--raised);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:grid;gap:3px}
+.uses b{font-family:var(--f-display);font-weight:500}
+.uses span{font-size:14px;color:var(--muted)}
+.cta{border-top:0}
+.cta-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+.btn{display:inline-block;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);border-radius:9px;padding:9px 16px;font-family:var(--f-display);font-weight:500;font-size:15px;text-decoration:none}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--raised)}
+.muted{color:var(--muted);font-size:14px;margin-top:14px}
+.stat{align-content:start}
+details.calc{margin-top:4px;font-size:13.5px}
+details.calc summary{cursor:pointer;color:var(--accent);font-weight:500;min-height:24px}
+details.calc p,details.calc ul{margin-top:8px;max-width:none}
+details.calc ul{padding-left:18px}
+details.calc table.races{min-width:0;font-size:13px}
+details.calc table.races th,details.calc table.races td{padding:4px 6px}
+details.calc tr.tot td{font-weight:500;border-top:2px solid var(--line-strong)}
+@media (min-width:721px){ .statrow:has(details[open]){align-items:start} }
+.box.clocks p{margin-top:8px}
+table.map{min-width:720px}
+table.map td{font-size:14px}
+
+/* Capgemini-inspired look: Ubuntu, brand blues, a thin brand gradient across the top, pill-shaped buttons */
+body::before{content:"";display:block;height:4px;background:linear-gradient(90deg,var(--brand-1),var(--brand-2))}
+h1,h2,h3,h4{letter-spacing:0}
+.eyebrow{color:var(--accent);letter-spacing:.07em}
+.btn{border-radius:999px}
+
+/* explore page */
+.paths{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:22px;max-width:1000px}
+@media (max-width:720px){ .paths{grid-template-columns:minmax(0,1fr)} }
+.path{display:grid;gap:4px;background:var(--raised);border:1px solid var(--line);border-radius:14px;padding:14px 18px;text-decoration:none;color:var(--ink)}
+.path:hover{border-color:var(--accent)}
+.path b{font-family:var(--f-display);font-weight:500;font-size:17px;color:var(--accent)}
+.path span{font-size:14px;color:var(--muted)}
+.recipe{background:var(--raised);border:1px solid var(--line);border-radius:12px;padding:14px 20px 16px;margin-top:16px;max-width:900px}
+.recipe h3{margin-top:0;display:flex;align-items:center;gap:10px}
+.rn{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--raised);font-family:var(--f-mono);font-size:14px;flex:0 0 auto}
+.recipe .where{font-size:14px;color:var(--muted);margin-top:6px}
+.recipe ol,.recipe ul{padding-left:22px;max-width:none}
+.recipe .read{font-size:14.5px;border-left:3px solid var(--line-strong);padding-left:12px;max-width:none}
+.recipe .eq{max-width:none}
+table.map{min-width:680px}
+table.map td{font-size:14px}
+.box.stance{border-color:var(--accent);max-width:900px}
+dl.qa{max-width:72ch;margin-top:12px}
+dl.qa dt{font-family:var(--f-display);font-weight:500;margin-top:14px}
+dl.qa dd{margin:4px 0 0;color:var(--ink)}
+
+/* tutorials page */
+.tutnav{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px;max-width:1000px}
+.tutnav a{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line-strong);border-radius:999px;padding:6px 14px;text-decoration:none;color:var(--ink);font-size:14px;background:var(--raised)}
+.tutnav a:hover{border-color:var(--accent)}
+.tutnav b{font-family:var(--f-mono);color:var(--accent)}
+.why figure img{display:block;max-width:100%;height:auto;border:1px solid var(--line);border-radius:10px;background:#fff}
+.why figure{max-width:1000px}
+ol.mk{counter-reset:mk;list-style:none;padding:0;max-width:72ch}
+ol.mk li{counter-increment:mk;position:relative;padding-left:36px;margin-top:10px}
+ol.mk li::before{content:counter(mk);position:absolute;left:0;top:0;width:24px;height:24px;border-radius:50%;background:#c2410c;color:#fff;font:700 13px var(--f-display);display:grid;place-items:center;box-shadow:0 0 0 2px var(--raised)}
+ol.mk li.skip{color:var(--muted)}
+p.real{border-left:3px solid var(--accent);padding-left:12px;margin-top:16px}
+table.map.small{min-width:0;width:auto}
+table.map.small td,table.map.small th{padding:6px 14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="site" aria-label="Site">
+    <span class="navl"><a href="./">← Simulator</a><a href="explore.html">Explore it yourself</a><a href="why.html">Why</a><a href="method.html">Model description</a></span>
+    <a href="https://fintlp.github.io/latest-news/#contact" target="_blank" rel="noopener">Peter Fintl · Contact</a>
+  </nav>
+
+  <header class="why-hero">
+    <span class="eyebrow">Tutorials · Tangential Jet Flush Model</span>
+    <h1>Optimiser and AI lab, step by step</h1>
+    <p class="lede">The simulator shows what one change does. These tutorials cover the rest: letting the computer search for designs that meet your targets, and using data to replace, calibrate or correct the model. Each one has a worked example you can repeat on the page.</p>
+    <p class="meta">Peter Fintl · 22 October 2026</p>
+    <nav class="tutnav" aria-label="Tutorials">
+      <a href="#optimiser"><b>1</b> Design optimiser</a><a href="#surrogate"><b>2</b> Neural surrogate</a><a href="#hybrid"><b>3</b> Hybrid calibration</a><a href="#pinn"><b>4</b> Physics-informed network</a><a href="#field"><b>5</b> Field surrogate</a><a href="#noise"><b>6</b> Noise calibration</a>
+    </nav>
+  </header>
+
+  <div class="why">
+    <section id="which">
+      <h2>Which tool for which question</h2>
+      <div class="tablewrap"><table class="map">
+        <thead><tr><th>Your question</th><th>Tool</th><th>What it needs</th></tr></thead>
+        <tbody>
+          <tr><td>Which designs meet my targets, and what is the trade-off between water and performance?</td><td><a href="#optimiser">1 · Design optimiser</a></td><td>Only the fast model</td></tr>
+          <tr><td>Can I get answers in microseconds, for very many evaluations?</td><td><a href="#surrogate">2 · Neural surrogate</a></td><td>A few hundred runs to learn from</td></tr>
+          <tr><td>I have a few expensive runs. How do I make the fast model match them?</td><td><a href="#hybrid">3 · Hybrid calibration</a></td><td>4 to 10 expensive runs</td></tr>
+          <tr><td>I have a measurement over time, such as a video of the pool level. Which model coefficient does it give?</td><td><a href="#pinn">4 · Physics-informed network</a></td><td>One record and the model's equation</td></tr>
+          <tr><td>Can I predict whole result fields, such as the cleaning map, from expensive runs?</td><td><a href="#field">5 · Field surrogate</a></td><td>Tens of expensive runs with maps</td></tr>
+          <tr><td>I have sound recordings of flushes. How do I calibrate the noise indicator?</td><td><a href="#noise">6 · Noise calibration</a></td><td>Recordings of several designs</td></tr>
+          <tr><td>How many expensive runs does a design task take, if the model learns from each one?</td><td><a href="./#challenge">Engineering challenge</a> on the simulator page</td><td>A run budget</td></tr>
+        </tbody>
+      </table></div>
+      <p class="note">Every tool runs in your browser, uses the fast physics model as its engine, and uses fixed random seeds, so a worked example gives the same numbers when you repeat it. Measured times, such as how much faster a surrogate is, depend on your computer. Except for the noise calibration with your own recordings, the expensive data are synthetic: the model with other coefficients and extra effects, labelled as such on the page. The tutorials show the workflows, not real accuracy. Method section 14 has the full description.</p>
+    </section>
+
+    <section id="optimiser">
+      <h2>1 · Design optimiser: find designs that meet your targets</h2>
+      <p><b>What it is:</b> an evolutionary search (NSGA-II style). It breeds generations of designs, keeps the best, and in the end checks the designs it recommends at the simulator's full resolution. <b>Use it</b> when a design misses its targets and you want candidates for the next CFD or rig check, or to see the trade-off between water and performance.</p>
+
+      <h3>Worked example: bring the oval bowl back to target</h3>
+      <p>Start on the <a href="./">simulator</a> with Reset (EU washdown preset), then set <b>Ovality</b> in Bowl and trap to <b>1.35</b>. The bowl now cleans <span data-r="optStartClean">78.7 %</span> of the wall with 4.5 L. Open the <a href="./#ai-lab">AI lab</a>, tab Design optimiser.</p>
+      <figure><img src="media/tutorial/opt-setup.png" alt="Optimiser settings with numbered markers: what may change, flush, goal, targets, noise limit, pick, effort, robust, start" loading="lazy" width="1485" height="777"><figcaption>The settings for the example. The numbers match the steps below.</figcaption></figure>
+      <ol class="mk">
+        <li><b>What may change:</b> keep the six ticked settings: nozzle area, jet angle, jet position, nozzle height, valve height and flush volume. Leave the bowl geometry unticked: the bowl is given. Everything not ticked stays as it is in the simulator.</li>
+        <li><b>Flush to optimise:</b> full flush.</li>
+        <li><b>Goal:</b> Meet targets.</li>
+        <li><b>Targets:</b> water at most 4.0 L, cleaned at least 87 %, solids at least 95 %, paper at least 80 %.</li>
+        <li><b>Noise at most:</b> 0 dB against now, which means no louder than the current design. It must hold at the upper end of the noise range.</li>
+        <li><b>Among those, pick:</b> highest score. The score is the weighted sum of cleaned, solids and paper, with the weights below (50, 30 and 20 %). You can also pick the lowest water or the quietest design.</li>
+        <li><b>Search effort:</b> Quick, about 540 designs. Thorough tries about 1,500.</li>
+        <li><b>Robust:</b> off for now; see below.</li>
+        <li><b>Start search.</b> A progress bar shows the search, then the check at full resolution.</li>
+      </ol>
+
+      <h3>What you should see</h3>
+      <figure><img src="media/tutorial/opt-result.png" alt="Optimiser chart of score against water per flush, with the best trade-off curve, the best design meeting the targets as a star, and the summary" loading="lazy" width="1485" height="638"><figcaption>① Every dot is one simulated design: water per flush across, weighted score up. Blue: the best trade-off curve. Green star: the best design meeting all targets. Ring: the current design. ② The summary.</figcaption></figure>
+      <ul class="ticks">
+        <li>In about <span data-r="optSeconds">20</span> seconds: <span data-r="optDesigns">535</span> different designs, then the check at full resolution. <b><span data-r="optMeet">60</span> checked designs meet all targets.</b></li>
+        <li>The best one: <b><span data-r="optBestLine">cleaned 89 %, solids 98 %, paper 84 %, 4.0 L, noise −0.8 dB vs now (range −1.4 to −0.4), score 91.0</span></b>. Load this design puts it into the simulator, where you can play it and compare it with your pinned start design.</li>
+        <li>The table under the chart lists the designs that meet all targets, best first, with their settings.</li>
+      </ul>
+      <figure><img src="media/tutorial/opt-table.png" alt="Table of designs meeting all targets with their settings" loading="lazy" width="1485" height="969"><figcaption>The ten best designs meeting all targets. Their scores are almost equal, but their settings differ.</figcaption></figure>
+      <p><b>Read the table, not only the winner.</b> The top designs reach nearly the same score in different ways: nozzle areas from about 3 to 4.5 cm², jet angles from 0° to 21°, nozzle heights from 7 to 17 mm. What they share is what matters: the jets move from the ends of the long axis towards the long sides (75° to 115°), and the valve sits higher (380 to 540 mm). That is a design rule, and the spread of the rest is freedom a designer can use for manufacturing or cost.</p>
+
+      <h3>Make it robust to production tolerances</h3>
+      <p>Tick <b>Robust</b> and start again. Each design is now also simulated as six copies varied within the tolerances of the <a href="./#tolerance">tolerance study</a>, and rated at the low end of its spread. It takes about seven times as long: <span data-r="robSeconds">about 100</span> seconds here.</p>
+      <ul class="ticks">
+        <li>The current oval design, rated this way: <span data-r="robCur">cleaned 75 % at the low end of its spread, against 79 % nominal</span>.</li>
+        <li>The robust winner: <b><span data-r="robBestLine">cleaned 89 %, solids 98 %, paper 83 %, 4.0 L at the low end of its spread (nominal: cleaned 89 %, solids 98 %, paper 84 %, 3.9 L)</span></b>. It still meets every target when production deviates.</li>
+      </ul>
+
+      <h3>Best trade-off instead of targets</h3>
+      <p>With the goal <b>Best trade-off</b>, the optimiser has no targets. It looks for the designs where you cannot raise the score without using more water: the blue curve. Move the weight sliders to say what matters, for example more weight on paper for a market with a lot of paper use; the designs already found are re-rated at once, without a new search.</p>
+
+      <h3>Watch out</h3>
+      <ul class="ticks">
+        <li>During the search the chart shows quick estimates, with a coarser film update. Only recommendations and table rows are checked at full resolution. A design whose quick estimate missed the targets by a lot is not checked, so a better design can exist in rare cases.</li>
+        <li>The sliders allow valve heights and nozzle areas beyond real cisterns. Check the peak flow of a result in the flow trace; a free-outlet cistern delivers up to about 2.4 L/s.</li>
+        <li>The optimiser finds the best designs of the model. They are candidates for a CFD or rig check, not final answers.</li>
+      </ul>
+      <p class="real"><b>With real data:</b> the same search runs on a calibrated model (tutorial 3), or on a surrogate trained on CFD runs (tutorial 2). The <a href="./#challenge">engineering challenge</a> shows the next step: a search that learns from every expensive run and decides where the next one is worth it.</p>
+    </section>
+
+    <section id="surrogate">
+      <h2>2 · Neural surrogate: a learned copy that answers in microseconds</h2>
+      <p><b>What it is:</b> a small neural network (6 inputs, two hidden layers of 32, 3 outputs) that learns the physics model from example flushes. <b>Use it</b> when you need very many evaluations, for example inside a large search or an uncertainty study, or when the model behind it is slow. In practice the examples would be CFD runs; here the fast model plays that part.</p>
+      <h3>Worked example</h3>
+      <p>Keep the oval bowl from tutorial 1 (or Reset and set ovality to 1.35). The surrogate learns six design settings around the current design, so its numbers depend on where you start; the same holds for tutorial 3.</p>
+      <figure><img src="media/tutorial/surrogate.png" alt="Neural surrogate tab with training curve, prediction against physics model on unseen designs, and the error table" loading="lazy" width="1485" height="1311"><figcaption>① Training flushes. ② Generate data and train. ③ Training curve. ④ Network against physics model on unseen designs: the closer to the diagonal, the better. ⑤ Errors on unseen designs.</figcaption></figure>
+      <ol class="mk">
+        <li>Choose <b>300</b> training flushes.</li>
+        <li><b>Generate data and train.</b> The page simulates 300 designs plus 150 test designs the network never sees, then trains.</li>
+      </ol>
+      <p>Result: <span data-r="surStatus">trained in about 27 s on 300 runs, tested on 150 unseen designs</span>. On the unseen designs:</p>
+      <div class="tablewrap"><table class="map small"><thead><tr><th>Output</th><th>Mean error</th><th>R²</th></tr></thead><tbody data-r="surRows">
+        <tr><td>Cleaned</td><td class="num">4.3 points</td><td class="num">0.829</td></tr><tr><td>Solids removed</td><td class="num">3.8 points</td><td class="num">0.886</td></tr><tr><td>Paper removed</td><td class="num">5.0 points</td><td class="num">0.933</td></tr></tbody></table></div>
+      <p>And it is fast: <span data-r="surSpeed">37 ms per flush with the physics model, 6 µs with the network, about 6,000 times faster</span> in our test browser; your computer gives its own figure.</p>
+      <h3>How to read it</h3>
+      <p>An error of about 4 points is as large as many design changes you care about, so the network is good for screening many designs quickly, not for final values. Try 100 and 800 training flushes to see how the error depends on the amount of data: that is the real question with CFD, where every training run costs hours.</p>
+      <h3>Watch out</h3>
+      <ul class="ticks">
+        <li>It covers the six design settings and three results it was trained on; no noise, no other settings. Outside the training ranges it guesses.</li>
+        <li>If you change a setting it did not vary, its results belong to the earlier configuration, and the page says so.</li>
+      </ul>
+      <p class="real"><b>With real data:</b> train the same kind of network on CFD runs of designs spread over the design space. It pays off when many questions will be asked of the same run database.</p>
+    </section>
+
+    <section id="hybrid">
+      <h2>3 · Hybrid calibration: make the fast model match a few expensive runs</h2>
+      <p><b>What it is:</b> the calibration workflow end to end. Six model coefficients are fitted to a few reference runs (Nelder-Mead), then a Gaussian process learns what the calibrated model still gets wrong. All three versions are scored on designs the fit never saw. <b>Use it</b> when you have a handful of CFD or rig results and want the fast model to agree with them.</p>
+      <h3>Worked example</h3>
+      <figure><img src="media/tutorial/hybrid.png" alt="Hybrid calibration tab with error bars, prediction against reference, log and coefficient table" loading="lazy" width="1485" height="1683"><figcaption>① Reference runs. ② Run calibration. ③ Mean error on unseen designs for the three versions. ④ Prediction against reference. ⑤ What was done.</figcaption></figure>
+      <ol class="mk">
+        <li>Choose <b>6</b> reference runs.</li>
+        <li><b>Run calibration.</b> The hidden reference makes 6 runs to fit to and 24 hold-out runs to test on.</li>
+      </ol>
+      <p>Mean error on the 24 unseen designs, in points (cleaned / solids removed):</p>
+      <div class="tablewrap"><table class="map small"><thead><tr><th>Version</th><th>Cleaned</th><th>Solids</th></tr></thead><tbody>
+        <tr><td>Uncalibrated (default coefficients)</td><td class="num" data-r="hybU1">9.4</td><td class="num" data-r="hybU2">7.0</td></tr>
+        <tr><td>Calibrated (6 coefficients fitted)</td><td class="num" data-r="hybC1">4.9</td><td class="num" data-r="hybC2">2.3</td></tr>
+        <tr><td>Hybrid (calibrated + learned correction)</td><td class="num" data-r="hybH1">4.9</td><td class="num" data-r="hybH2">2.0</td></tr></tbody></table></div>
+      <p>The fitted coefficients, next to the hidden ones:</p>
+      <div class="tablewrap"><table class="map small"><thead><tr><th>Coefficient</th><th>Default</th><th>Fitted</th><th>Hidden</th></tr></thead><tbody data-r="hybCoef">
+        <tr><td>Film friction factor</td><td class="num">0.008</td><td class="num">0.011</td><td class="num">0.011</td></tr>
+        <tr><td>Film spreading rate</td><td class="num">0.220</td><td class="num">0.217</td><td class="num">0.160</td></tr>
+        <tr><td>Critical soil shear τc, Pa</td><td class="num">3.000</td><td class="num">4.661</td><td class="num">4.000</td></tr>
+        <tr><td>Shear dose to clean, Pa·s</td><td class="num">1.500</td><td class="num">2.328</td><td class="num">2.000</td></tr>
+        <tr><td>Transport threshold, solids, m/s</td><td class="num">0.350</td><td class="num">0.429</td><td class="num">0.420</td></tr>
+        <tr><td>Max solids concentration</td><td class="num">0.120</td><td class="num">0.112</td><td class="num">0.090</td></tr></tbody></table></div>
+      <h3>How to read it</h3>
+      <p>Calibration roughly halves the error on designs it never saw; the learned correction takes off a little more. The fitted coefficients are not the hidden ones, and that is normal: the critical shear and the shear dose both act on cleaning, so a few runs cannot tell them apart, and both come out high together. The <a href="explore.html#r-coef">coefficient sensitivity</a> shows the same pair at the top. The test is the error on unseen designs, not the coefficient match.</p>
+      <h3>Watch out</h3>
+      <ul class="ticks">
+        <li>This is an easy case: the reference comes from the same model family that is fitted. With real data the gain is unknown until tried, and likely smaller.</li>
+        <li>The correction only helps once there are enough reference runs to show a pattern in what is left. Try 4 and 10 runs.</li>
+      </ul>
+      <p class="real"><b>With real data:</b> pick reference designs spread over the design space, run them in CFD or on the rig, and fit. Method section 13 lists which measurement or CFD output fits which coefficient.</p>
+    </section>
+
+    <section id="pinn">
+      <h2>4 · Physics-informed network: a coefficient from a level record</h2>
+      <p><b>What it is:</b> a neural network that learns from measurements and from the model's equation at the same time. Here it reads the pool level of one flush, as you would from a phone video of a ruler in the bowl, and finds how fast the trap drains (the weir coefficient) and how long water stays on the wall. <b>Use it</b> to pull model coefficients out of simple measurements over time.</p>
+      <h3>Worked example A: the whole flush</h3>
+      <figure><img src="media/tutorial/pinn.png" alt="Physics-informed network tab with the level over time and the coefficients during training" loading="lazy" width="1485" height="1748"><figcaption>① Readings. ② Train the network. ③ Pool level: readings, hidden truth, the network with and without physics, least squares. ④ The coefficients during training. ⑤ The comparison.</figcaption></figure>
+      <ol class="mk">
+        <li>Readings: <b>whole flush, 10 readings a second</b> (81 noisy readings of a flush simulated with a weir coefficient of 1.45).</li>
+        <li><b>Train the network</b>, about two seconds.</li>
+      </ol>
+      <p>Result: <b>weir coefficient <span data-r="pnCw">1.44</span></b> against the hidden 1.45; the model's default of 1.7 would be 17 % off. It also estimates what was never measured: about <span data-r="pnWall">0.8 L</span> of water on the wall at 1 s (the full model holds 0.95 L). Classic least squares on the same equation finds <span data-r="pnLs">1.50</span>, in <span data-r="pnLsMs">31 ms</span> instead of 2 s.</p>
+      <h3>Worked example B: the video stops after 3 s</h3>
+      <figure><img src="media/tutorial/pinn-cut.png" alt="Pool level when the record stops after 3 seconds" loading="lazy" width="705" height="566"><figcaption>When the readings stop after 3 s, the drain cannot be seen.</figcaption></figure>
+      <p>Choose <b>Video stops after 3 s</b> and train again. Now the network finds <span data-r="pnCutCw">0.78</span> and least squares <span data-r="pnCutLs">0.97</span>, both far from 1.45: the filling alone cannot tell a slow drain from a long time on the wall. But the physics still helps beyond the readings: at 5 s the network with physics says <span data-r="pnCut5">46 mm</span>, without physics <span data-r="pnCut5np">77 mm</span>, and the truth is <span data-r="pnCut5t">18 mm</span>.</p>
+      <h3>How to read it</h3>
+      <p>For an equation this small, least squares is quicker and the better tool, and the page says so. Physics-informed networks pay off when the equations are expensive to solve again and again, partly unknown, or the data are scattered in space and time. And the lesson of example B holds for any calibration: the measurement must contain the effect you want to fit.</p>
+      <p class="real"><b>With real data:</b> film the pool from above with a ruler in it, read the level every 0.1 s over the whole flush, including the draining, and enter it in place of the simulated readings.</p>
+    </section>
+
+    <section id="field">
+      <h2>5 · Field surrogate: whole cleaning maps from expensive runs</h2>
+      <p><b>What it is:</b> a model that predicts a whole result field, here the cleaning map of the bowl wall, from the design settings. It finds the typical map patterns (proper orthogonal decomposition) and learns how much of each a design has (Gaussian processes). This is the idea behind tools such as SimAI, Simcenter PhysicsAI or PhysicsNeMo. <b>Use it</b> to see how much a pure data model needs, compared with a fast physics model.</p>
+      <h3>Worked example</h3>
+      <figure><img src="media/tutorial/field.png" alt="Field surrogate tab with the learning curve and four cleaning maps" loading="lazy" width="1485" height="2745"><figcaption>① Run the comparison. ② Share of the cleaned area matched on unseen designs against the number of expensive runs. ③ Choose an unseen design. ④ Its maps: reference, data surrogate, fast model, fast model with correction. ⑤ The numbers.</figcaption></figure>
+      <ol class="mk">
+        <li><b>Run the comparison:</b> about 200 flushes in your browser, 5 to 10 seconds.</li>
+      </ol>
+      <div class="tablewrap"><table class="map small"><thead><tr><th>Expensive runs for training</th><th>Data surrogate: area matched</th><th>Its error in the cleaned share</th><th>Fast model + correction: area matched</th></tr></thead><tbody data-r="fsRows">
+        <tr><td>10 (3.3 virtual days)</td><td class="num">80.3 %</td><td class="num">12.7 points</td><td class="num">95.0 %</td></tr>
+        <tr><td>20 (6.7 days)</td><td class="num">82.5 %</td><td class="num">10.6 points</td><td class="num">95.3 %</td></tr>
+        <tr><td>40 (13 days)</td><td class="num">83.4 %</td><td class="num">9.0 points</td><td class="num">95.4 %</td></tr>
+        <tr><td>80 (27 days)</td><td class="num">84.0 %</td><td class="num">9.6 points</td><td class="num">95.4 %</td></tr>
+        <tr><td>none: fast model alone</td><td class="num">–</td><td class="num">–</td><td class="num">95.1 %</td></tr></tbody></table></div>
+      <h3>How to read it</h3>
+      <p>The data surrogate is the quickest to ask, a fraction of a millisecond for a whole map, and it gets better with more runs, but slowly. Even 80 runs do not catch up with the fast physics model, which needs no expensive run at all. Be careful with that comparison: the reference maps here come from the same equations as the fast model, which gives it a head start it would not have against real CFD, and is also why the correction adds little.</p>
+      <p class="real"><b>With real data:</b> train on CFD maps. Field surrogates pay off when there is no fast physics model, or when many studies reuse the same run database. A correction learned on CFD maps would have real pattern differences to learn, such as the streaks behind the jets in the <a href="./#cfd">CFD check</a>.</p>
+    </section>
+
+    <section id="noise">
+      <h2>6 · Noise calibration: fit the noise indicator to recordings</h2>
+      <p><b>What it is:</b> a fit of the noise coefficients to recordings of real flushes, so that the model's differences between designs match the recorded ones. It is the one tool that takes your own data: audio files or sound level meter readings, analysed in your browser and never uploaded. <b>Use it</b> once you can record a few designs.</p>
+      <h3>Worked example with synthetic recordings</h3>
+      <figure><img src="media/tutorial/noise.png" alt="Noise calibration tab with the demo, the recordings table, the fit and the coefficient table" loading="lazy" width="1485" height="2534"><figcaption>① Demo with synthetic recordings. ② My recordings, for your own. ③ Number of designs. ④ Coefficients to fit. ⑤ Fit coefficients. ⑥ Measured against model, before and after. ⑦ The coefficients.</figcaption></figure>
+      <ol class="mk">
+        <li>Keep <b>Demo with synthetic recordings</b>.</li>
+        <li class="skip">(My recordings is for your own files; see below.)</li>
+        <li>Designs: <b>6</b>.</li>
+        <li>Coefficients to fit: keep the four ticked. The fall into the outlet is left out, because it is best taken from a trapway drawing.</li>
+        <li><b>Make recordings and fit.</b> The page makes three recordings of each design from a hidden reference, analyses them like real audio, and fits.</li>
+      </ol>
+      <p>Result, as the root mean square error of the differences between designs: <b><span data-r="nzFit">0.52 dB with the current coefficients, 0.17 dB fitted</span></b>; on designs left out of the fit one at a time, <b><span data-r="nzLoo">0.63 against 0.23 dB</span></b>. The left-out error is the test: the fitted coefficients carry over to designs the fit did not see.</p>
+      <h3>How to read it</h3>
+      <p>Only differences between designs count, so the microphone, the room and the distance cancel out. The fitted coefficients need not equal the hidden ones, because the hidden reference has sounds the model does not know: a valve click, fill valve noise and a low-pitched gurgle. A-weighting takes about 7 dB off the gurgle, and the fit lowers the trap weight to match; a calibration against real recordings should do the same.</p>
+      <h3>With your own recordings</h3>
+      <ol class="steps">
+        <li>Use one trap type. Comparisons across trap types are not robust.</li>
+        <li>Put a phone or sound level meter at a fixed point, for example 1 m above the bowl, in a quiet room, and keep it there.</li>
+        <li>Record three flushes of each design, from the start of the flush until the bowl has refilled.</li>
+        <li>Set each design up in the simulator, switch to <b>My recordings</b> and add its files, or type a meter reading (A-weighted, fast, maximum). Files and meter readings cannot be mixed in one fit.</li>
+        <li>Optionally, note from a video when an air core reaches the trap, or none.</li>
+        <li>With four or more designs, fit, and check the left-out error. <b>Use fitted coefficients</b> sets them in the simulator.</li>
+      </ol>
+      <p class="note">The demo uses siphonic designs, because the siphon's gurgle separates the trap sources from the splash sources. In a washdown bowl almost all of the noise comes from the outlet, and recordings say little about the other coefficients.</p>
+    </section>
+
+    <section id="next" class="cta">
+      <h2>Next</h2>
+      <div class="cta-row">
+        <a class="btn primary" href="./#ai-lab">Open the AI lab</a>
+        <a class="btn" href="explore.html">Explore it yourself</a>
+        <a class="btn" href="method.html">Model description</a>
+        <a class="btn" href="https://fintlp.github.io/latest-news/#contact" target="_blank" rel="noopener">Contact Peter Fintl · ask for a workshop</a>
+      </div>
+      <p class="muted">The screenshots and numbers on this page are made by <code>tools/tutorial-shots.js</code>, which runs every tool as described here; <code>media/tutorial/results.json</code> holds the numbers.</p>
+    </section>
+
+    <footer class="foot">
+      <span class="navl"><a href="./">← Simulator</a><a href="explore.html">Explore it yourself</a><a href="why.html">Why</a><a href="method.html">Model description</a><a href="sources.html">Sources and references</a></span>
+      <span>Tangential Jet Flush Model · v2.1.1 · Peter Fintl</span>
+    </footer>
+  </div>
+</div>
+</body>
+</html>
