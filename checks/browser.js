@@ -38,6 +38,27 @@ const ok = (name, cond, info) => { out.push(`${cond ? 'PASS' : 'FAIL'} ${name}${
   // an error from another host (web fonts behind a firewall, say) is not a page error
   page.on('console', (m) => { if (m.type() === 'error' && !(m.text().startsWith('Failed to load resource') && !(m.location().url || '').startsWith(base))) errs.push(m.text()); });
   const fresh = async () => { await page.goto(base); await page.evaluate(() => localStorage.clear()); await page.goto(base); await page.waitForTimeout(400); };
+
+  // 2.1.2: a design handed over in the link (Hydraulic Core Fit): applied once, values kept in their slider ranges, the
+  // visitor's saved design kept until they change something, and offered back by the note
+  {
+    await fresh();
+    await page.evaluate(() => localStorage.setItem('tfs-params-v1', JSON.stringify({ Rrim: 170, nJets: 3 })));
+    await page.goto(base + '?preset=washdown&Rrim=135&ovality=1.1&nJets=2&Dwall=9999&seal=abc&from=HCF%20HC-1%20(changed)');
+    await page.waitForTimeout(1200);
+    const h = await page.evaluate(() => { const r = window.FlushApp._test.result(); return { Rrim: r.p.Rrim, ov: r.p.ovality, n: r.p.nJets, Dwall: r.p.Dwall, seal: r.p.seal,
+      note: !document.getElementById('handedNote').hidden, text: document.getElementById('handedText').textContent, restored: !document.getElementById('restoredNote').hidden,
+      url: location.search, stored: JSON.parse(localStorage.getItem('tfs-params-v1')) }; });
+    ok('Hand-over (2.1.2): the link sets rim 135, ovality 1.1, two jets; an out-of-range depth is held at the slider end, a bad seal keeps the preset',
+      h.Rrim === 135 && h.ov === 1.1 && h.n === 2 && h.Dwall === 200 && h.seal === 55, h);
+    ok('Hand-over (2.1.2): the note names the source and the values, the restored note stays hidden, the link is cleared from the address',
+      h.note && /HCF HC-1 \(changed\)/.test(h.text) && /rim radius 135 mm/.test(h.text) && !h.restored && h.url === '', h.text);
+    ok('Hand-over (2.1.2): the visitor\'s saved design is not overwritten by the link', h.stored.Rrim === 170 && h.stored.nJets === 3, h.stored);
+    await page.click('#handedBack'); await page.waitForTimeout(600);
+    const b = await page.evaluate(() => { const r = window.FlushApp._test.result(); return { Rrim: r.p.Rrim, n: r.p.nJets, note: !document.getElementById('handedNote').hidden }; });
+    ok('Hand-over (2.1.2): Back to your saved design brings it back and hides the note', b.Rrim === 170 && b.n === 3 && !b.note, b);
+    await fresh();
+  }
   const P = () => page.evaluate(() => FlushApp.getP());
   const slide = (k, v) => page.evaluate(([k, v]) => { const i = document.getElementById('p_' + k); i.value = v; i.dispatchEvent(new Event('input')); }, [k, v]);
   const undoInfo = () => page.evaluate(() => ({ dis: document.getElementById('undoBtn').disabled, title: document.getElementById('undoBtn').title }));
