@@ -139,6 +139,15 @@ The coefficients that describe physics the model does not resolve (film friction
 
 ## Change log
 
+### 2.1.2 · 30 October 2026
+
+A design can be handed over in the link, so another tool can open the simulator with its bowl. The model and its results are unchanged.
+
+- **Design in the link.** `?preset=washdown&Rrim=135&ovality=1.1&from=…` opens the named preset (washdown or siphonic) with the link's values on top. Any slider value can be given by its name (`Rrim`, `Rpool`, `Dwall`, `seal`, `ovality`, `nJets`, `Vfull` and so on); each is held inside its slider range and put on its step, values that are not numbers are ignored, and the 25 mm gap between pool and rim is kept. A note names the source and the values and offers **Back to your saved design**; the link is cleared from the address bar, so a reload shows the visitor's own design again.
+- **The visitor's design stays.** A design from a link is not saved in the browser until the visitor changes something, so their own saved design is not overwritten by opening a link.
+- First user: Hydraulic Core Fit (a separate demo that fits a proven hydraulic core into new outer designs) opens the simulator with the fitted core's bowl.
+- Checks: four new browser checks for the hand-over (`checks/browser.js`).
+
 ### 2.1.1 · 26 October 2026
 
 A guide for people who want to explore the simulator on their own, and three new parts on the why page about the whole development of a sanitary product. The model and its results are unchanged.

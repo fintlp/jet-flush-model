@@ -113,10 +113,34 @@
   const STORE = 'tfs-params-v1';
   try { const s = localStorage.getItem(STORE); if (s) { const o = JSON.parse(s); if (o && typeof o === 'object') for (const k in o) if (k in P) P[k] = o[k]; } } catch (e) { }
   if (!gapOK(P)) P.Rpool = Math.max(40, P.Rrim - GAP);   // a design saved before the rule existed
+  // a design handed over in the link by another tool (2.1.2), for example from Hydraulic Core Fit:
+  //   ?preset=washdown&Rrim=135&ovality=1.1&from=HCF%20HC-1
+  // Read once on load: the named preset, with the link's values on top, each kept inside its slider range and on its
+  // step. The visitor's saved design stays in this browser until they change something, and the note offers it back.
+  const handed = (() => {
+    let q; try { q = new URLSearchParams(location.search); } catch (e) { return null; }
+    const keys = SPEC.filter((s) => q.has(s.k));
+    if (!keys.length && !q.has('preset')) return null;
+    const kind = q.get('preset') === 'siphonic' ? 'siphonic' : 'washdown';
+    const d = M.defaults(kind), used = [];
+    for (const s of keys) {
+      const v = Number(q.get(s.k));
+      if (!Number.isFinite(v)) continue;
+      const c = Math.min(s.max, Math.max(s.min, Math.round((v - s.min) / s.st) * s.st + s.min));
+      d[s.k] = +c.toFixed(Math.max(s.d, 2)); used.push(s);
+    }
+    if (!gapOK(d)) d.Rpool = Math.max(40, d.Rrim - GAP);
+    const from = (q.get('from') || 'another tool').replace(/[^\w .,()+\-]/g, '').slice(0, 60) || 'another tool';
+    const saved = { ...P };
+    P = d;
+    try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) { }
+    return { from, used, kind, saved };
+  })();
   // a returning visitor gets their last design back; say so when it differs from its preset
-  const restoredDiffers = (() => { const d = M.defaults(P.type === 'siphonic' ? 'siphonic' : 'washdown'); return Object.keys(d).some((k) => typeof d[k] === 'number' ? Math.abs((+P[k]) - d[k]) > 1e-9 : P[k] !== d[k]); })();
+  const restoredDiffers = !handed && (() => { const d = M.defaults(P.type === 'siphonic' ? 'siphonic' : 'washdown'); return Object.keys(d).some((k) => typeof d[k] === 'number' ? Math.abs((+P[k]) - d[k]) > 1e-9 : P[k] !== d[k]); })();
   // settings are remembered in this browser, except while the Demo me walkthrough drives the page
-  function save() { if (document.body.classList.contains('touring')) return; try { localStorage.setItem(STORE, JSON.stringify(P)); } catch (e) { } }
+  // a handed-over design is not saved until the visitor changes something (their saved design stays meanwhile)
+  function save() { if (document.body.classList.contains('touring') || (handed && !handed.touched)) return; try { localStorage.setItem(STORE, JSON.stringify(P)); } catch (e) { } }
 
   let R = null, T = 1.6, playing = false, speed = 0.5, lastTs = 0, firstRun = true;
   const dpr = () => Math.min(2, window.devicePixelRatio || 1);
@@ -269,6 +293,15 @@
   function resetPreset() { const d = M.defaults($('preset').value); applyNow(d); hideRestored(); }
   function hideRestored() { const n = $('restoredNote'); if (n) n.hidden = true; }
   (function () {
+    const n = $('handedNote'); if (!n || !handed) return;
+    const f = (s) => `${s.l.split(',')[0].toLowerCase()} ${(+P[s.k]).toFixed(s.d)}${s.u ? ' ' + s.u : ''}`;
+    $('handedText').textContent = `Design from ${handed.from}: ${handed.used.length ? handed.used.map(f).join(', ') : 'the preset'}. ` +
+      `Everything else from the ${handed.kind === 'siphonic' ? 'siphonic' : 'EU washdown'} preset.`;
+    n.hidden = false;
+    $('handedBack').addEventListener('click', () => { handed.touched = true; applyNow(handed.saved); n.hidden = true; });
+    $('handedHide').addEventListener('click', () => { n.hidden = true; });
+  })();
+  (function () {
     const n = $('restoredNote'); if (!n) return;
     if (restoredDiffers && location.hash !== '#demo') n.hidden = false;
     $('restoredReset').addEventListener('click', resetPreset);
@@ -278,6 +311,7 @@
   function updateHistUI() { const u = $('undoBtn'); if (u) { u.disabled = !hist.length; u.title = hist.length ? `Undo (${hist.length} step${hist.length > 1 ? 's' : ''})` : 'Nothing to undo yet'; } }
   let pend = false;
   function changed() {
+    if (handed) handed.touched = true;
     beginChange();
     changeHooks.forEach((f) => { try { f(); } catch (e) { } });
     if (pend) return; pend = true;
